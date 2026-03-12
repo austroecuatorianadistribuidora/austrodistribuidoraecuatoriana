@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avena Control Pro - Gestión Financiera Integral</title>
+    <title>Avena Control Pro - Gestión Integral</title>
     <!-- Dependencias estables -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -14,81 +14,52 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; background-color: #f9fafb; }
-        @media print { 
-            .print-hidden { display: none !important; } 
-            .print-only { display: block !important; }
-            body { background: white !important; padding: 0 !important; }
-            .no-shadow { box-shadow: none !important; border: 1px solid #eee !important; }
-        }
-        .print-only { display: none; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; }
+        @media print { .print-hidden { display: none !important; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .bg-gradient-orange { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
-        .bg-gradient-green { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
-        .bg-gradient-indigo { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); }
-        .bg-gradient-dark { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(0.5);
+        }
     </style>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-900">
     <div id="root">
         <div style="display: flex; height: 100vh; align-items: center; justify-content: center; background: #fff;">
             <div style="text-align: center;">
                 <div style="width: 40px; height: 40px; border: 4px solid #f97316; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-                <p style="color: #444; font-weight: bold;">Estabilizando Avena Pro...</p>
-                <p style="color: #888; font-size: 11px; margin-top: 10px;">Iniciando sistema administrativo...</p>
+                <p style="color: #444; font-weight: bold;">Iniciando Avena Control Pro...</p>
+                <p style="color: #888; font-size: 12px; margin-top: 10px;">Cargando calendario y logística...</p>
             </div>
         </div>
     </div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- CONFIGURACIÓN GLOBAL ---
+        // --- CONSTANTES Y CONFIGURACIÓN ---
         const today = new Date().toISOString().split('T')[0];
         const firstDayMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-
-        const GASTOS_MENSUALES_FIJOS = {
-            sueldos: 964, 
-            capitalCredito: 683.06, 
-            comisionVentas: 400, 
-            combustibles: 350, 
-            honorarios: 200, 
-            depreciacionVehiculos: 200, 
-            viaticosForaneo: 180, 
-            interesPrestamo: 172.73, 
-            mantenimientoVehiculos: 100, 
-            varios: 100, 
-            viaticosLocal: 60, 
-            telefonia: 30, 
-            suministros: 10
-        };
-
-        const TOTAL_GASTOS_FIJOS_MENSUAL = Object.values(GASTOS_MENSUALES_FIJOS).reduce((a, b) => a + b, 0);
-
-        const DEFAULT_PRODUCTS = [
-            { id: 'p1', nombre: 'VASO 165G.', costo: 0.2696, pvd: 0.3478 },
-            { id: 'p2', nombre: 'VASO 340G.', costo: 0.6087, pvd: 0.6957 },
-            { id: 'p3', nombre: 'EMP. 1/2L.', costo: 0.7770, pvd: 0.8870 },
-            { id: 'p4', nombre: 'EMP. 1L.', costo: 1.5974, pvd: 1.8261 },
+        
+        const PRODUCTOS_PRESUPUESTO = [
+            { id: 'p1', nombre: 'VASO 165G.', costo: 0.2695, pvd: 0.3478 },
+            { id: 'p2', nombre: 'VASO 340G.', costo: 0.6086, pvd: 0.6956 },
+            { id: 'p3', nombre: 'EMP. 1/2L.', costo: 0.7770, pvd: 0.8869 },
+            { id: 'p4', nombre: 'EMP. 1L.', costo: 1.5973, pvd: 1.8260 },
         ];
 
-        const INITIAL_USERS = [
-            { name: "Jorge Fernando Proaño Quinde", role: "admin", password: "1234" },
-            { name: "Juan Pablo Proaño Quinde", role: "admin", password: "1234" },
-            { name: "Jimmy Arias", role: "admin", password: "1234" },
-            { name: "Diego Xavier Siavichay", role: "vendedor", password: "1234" },
-            { name: "Byron Armando Miranda Capa", role: "vendedor", password: "1234" }
+        const VENDEDORES_PREDETERMINADOS = [
+            "Diego Xavier Siavichay",
+            "Byron Armando Miranda Capa"
         ];
-
-        const NOMBRES_VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
         let db, auth;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
@@ -103,185 +74,59 @@
             }
         } catch (e) { console.error("Firebase Error:", e); }
 
+        // --- COMPONENTES ATÓMICOS ---
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const StatCard = ({ label, value, color, sub }) => {
+            const themes = { 
+                green: 'bg-green-50 text-green-700', red: 'bg-red-50 text-red-700', 
+                orange: 'bg-orange-50 text-orange-700', blue: 'bg-blue-50 text-blue-700' 
+            };
             return (
-                <span key={name} className="inline-flex items-center justify-center">
-                    <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>
-                </span>
+                <div className={`p-6 rounded-3xl border border-gray-100 shadow-sm ${themes[color]}`}>
+                    <p className="text-[10px] font-black uppercase opacity-60 mb-1">{label}</p>
+                    <p className="text-2xl font-black">${parseFloat(value).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    <p className="text-[10px] font-bold mt-2 opacity-60 uppercase">{sub}</p>
+                </div>
             );
         };
 
-        const ViewHeader = ({ title, sub, onBack, colorClass = "bg-orange-600" }) => (
-            <div className="flex justify-between items-center mb-6 bg-white p-5 rounded-[30px] shadow-sm border border-gray-100 print-hidden">
-                <div className="flex items-center gap-4">
-                    <div className={`${colorClass} p-3 rounded-xl text-white shadow-lg`}><Icon name="layers" size={20}/></div>
-                    <div>
-                        <h2 className="text-xl font-black tracking-tighter text-gray-800 uppercase leading-none">{title}</h2>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{sub}</p>
-                    </div>
-                </div>
-                {onBack && (
-                    <button onClick={onBack} className="bg-gray-100 p-2.5 rounded-xl text-gray-400 hover:text-gray-800 transition-all active:scale-95">
-                        <Icon name="chevron-left" size={20}/>
-                    </button>
-                )}
-            </div>
-        );
-
-        // --- VISTAS ---
+        // --- COMPONENTES DE VISTA ---
 
         const DashboardView = ({ stats }) => {
-            const marginTotal = stats.vtot - stats.ctot;
-            const marginRatio = stats.vtot > 0 ? marginTotal / stats.vtot : 0.22;
-            const breakEvenSales = (TOTAL_GASTOS_FIJOS_MENSUAL + stats.gtot) / (marginRatio || 0.01);
-            const progress = Math.min((stats.vtot / breakEvenSales) * 100, 100);
-            const isProfitable = stats.vtot >= breakEvenSales;
-
+            if (!window.Recharts) return <div className="p-10 text-center">Iniciando Gráficos...</div>;
             return (
                 <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Panel Administrativo" sub="Indicadores de Rentabilidad Mensual" />
-                    <div className="bg-white p-8 rounded-[40px] border shadow-sm space-y-6">
-                        <div className="flex flex-col md:flex-row justify-between gap-4">
-                            <h3 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-tight"><Icon name="activity" className="text-orange-500"/> Estado del Negocio</h3>
-                            <div className={`px-5 py-2 rounded-2xl font-black text-[10px] uppercase ${isProfitable ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700 animate-pulse'}`}>
-                                {isProfitable ? "GENERANDO UTILIDAD" : "ZONA DE COBERTURA"}
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-gray-50 p-6 rounded-[30px] border shadow-inner"><p className="text-[10px] font-black text-gray-400 uppercase mb-1">Ventas Reales</p><p className="text-3xl font-black text-gray-800 tracking-tighter font-mono">${stats.vtot.toLocaleString()}</p></div>
-                            <div className="bg-gray-50 p-6 rounded-[30px] border border-orange-100 shadow-inner"><p className="text-[10px] font-black text-gray-400 uppercase mb-1">Meta Equilibrio</p><p className="text-3xl font-black text-gray-800 tracking-tighter font-mono">${breakEvenSales.toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
-                            <div className={`p-6 rounded-[30px] border shadow-inner ${isProfitable ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}><p className="text-[10px] font-black uppercase mb-1 opacity-60">Balance Neto</p><p className="text-3xl font-black tracking-tighter font-mono">${(stats.vtot - stats.ctot - stats.gtot - TOTAL_GASTOS_FIJOS_MENSUAL).toLocaleString(undefined, {maximumFractionDigits: 0})}</p></div>
-                        </div>
-                        <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden shadow-inner p-0.5">
-                            <div className={`h-full transition-all duration-1000 rounded-full ${isProfitable ? 'bg-gradient-green' : 'bg-gradient-orange'}`} style={{ width: `${progress}%` }}></div>
-                        </div>
+                    <h2 className="text-3xl font-black text-gray-800 tracking-tighter">Panel de Control</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <StatCard label="Ventas Netas" value={stats.vtot} color="green" sub="Recaudación Final" />
+                        <StatCard label="Gasto Operativo" value={stats.gtot + stats.ntot} color="red" sub="Gastos de Ruta + Nómina" />
+                        <StatCard label="Utilidad Neto" value={stats.utNeta} color={stats.utNeta >= 0 ? 'orange' : 'red'} sub="Rentabilidad Actual" />
                     </div>
                 </div>
             );
         };
 
-        const MatrizCostosView = ({ stats, onBack }) => {
-            const marginTotal = stats.vtot - stats.ctot;
-            const marginRatio = stats.vtot > 0 ? marginTotal / stats.vtot : 0.22;
-            const metaVentasVarianza = (TOTAL_GASTOS_FIJOS_MENSUAL + stats.gtot) / (marginRatio || 0.01);
-            return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Matriz de Costos" sub="Desglose de Gastos y Metas" onBack={onBack} colorClass="bg-indigo-600" />
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <section className="bg-white p-8 rounded-[40px] border shadow-sm space-y-4">
-                            <h3 className="text-lg font-black text-gray-800 uppercase tracking-tight flex items-center gap-2"><Icon name="list" className="text-indigo-500"/> Gastos Mensuales</h3>
-                            <div className="space-y-2">
-                                {Object.entries(GASTOS_MENSUALES_FIJOS).map(([k, v], i) => (
-                                    <div key={i} className="flex justify-between items-center p-3 rounded-2xl bg-gray-50 border border-gray-100">
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase">{k.replace(/([A-Z])/g, ' $1')}</span>
-                                        <span className="font-black text-gray-800 text-xs font-mono">${v.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-                                    </div>
-                                ))}
-                                <div className="p-6 bg-indigo-900 text-white rounded-[30px] shadow-lg mt-4 flex justify-between items-center uppercase font-black tracking-widest text-xs">
-                                    <span>Total Obligación</span>
-                                    <span>${TOTAL_GASTOS_FIJOS_MENSUAL.toLocaleString()}</span>
-                                </div>
-                            </div>
-                        </section>
-                        <section className="bg-white p-8 rounded-[40px] border shadow-sm text-center space-y-6">
-                            <h3 className="text-lg font-black text-gray-800 uppercase">Meta Crítica de Venta</h3>
-                            <div className="bg-orange-50 p-8 rounded-[35px] border border-orange-100 shadow-inner">
-                                <p className="text-[10px] font-black text-orange-500 uppercase mb-3">Venta para "Saldo Cero"</p>
-                                <p className="text-5xl font-black text-gray-800 tracking-tighter font-mono">${metaVentasVarianza.toLocaleString(undefined, {maximumFractionDigits:0})}</p>
-                                <p className="text-[10px] mt-4 opacity-60 uppercase font-bold">Desde este monto se genera utilidad</p>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            );
-        };
-
-        const NominaView = ({ cargas, onBack }) => {
-            const [filterMonth, setFilterMonth] = useState(today.substring(0, 7));
-            const [selectedRol, setSelectedRol] = useState(null);
-
-            const calculatePayroll = (vendedor) => {
-                const base = 482;
-                const vCargas = cargas.filter(c => c.responsable === vendedor && c.estado === 'Liquidado' && (c.fechaSalida || c.fecha).startsWith(filterMonth));
-                const vNetas = vCargas.reduce((a, b) => a + (b.ventaNeta || 0), 0);
-                let comision = 0;
-                if (vNetas > 11000) {
-                    comision = 100;
-                    const exceso = vNetas - 11000;
-                    comision += Math.floor(exceso / 1000) * 50;
-                }
-                return { nombre: vendedor, base, ventas: vNetas, comision, total: base + comision, periodo: filterMonth };
-            };
-
-            const listado = NOMBRES_VENDEDORES.map(v => calculatePayroll(v));
-
-            return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Nómina" sub="Sueldos y Bonos por Desempeño" onBack={onBack} colorClass="bg-green-600" />
-                    <div className="bg-white p-5 rounded-[30px] border shadow-sm flex justify-between items-center px-8">
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Periodo:</span>
-                        <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="bg-gray-50 p-2.5 rounded-xl font-black text-xs border-none outline-none focus:ring-2 ring-green-400" />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {listado.map((item, i) => (
-                            <div key={i} className="bg-white p-8 rounded-[40px] border shadow-sm space-y-6">
-                                <h4 className="font-black text-xl text-gray-800 uppercase tracking-tighter leading-none">{item.nombre}</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-gray-50 p-4 rounded-2xl border shadow-inner"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 leading-none">Ventas Mes</p><p className="font-black font-mono text-gray-700">${item.ventas.toLocaleString()}</p></div>
-                                    <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 shadow-inner"><p className="text-[8px] font-black text-orange-500 uppercase mb-1 leading-none">Comisión</p><p className="font-black font-mono text-orange-700">+${item.comision}</p></div>
-                                </div>
-                                <div className="pt-5 border-t flex justify-between items-center">
-                                    <div><p className="text-[9px] font-bold text-gray-400 uppercase">Líquido Mes</p><p className="text-3xl font-black font-mono tracking-tighter">${item.total.toLocaleString()}</p></div>
-                                    <button onClick={() => setSelectedRol(item)} className="bg-gray-900 text-white px-8 py-3.5 rounded-[22px] text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Generar Rol</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    {selectedRol && (
-                        <div className="fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center backdrop-blur-md overflow-y-auto">
-                            <div className="bg-white w-full max-w-xl rounded-[50px] p-12 shadow-2xl relative animate-in zoom-in-95 my-8 no-shadow">
-                                <button onClick={() => setSelectedRol(null)} className="absolute right-10 top-10 text-gray-300 hover:text-red-500 print-hidden"><Icon name="x" size={24}/></button>
-                                <div className="space-y-8">
-                                    <div className="text-center space-y-2"><h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Rol de Pagos</h3><p className="text-[10px] font-bold text-gray-400 uppercase">Distribuidora Avena Pro • Ecuador</p></div>
-                                    <div className="grid grid-cols-2 py-6 border-y border-gray-100 uppercase font-black text-xs text-gray-600">
-                                        <div><p className="opacity-50 text-[9px] mb-1">Colaborador</p>{selectedRol.nombre}</div>
-                                        <div className="text-right"><p className="opacity-50 text-[9px] mb-1">Periodo</p>{selectedRol.periodo}</div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between p-4 bg-gray-50 rounded-2xl border shadow-inner"><span>Sueldo Base Mensual</span><span className="font-mono">${selectedRol.base.toFixed(2)}</span></div>
-                                        <div className="flex justify-between p-4 bg-orange-50 rounded-2xl border border-orange-100 text-orange-700 shadow-inner"><span>Comisiones Pasadas Meta</span><span className="font-mono">+${selectedRol.comision.toFixed(2)}</span></div>
-                                    </div>
-                                    <div className="bg-gray-900 p-8 rounded-[35px] text-white flex justify-between items-center shadow-xl">
-                                        <span className="text-sm font-black uppercase tracking-widest leading-none">Neto a Recibir</span>
-                                        <span className="text-4xl font-black font-mono tracking-tighter">${selectedRol.total.toLocaleString()}</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-10 pt-16">
-                                        <div className="text-center border-t border-gray-300 pt-4 text-[9px] font-black uppercase opacity-60">Firma Colaborador</div>
-                                        <div className="text-center border-t border-gray-300 pt-4 text-[9px] font-black uppercase opacity-60">Firma Gerencia</div>
-                                    </div>
-                                    <button onClick={() => window.print()} className="w-full mt-6 bg-gray-900 text-white py-5 rounded-[25px] font-black uppercase text-xs print-hidden transition-all active:scale-95">Imprimir Documento</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        const LogisticaView = ({ cargas, products, db, appId, user, users, onBack }) => {
+        const LogisticaView = ({ cargas, personal, db, appId }) => {
             const [modal, setModal] = useState(false);
+            const [retModal, setRetModal] = useState(false);
             const [active, setActive] = useState(null);
             const [items, setItems] = useState([]);
             const [tmp, setTmp] = useState({ pId: 'p1', q: 0 });
-            const [filterDay, setFilterDay] = useState(today);
-            const [retModal, setRetModal] = useState(false);
-            const [rets, setRets] = useState({});
-            const [fotoDeposito, setFotoDeposito] = useState("");
-            const [vendedorSel, setVendedorSel] = useState(user.role === 'vendedor' ? user.name : '');
+            const [info, setInfo] = useState({ empNombre: '' });
+            const [isEditing, setIsEditing] = useState(false);
             const [editId, setEditId] = useState(null);
+            const [filterDay, setFilterDay] = useState(today); // Nuevo: Filtro de fecha en vista
+            
+            // Estado para el cierre de jornada
+            const [rets, setRets] = useState({});
+            const [gastosRuta, setGastosRuta] = useState({ combustible: 0, alimentacion: 0, hospedaje: 0, otros: 0 });
+            const [fotoDeposito, setFotoDeposito] = useState("");
 
-            const handleFile = (e) => {
+            const handleFileChange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
@@ -290,237 +135,470 @@
                 }
             };
 
-            const handleOpenModal = (carga = null) => {
-                if (carga) { setEditId(carga.id); setVendedorSel(carga.responsable); setItems(carga.items || []); }
-                else { setEditId(null); setVendedorSel(user.role === 'vendedor' ? user.name : ''); setItems([]); }
-                setModal(true);
-            };
-
-            const addItem = () => {
-                const pr = products.find(p => p.id === tmp.pId);
+            const addProductoCarga = () => {
+                if (tmp.q <= 0) return;
+                const pr = PRODUCTOS_PRESUPUESTO.find(p => p.id === tmp.pId);
                 const existing = items.findIndex(i => i.pId === tmp.pId);
-                if (existing >= 0) { const nl = [...items]; nl[existing].q += tmp.q; setItems(nl); }
-                else { setItems([...items, { ...tmp, nombre: pr.nombre, costo: pr.costo, pvd: pr.pvd }]); }
+                if (existing >= 0) {
+                    const nl = [...items]; 
+                    nl[existing].q += tmp.q;
+                    setItems(nl);
+                } else {
+                    setItems([...items, { ...tmp, nombre: pr.nombre, pvd: pr.pvd, costo: pr.costo }]);
+                }
                 setTmp({ pId: 'p1', q: 0 });
             };
 
-            const registrarCarga = async () => {
-                if (!vendedorSel || items.length === 0) return;
-                const total = items.reduce((a,b) => a + (b.q * b.pvd), 0);
-                const data = { responsable: vendedorSel, items, totalCargado: total, estado: 'En Tránsito', fechaSalida: new Date().toISOString() };
-                if (editId) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(editId).update(data);
-                else await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add(data);
-                setModal(false); setItems([]); setEditId(null);
-            };
-
-            const finalizarJornada = async () => {
-                const itemsLiq = active.items.map(it => {
-                    const r = rets[it.pId] || 0;
-                    const v = it.q - r;
-                    return { ...it, dev: r, vUnid: v, vVal: v * it.pvd, cVal: v * it.costo };
-                });
-                const totalV = itemsLiq.reduce((a,b) => a+b.vVal, 0);
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(active.id).update({ items: itemsLiq, estado: 'Liquidado', ventaNeta: totalV, costoTotalVenta: itemsLiq.reduce((a,b) => a+b.cVal,0), fotoDeposito });
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').add({ cliente: `Cierre: ${active.responsable}`, monto: totalV, tipo: 'Cobro (Cierre Ruta)', fecha: filterDay });
-                setRetModal(false); setRets({}); setActive(null); setFotoDeposito("");
-            };
-
-            const filtered = cargas.filter(c => (c.fechaSalida || c.fecha).startsWith(filterDay));
-            const sellers = users.filter(u => u.role === 'vendedor');
-
-            return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Logística" sub="Gestión de Cargas y Retornos" onBack={user.role === 'admin' ? onBack : null} colorClass="bg-orange-500" />
-                    <div className="flex justify-end gap-2 px-2"><input type="date" value={filterDay} onChange={e => setFilterDay(e.target.value)} className="p-3 rounded-2xl font-black text-xs border-none shadow-sm outline-none shadow-inner"/><button onClick={() => handleOpenModal()} className="bg-orange-600 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all"><Icon name="plus" size={24}/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {filtered.map(c => (
-                            <div key={c.id} className={`bg-white p-8 rounded-[45px] border shadow-sm transition-all hover:shadow-md ${c.estado === 'Liquidado' ? 'border-l-8 border-green-500' : 'border-l-8 border-orange-400'}`}>
-                                <div className="flex justify-between items-start"><div><h4 className="font-black text-gray-800 text-lg leading-tight uppercase leading-none mb-1">{c.responsable}</h4><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(c.fechaSalida).toLocaleTimeString()}</p></div><span className="px-3 py-1 rounded-full text-[8px] font-black uppercase bg-gray-100">{c.estado}</span></div>
-                                <div className="mt-6 flex justify-between items-center pt-5 border-t"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1 leading-none">Neto</p><p className="text-xl font-black text-gray-800 tracking-tighter font-mono">${(c.ventaNeta || c.totalCargado).toLocaleString()}</p></div>{c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-black active:scale-95 transition-all">Liquidar</button>}</div>
-                                <div className="flex gap-2 mt-4 pt-4 border-t border-dashed border-gray-100"><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="p-2 text-red-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button><button onClick={() => handleOpenModal(c)} className="p-2 text-blue-100 hover:text-blue-500 transition-colors"><Icon name="edit-3" size={16}/></button></div>
-                            </div>
-                        ))}
-                    </div>
-                    {modal && (
-                        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-md rounded-[50px] p-10 shadow-2xl relative animate-in zoom-in-95">
-                                <button onClick={() => setModal(false)} className="absolute right-8 top-8 text-gray-300 hover:text-red-500 p-2"><Icon name="x"/></button>
-                                <h3 className="font-black text-2xl mb-8 uppercase tracking-tighter leading-none">{editId ? "Corregir Carga" : "Registrar Carga"}</h3>
-                                <div className="space-y-5">
-                                    <select className="w-full bg-gray-100 p-5 rounded-[30px] border-none font-black text-sm shadow-inner" value={vendedorSel} onChange={e => setVendedorSel(e.target.value)}>
-                                        <option value="">Seleccionar Perfil...</option>
-                                        {sellers.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
-                                    </select>
-                                    <div className="bg-orange-50 p-6 rounded-[35px] border border-orange-100 space-y-4 shadow-inner">
-                                        <select className="w-full p-4 rounded-xl border-none font-bold text-xs bg-white shadow-sm" value={tmp.pId} onChange={e => setTmp({...tmp, pId: e.target.value})}>{products.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select>
-                                        <div className="grid grid-cols-2 gap-3"><input type="number" className="w-full p-4 rounded-xl border-none font-black text-xs shadow-sm bg-white" placeholder="Cant." value={tmp.q || ''} onChange={e => setTmp({...tmp, q: parseInt(e.target.value)})}/><button onClick={addItem} className="w-full bg-orange-600 text-white py-4 rounded-xl font-black uppercase text-[10px] active:scale-95 transition-all shadow-md">Añadir</button></div>
-                                    </div>
-                                    <div className="space-y-2 max-h-40 overflow-y-auto shadow-inner bg-gray-50 rounded-2xl p-2">{items.map((it, i) => (<div key={i} className="flex justify-between bg-white p-3 rounded-xl font-bold text-xs border border-gray-100"><span>{it.q} {it.nombre}</span><button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-300"><Icon name="minus-circle" size={16}/></button></div>))}</div>
-                                    <button onClick={registrarCarga} className="w-full bg-gray-900 text-white py-6 rounded-[30px] font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Grabar Datos</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {retModal && active && (
-                        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm overflow-y-auto">
-                            <div className="bg-white w-full max-w-lg rounded-[50px] p-12 shadow-2xl relative animate-in slide-in-from-bottom-10 my-8 no-shadow">
-                                <button onClick={() => setRetModal(false)} className="absolute right-12 top-12 text-gray-300 hover:text-red-500 p-2"><Icon name="x"/></button>
-                                <h3 className="font-black text-3xl mb-1 text-center tracking-tighter uppercase leading-none">Cierre de Jornada</h3>
-                                <p className="text-orange-600 font-black text-sm mb-10 text-center uppercase tracking-widest">{active.responsable}</p>
-                                <div className="space-y-8">
-                                    <section className="space-y-3">{active.items.map(it => (
-                                        <div key={it.pId} className="flex items-center gap-4 bg-gray-50 p-6 rounded-[35px] border shadow-inner">
-                                            <div className="flex-1"><p className="text-xs font-black text-gray-700 uppercase leading-none">{it.nombre}</p><p className="text-[9px] font-bold text-gray-400 mt-1 uppercase tracking-widest italic leading-none">Salida: {it.q} u.</p></div>
-                                            <div className="text-center"><input type="number" className="w-24 p-3 rounded-2xl font-black text-center text-sm shadow-sm border-none bg-white focus:ring-2 ring-orange-200" placeholder="Retorna" onChange={e => setRets({...rets, [it.pId]: parseInt(e.target.value) || 0})}/></div>
-                                        </div>
-                                    ))}</section>
-                                    <section className="bg-blue-50 p-10 rounded-[45px] border-2 border-dashed border-blue-200 text-center">
-                                        <input type="file" id="dep-f" className="hidden" onChange={handleFile}/><label htmlFor="dep-f" className="cursor-pointer block">{fotoDeposito ? <img src={fotoDeposito} className="h-44 mx-auto rounded-3xl shadow-xl object-cover"/> : <div className="space-y-2"><Icon name="camera" size={32} className="text-blue-300 mx-auto" /><p className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Foto Depósito</p></div>}</label>
-                                    </section>
-                                    <button onClick={finalizarJornada} className="w-full bg-orange-600 text-white py-7 rounded-[35px] font-black uppercase text-sm shadow-xl active:scale-95 transition-all">Grabar Liquidación</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        const FacturasView = ({ facturas, products, db, appId, filterDay, onBack }) => {
-            const [modal, setModal] = useState(false);
-            const [fm, setFm] = useState({ num: '', fecha: today, items: [], estado: 'Pendiente' });
-            const [tmp, setTmp] = useState({ pId: 'p1', q: 0, pCompra: 0.2696 });
-            const [editId, setEditId] = useState(null);
-
-            const handleOpenModal = (factura = null) => {
-                if (factura) { setEditId(factura.id); setFm({ num: factura.num, fecha: factura.fecha, items: factura.items || [], estado: factura.estado }); }
-                else { setEditId(null); setFm({ num: '', fecha: today, items: [], estado: 'Pendiente' }); }
+            const handleOpenModal = (carga = null) => {
+                if (carga) {
+                    setIsEditing(true);
+                    setEditId(carga.id);
+                    setInfo({ empNombre: carga.responsable });
+                    setItems(carga.items || []);
+                } else {
+                    setIsEditing(false);
+                    setEditId(null);
+                    setInfo({ empNombre: '' });
+                    setItems([]);
+                }
                 setModal(true);
             };
 
-            const addItem = () => {
-                const pr = products.find(p => p.id === tmp.pId);
-                const sub = tmp.q * tmp.pCompra;
-                const util = (tmp.q * pr.pvd) - sub;
-                setFm({...fm, items: [...fm.items, { ...tmp, nombre: pr.nombre, subtotal: sub, utilidad: util }]});
+            const registrarSalida = async () => {
+                if (items.length === 0 || !info.empNombre) return;
+                const totalCargado = items.reduce((a, b) => a + (b.q * b.pvd), 0);
+                
+                const payload = {
+                    responsable: info.empNombre, 
+                    items, 
+                    totalCargado,
+                    estado: 'En Tránsito',
+                    fechaSalida: isEditing ? (cargas.find(c => c.id === editId)?.fechaSalida || new Date().toISOString()) : new Date().toISOString()
+                };
+
+                if (isEditing) {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(editId).update(payload);
+                } else {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add(payload);
+                }
+                
+                setModal(false); setItems([]); setInfo({ empNombre: '' }); setIsEditing(false);
             };
 
-            const save = async () => {
-                if (!fm.num || fm.items.length === 0) return;
-                const total = fm.items.reduce((a,b) => a+b.subtotal, 0);
-                const utilTotal = fm.items.reduce((a,b) => a+b.utilidad, 0);
-                const data = { ...fm, total, totalUtilidad: utilTotal, fechaReg: new Date().toISOString() };
-                if (editId) await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturas').doc(editId).update(data);
-                else { await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturas').add(data); if(fm.estado === 'Pagado') await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').add({ cliente: `Compra #${fm.num}`, monto: -total, tipo: 'Pago Proveedor', fecha: today }); }
-                setModal(false); setEditId(null);
+            const finalizarJornada = async () => {
+                const itemsLiquidados = active.items.map(it => {
+                    const retorno = rets[it.pId] || 0;
+                    const vendidos = it.q - retorno;
+                    const valorVenta = vendidos * it.pvd;
+                    const valorCosto = vendidos * it.costo;
+                    return { ...it, dev: retorno, vUnid: vendidos, vVal: valorVenta, cVal: valorCosto };
+                });
+
+                const totalVentaBruta = itemsLiquidados.reduce((a, b) => a + b.vVal, 0);
+                const totalGastosRuta = Object.values(gastosRuta).reduce((a, b) => a + (parseFloat(b) || 0), 0);
+                const totalCostoVenta = itemsLiquidados.reduce((a, b) => a + b.cVal, 0);
+                const ventaNeta = totalVentaBruta - totalGastosRuta;
+
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(active.id).update({
+                    items: itemsLiquidados,
+                    estado: 'Liquidado',
+                    fechaLiquida: new Date().toISOString(),
+                    ventaBruta: totalVentaBruta,
+                    gastosDetalle: gastosRuta,
+                    totalGastos: totalGastosRuta,
+                    ventaNeta: ventaNeta,
+                    costoTotalVenta: totalCostoVenta,
+                    fotoDeposito: fotoDeposito
+                });
+
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').add({
+                    cliente: active.responsable,
+                    monto: ventaNeta,
+                    tipo: 'Cobro (Cierre Ruta)',
+                    fecha: new Date().toISOString()
+                });
+
+                if (totalGastosRuta > 0) {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
+                        categoria: 'Gastos de Ruta',
+                        monto: totalGastosRuta,
+                        detalle: `Gastos de ${active.responsable} (Cierre)`,
+                        fecha: today
+                    });
+                }
+
+                setRetModal(false); setActive(null); setRets({}); setGastosRuta({ combustible: 0, alimentacion: 0, hospedaje: 0, otros: 0 }); setFotoDeposito("");
             };
+
+            // Filtrar las cargas visibles por la fecha seleccionada en el calendario local
+            const visibleCargas = useMemo(() => {
+                return cargas.filter(c => {
+                    const fechaCarga = (c.fechaSalida || c.fecha).split('T')[0];
+                    return fechaCarga === filterDay;
+                });
+            }, [cargas, filterDay]);
 
             return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Facturas de Avena" sub="Gestión de Compras al Proveedor" onBack={onBack} colorClass="bg-blue-600" />
-                    <div className="flex justify-end gap-2 px-2"><input type="date" value={filterDay} onChange={e => setFilterDay(e.target.value)} className="p-3.5 rounded-2xl font-black text-xs border-none shadow-sm outline-none shadow-inner"/><button onClick={() => handleOpenModal()} className="bg-gray-900 text-white p-3.5 rounded-2xl shadow-lg active:scale-95 transition-all"><Icon name="plus" size={24}/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {facturas.filter(f => f.fecha === filterDay).map(f => (
-                            <div key={f.id} className={`bg-white p-8 rounded-[45px] border shadow-sm ${f.estado === 'Pagado' ? 'border-l-8 border-green-500' : 'border-l-8 border-red-500'}`}>
-                                <h4 className="font-black text-2xl uppercase tracking-tighter leading-none mb-1">#{f.num}</h4>
-                                <div className="mt-4 bg-green-50 p-5 rounded-[25px] flex justify-between items-center mb-5 font-black text-green-700 font-mono text-sm leading-none"><span>Utilidad Factura:</span><span>${f.totalUtilidad?.toFixed(2)}</span></div>
-                                <div className="flex justify-between items-end border-t pt-5"><p className="text-3xl font-black text-gray-800 tracking-tighter font-mono">${f.total.toLocaleString()}</p><div className="flex gap-2"><button onClick={() => handleOpenModal(f)} className="p-2 text-blue-300 hover:text-blue-500 transition-all"><Icon name="edit-3"/></button><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturas').doc(f.id).delete()} className="p-2 text-red-200 hover:text-red-500 transition-all"><Icon name="trash-2"/></button></div></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        const AdminSettingsView = ({ users, db, appId, onBack }) => {
-            const [nu, setNu] = useState({ name: '', password: '', role: 'vendedor' });
-            
-            const getRealURL = () => {
-                const current = window.location.href.split('?')[0];
-                if (current.includes('blob:')) return "⚠️ Publica el código en GitHub para generar el link real.";
-                return `${current}?ac=true`;
-            };
-
-            const sellerLink = getRealURL();
-
-            const copyToClipboard = (text) => {
-                if (text.startsWith('⚠️')) return;
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.left = "-9999px";
-                textArea.style.top = "0";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    alert("Enlace copiado correctamente.");
-                } catch (err) { console.error('Error al copiar:', err); }
-                document.body.removeChild(textArea);
-            };
-
-            const handleUpdatePassword = async (userId, newPass) => {
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('usuarios').doc(userId).update({ password: newPass });
-            };
-
-            return (
-                <div className="space-y-10 animate-in fade-in duration-500">
-                    <ViewHeader title="Configuración" sub="Administración General y Accesos" onBack={onBack} colorClass="bg-gray-900" />
-                    
-                    <section className="bg-gradient-dark p-10 rounded-[50px] text-white shadow-2xl space-y-6 relative overflow-hidden">
-                        <div className="absolute right-[-20px] top-[-20px] opacity-[0.05]"><Icon name="smartphone" size={200}/></div>
-                        <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-2 leading-none"><Icon name="share-2" className="text-orange-500"/> Terminal de Celulares</h3>
-                        <div className="bg-white/10 p-7 rounded-[40px] border border-white/20 space-y-6">
-                            <div className="flex flex-col md:flex-row items-center gap-8">
-                                <div className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100">
-                                    {!sellerLink.startsWith('⚠️') ? (
-                                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(sellerLink)}`} alt="QR" className="w-24 h-24"/>
-                                    ) : (
-                                        <div className="w-24 h-24 bg-gray-200 rounded-xl flex items-center justify-center text-gray-400"><Icon name="qr-code" size={40}/></div>
-                                    )}
+                <div className="space-y-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-4">
+                        <div>
+                            <h2 className="text-2xl font-black text-gray-800 tracking-tighter leading-none">Rutas y Cargas</h2>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase mt-1 tracking-widest">Gestión Operativa Diaria</p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 md:flex-none">
+                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-orange-500">
+                                    <Icon name="calendar" size={16}/>
                                 </div>
-                                <div className="space-y-3 flex-1">
-                                    <p className="text-[10px] font-black uppercase opacity-60">Dirección Vendedores:</p>
-                                    <code className="block bg-black/40 p-4 rounded-2xl text-[9px] break-all text-orange-300 font-mono mb-4 leading-relaxed">{sellerLink}</code>
-                                    <button onClick={() => copyToClipboard(sellerLink)} className="bg-white text-black px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"><Icon name="copy" size={14}/> Copiar Link</button>
+                                <input 
+                                    type="date" 
+                                    value={filterDay} 
+                                    onChange={(e) => setFilterDay(e.target.value)}
+                                    className="bg-white border-none shadow-sm rounded-2xl py-3 pl-10 pr-4 font-black text-sm text-gray-700 w-full md:w-48 focus:ring-2 ring-orange-200 transition-all outline-none"
+                                />
+                            </div>
+                            <button onClick={() => handleOpenModal()} className="bg-orange-600 text-white p-3 rounded-2xl shadow-lg flex items-center justify-center hover:bg-orange-700 transition-all active:scale-95">
+                                <Icon name="plus" size={24}/>
+                            </button>
+                        </div>
+                    </div>
+
+                    {visibleCargas.length === 0 ? (
+                        <div className="bg-white p-16 rounded-[40px] text-center border-2 border-dashed border-gray-100">
+                            <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                                <Icon name="search" size={40}/>
+                            </div>
+                            <p className="font-black text-gray-400 uppercase text-xs tracking-widest">No hay rutas registradas para este día</p>
+                            <button onClick={() => handleOpenModal()} className="mt-4 text-orange-500 font-bold text-xs uppercase hover:underline">Registrar una carga ahora</button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {visibleCargas.sort((a,b) => new Date(b.fechaSalida) - new Date(a.fechaSalida)).map(c => (
+                                <div key={c.id} className={`bg-white p-6 rounded-[35px] border shadow-sm transition-all hover:shadow-md ${c.estado === 'Liquidado' ? 'border-l-8 border-green-500' : 'border-l-8 border-orange-400'}`}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-3 rounded-2xl ${c.estado === 'Liquidado' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                <Icon name={c.estado === 'Liquidado' ? "check-circle" : "clock"} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-black text-gray-800 leading-tight text-lg">{c.responsable}</h4>
+                                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(c.fechaSalida).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                            </div>
+                                        </div>
+                                        <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${c.estado === 'Liquidado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                            {c.estado}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-6 grid grid-cols-2 gap-3">
+                                        <div className="bg-gray-50 p-4 rounded-3xl">
+                                            <p className="text-[8px] text-gray-400 font-bold uppercase mb-1">Carga Registrada</p>
+                                            <p className="font-black text-gray-800 text-xl">${c.totalCargado?.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                                        </div>
+                                        {c.estado === 'Liquidado' && (
+                                            <div className="bg-green-50 p-4 rounded-3xl">
+                                                <p className="text-[8px] text-green-600 font-bold uppercase mb-1">Venta Neta</p>
+                                                <p className="font-black text-green-700 text-xl">${c.ventaNeta?.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-6 flex flex-wrap gap-2 justify-between items-center border-t pt-4">
+                                        <div className="flex gap-2">
+                                            <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="p-3 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                                <Icon name="trash-2" size={18}/>
+                                            </button>
+                                            {c.estado === 'En Tránsito' && (
+                                                <button onClick={() => handleOpenModal(c)} className="p-3 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                                                    <Icon name="edit-3" size={18}/>
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {c.estado === 'En Tránsito' ? (
+                                            <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-gray-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all flex items-center gap-2">
+                                                <Icon name="check-square" size={14}/> Liquidar / Cerrar
+                                            </button>
+                                        ) : (
+                                            c.fotoDeposito && (
+                                                <button onClick={() => {
+                                                    const win = window.open();
+                                                    win.document.write(`<div style="background:#000; display:flex; align-items:center; justify-content:center; height:100vh;"><img src="${c.fotoDeposito}" style="max-width:90%; border-radius:10px;"/></div>`);
+                                                }} className="text-blue-500 text-[10px] font-black uppercase flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-xl">
+                                                    <Icon name="image" size={14}/> Comprobante
+                                                </button>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* MODAL SALIDA / EDICIÓN DE RUTA */}
+                    {modal && (
+                        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
+                            <div className="bg-white w-full max-w-md rounded-[45px] p-8 shadow-2xl relative animate-in zoom-in-95 duration-200">
+                                <h3 className="font-black text-2xl mb-6 text-gray-800 tracking-tighter">{isEditing ? "Modificar Carga" : "Registro de Carga Inicial"}</h3>
+                                
+                                <div className="space-y-5">
+                                    <label className="block">
+                                        <span className="text-[10px] font-black text-gray-400 uppercase ml-2 mb-1 block">Vendedor Responsable</span>
+                                        <select className="w-full bg-gray-100 p-4 rounded-3xl border-none font-bold text-gray-700 shadow-inner" value={info.empNombre} onChange={e => setInfo({...info, empNombre: e.target.value})}>
+                                            <option value="">Seleccionar Vendedor...</option>
+                                            {VENDEDORES_PREDETERMINADOS.map(v => <option key={v} value={v}>{v}</option>)}
+                                        </select>
+                                    </label>
+
+                                    <div className="bg-orange-50 p-6 rounded-[35px] border border-orange-100 space-y-4">
+                                        <p className="text-[10px] font-black text-orange-600 uppercase text-center mb-1">Añadir Productos</p>
+                                        <select className="w-full bg-white p-4 rounded-2xl border-none text-sm font-bold shadow-sm" value={tmp.pId} onChange={e => setTmp({...tmp, pId: e.target.value})}>
+                                            {PRODUCTOS_PRESUPUESTO.map(p => <option key={p.id} value={p.id}>{p.nombre} (${p.pvd})</option>)}
+                                        </select>
+                                        <div className="flex gap-2">
+                                            <input type="number" className="flex-1 bg-white p-4 rounded-2xl text-sm font-black shadow-sm" placeholder="Cantidad" value={tmp.q || ''} onChange={e => setTmp({...tmp, q: parseInt(e.target.value)})}/>
+                                            <button onClick={addProductoCarga} className="bg-orange-600 text-white px-8 rounded-2xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all">Añadir</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="max-h-40 overflow-y-auto space-y-2 pr-2 hide-scrollbar">
+                                        {items.length === 0 ? (
+                                            <p className="text-center text-gray-300 font-bold py-4 text-xs italic">No hay productos cargados</p>
+                                        ) : items.map((it, i) => (
+                                            <div key={i} className="flex justify-between items-center bg-white border border-gray-100 p-4 rounded-2xl shadow-sm">
+                                                <div>
+                                                    <span className="text-xs font-black text-gray-700 block leading-none">{it.nombre}</span>
+                                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">${it.pvd} c/u</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-black bg-orange-100 text-orange-700 px-3 py-1 rounded-xl">{it.q} u.</span>
+                                                    <button onClick={() => setItems(items.filter((_, idx) => idx !== i))} className="text-red-300 hover:text-red-500"><Icon name="minus-circle" size={20}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="pt-6 border-t">
+                                        <div className="flex justify-between mb-6 px-2">
+                                            <span className="font-black text-gray-400 text-xs uppercase tracking-widest">Valor de Carga:</span>
+                                            <span className="text-2xl font-black text-gray-800">${items.reduce((a,b) => a + (b.q * b.pvd), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        <button onClick={registrarSalida} className="w-full bg-gray-900 text-white py-5 rounded-[25px] font-black uppercase text-xs shadow-xl active:scale-95 transition-all hover:bg-black">
+                                            {isEditing ? "GUARDAR CAMBIOS" : "REGISTRAR Y SALIR A RUTA"}
+                                        </button>
+                                        <button onClick={() => {setModal(false); setItems([]); setIsEditing(false);}} className="w-full text-gray-400 font-bold text-[10px] uppercase mt-6 text-center block">Cerrar</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    )}
 
-                    <section className="bg-white p-8 rounded-[45px] border shadow-sm space-y-8">
-                        <h3 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-tight"><Icon name="users" className="text-blue-500"/> Gestión de Personal</h3>
-                        <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 hide-scrollbar">{users.map(u => (
-                            <div key={u.id} className="bg-gray-50 p-6 rounded-[35px] border flex flex-col gap-4 transition-all hover:bg-white shadow-sm">
-                                <div className="flex justify-between items-start"><div><p className="font-black text-gray-800 text-sm uppercase leading-none mb-1 leading-none">{u.name}</p><span className={`text-[8px] font-black uppercase ${u.role === 'admin' ? 'text-blue-600' : 'text-orange-600'}`}>{u.role.toUpperCase()}</span></div><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('usuarios').doc(u.id).delete()} className="text-red-200 transition-colors hover:text-red-500 p-1"><Icon name="trash-2" size={18}/></button></div>
-                                <div className="flex gap-2"><input type="text" className="bg-white border-none shadow-inner p-3.5 rounded-2xl font-black text-xs flex-1 outline-none focus:ring-2 ring-blue-200" defaultValue={u.password} onBlur={e => handleUpdatePassword(u.id, e.target.value)}/><div className="bg-gray-200 text-gray-400 p-3.5 rounded-2xl flex items-center justify-center shadow-inner"><Icon name="lock" size={14}/></div></div>
+                    {/* MODAL CIERRE Y LIQUIDACIÓN */}
+                    {retModal && active && (
+                        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center backdrop-blur-sm">
+                            <div className="bg-white w-full max-lg rounded-[45px] p-10 shadow-2xl overflow-y-auto max-h-[90vh] hide-scrollbar animate-in slide-in-from-bottom-10 duration-300">
+                                <h3 className="font-black text-3xl mb-1 text-gray-800 text-center tracking-tighter">Cierre de Ruta</h3>
+                                <p className="text-orange-600 font-black text-sm mb-8 text-center uppercase tracking-widest">{active.responsable}</p>
+                                
+                                <div className="space-y-8">
+                                    <section>
+                                        <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 border-b pb-2 tracking-widest flex items-center gap-2"><Icon name="archive" size={14}/> 1. Devoluciones de Producto</h4>
+                                        <div className="space-y-3">
+                                            {active.items.map(it => (
+                                                <div key={it.pId} className="flex items-center gap-4 bg-gray-50 p-5 rounded-[30px] border border-gray-100 shadow-inner">
+                                                    <div className="flex-1">
+                                                        <p className="text-xs font-black text-gray-700 uppercase">{it.nombre}</p>
+                                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Salió con: {it.q} Unid.</p>
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-[8px] font-black text-orange-400 uppercase mb-1">Retorna</p>
+                                                        <input type="number" placeholder="0" className="w-20 p-3 rounded-2xl border-none shadow-sm font-black text-center text-sm focus:ring-2 ring-orange-200" onChange={e => setRets({...rets, [it.pId]: parseInt(e.target.value) || 0})}/>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    <section>
+                                        <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 border-b pb-2 tracking-widest flex items-center gap-2"><Icon name="dollar-sign" size={14}/> 2. Gastos de Jornada</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {['combustible', 'alimentacion', 'hospedaje', 'otros'].map(tipo => (
+                                                <div key={tipo} className="bg-red-50 p-4 rounded-[25px] border border-red-100">
+                                                    <p className="text-[9px] font-black text-red-400 uppercase mb-1">{tipo}</p>
+                                                    <input type="number" step="0.01" className="w-full bg-transparent border-none font-black text-red-700 text-lg focus:ring-0 p-0" placeholder="0.00" value={gastosRuta[tipo] || ''} onChange={e => setGastosRuta({...gastosRuta, [tipo]: e.target.value})}/>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    <section>
+                                        <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 border-b pb-2 tracking-widest flex items-center gap-2"><Icon name="camera" size={14}/> 3. Soporte de Depósito</h4>
+                                        <div className="bg-blue-50 p-8 rounded-[35px] border border-blue-100 border-dashed flex flex-col items-center group transition-all hover:bg-blue-100 cursor-pointer relative overflow-hidden">
+                                            <input type="file" accept="image/*" id="deposito" className="hidden" onChange={handleFileChange}/>
+                                            <label htmlFor="deposito" className="flex flex-col items-center cursor-pointer w-full h-full z-10">
+                                                {fotoDeposito ? (
+                                                    <img src={fotoDeposito} className="h-40 rounded-3xl shadow-2xl mb-2 object-cover" />
+                                                ) : (
+                                                    <div className="bg-blue-600 text-white p-5 rounded-full shadow-lg mb-3"><Icon name="upload-cloud" size={28}/></div>
+                                                )}
+                                                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Subir Foto del Depósito</span>
+                                            </label>
+                                        </div>
+                                    </section>
+
+                                    <div className="pt-8 border-t space-y-5">
+                                        <div className="bg-gray-900 p-8 rounded-[40px] text-white space-y-3 shadow-2xl">
+                                            <div className="flex justify-between text-xs opacity-50 font-black uppercase tracking-widest"><span>Venta Bruta (Estimada):</span> <span>${(active.items.reduce((a,b) => a + ( (b.q - (rets[b.pId]||0)) * b.pvd), 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                                            <div className="flex justify-between text-xs text-red-400 font-black uppercase tracking-widest"><span>(-) Gastos Ruta:</span> <span>-${Object.values(gastosRuta).reduce((a,b) => a + (parseFloat(b)||0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                                            <div className="flex justify-between text-2xl font-black pt-4 border-t border-white/10 tracking-tighter"><span>ENTREGA CAJA:</span> <span className="text-green-400">${(active.items.reduce((a,b) => a + ( (b.q - (rets[b.pId]||0)) * b.pvd), 0) - Object.values(gastosRuta).reduce((a,b) => a + (parseFloat(b)||0), 0)).toLocaleString(undefined, {minimumFractionDigits: 2})}</span></div>
+                                        </div>
+                                        
+                                        <button onClick={finalizarJornada} className="w-full bg-orange-600 text-white py-6 rounded-[30px] font-black uppercase text-sm shadow-xl hover:bg-orange-700 hover:shadow-2xl active:scale-95 transition-all">
+                                            CONFIRMAR CIERRE DE DÍA
+                                        </button>
+                                        <button onClick={() => {setRetModal(false); setFotoDeposito("");}} className="w-full text-gray-400 font-black text-[10px] uppercase text-center block tracking-widest">Cerrar sin guardar</button>
+                                    </div>
+                                </div>
                             </div>
-                        ))}</div>
-                    </section>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        const CarteraView = ({ cartera, db, appId, filterDay, setFilterDay, onBack }) => {
-            const dayMovements = cartera.filter(m => m.fecha === filterDay);
-            const saldoTotal = cartera.reduce((a,b) => a + b.monto, 0);
+        const NominaView = ({ filteredData, personal, roles, db, appId }) => {
+            const [tab, setTab] = useState('diario');
+            const [modal, setModal] = useState(false);
+            const [empForm, setEmpForm] = useState({ nombre: '', sueldo: 964 });
+            const [dayForm, setDayForm] = useState({ empId: '', tipo: 'Anticipo', monto: 0, fecha: today });
+
+            const saveStaff = async (e) => {
+                e.preventDefault();
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').add(empForm);
+                setModal(false); setEmpForm({ nombre: '', sueldo: 964 });
+            };
+
+            const saveDay = async (e) => {
+                e.preventDefault();
+                const ep = personal.find(p => p.id === dayForm.empId);
+                if(!ep) return;
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('eventosNomina').add({
+                    ...dayForm, empNombre: ep.nombre, monto: parseFloat(dayForm.monto)
+                });
+                setModal(false);
+            };
+
+            const calculateLiquidacion = async (p) => {
+                const evs = filteredData.fEventos.filter(e => e.empId === p.id);
+                const sales = filteredData.fCargas.filter(c => c.responsable === p.nombre && c.estado === 'Liquidado');
+                const com = sales.reduce((a,b) => a + ( (b.ventaBruta || 0) * 0.03), 0);
+                const ant = evs.filter(e => e.tipo === 'Anticipo').reduce((a,b) => a + b.monto, 0);
+                const des = evs.filter(e => e.tipo === 'Descuento').reduce((a,b) => a + b.monto, 0);
+                const seg = evs.filter(e => e.tipo === 'IESS').reduce((a,b) => a + b.monto, 0);
+
+                const role = {
+                    empId: p.id, empNombre: p.nombre, base: p.sueldo, 
+                    comisiones: com, anticipos: ant, descuentos: des, seguros: seg,
+                    neto: (p.sueldo + com) - (ant + des + seg),
+                    fecha: new Date().toISOString(),
+                    periodo: new Date().toLocaleString('es', { month: 'long', year: 'numeric' })
+                };
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('roles').add(role);
+            };
+
             return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                    <ViewHeader title="Caja Maestro" sub="Historial Contable Diaria" onBack={onBack} colorClass="bg-green-600" />
-                    <div className="flex justify-end gap-3 px-2">
-                        <input type="date" value={filterDay} onChange={e => setFilterDay(e.target.value)} className="p-3.5 rounded-2xl font-black text-xs border-none shadow-sm outline-none shadow-inner bg-white"/>
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-black text-gray-800 tracking-tighter">Gestión de Personal</h2>
+                        <div className="bg-white p-1 rounded-2xl shadow-sm flex text-[10px] font-bold">
+                            <button onClick={() => setTab('diario')} className={`px-4 py-2 rounded-xl transition-all ${tab === 'diario' ? 'bg-orange-600 text-white shadow-md' : 'text-gray-400'}`}>Diario</button>
+                            <button onClick={() => setTab('staff')} className={`px-4 py-2 rounded-xl transition-all ${tab === 'staff' ? 'bg-orange-600 text-white shadow-md' : 'text-gray-400'}`}>Plantilla</button>
+                            <button onClick={() => setTab('roles')} className={`px-4 py-2 rounded-xl transition-all ${tab === 'roles' ? 'bg-orange-600 text-white shadow-md' : 'text-gray-400'}`}>Roles</button>
+                        </div>
                     </div>
-                    <div className="bg-white p-16 rounded-[60px] border-l-8 border-l-green-500 shadow-sm text-center relative overflow-hidden group transition-all hover:shadow-xl">
-                        <div className="absolute right-[-20px] top-[-20px] opacity-[0.03]"><Icon name="landmark" size={250}/></div>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Efectivo Disponible</p>
-                        <p className="text-8xl font-black tracking-tighter text-green-600 font-mono">${saldoTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</p>
+                    {tab === 'diario' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-end"><button onClick={() => setModal(true)} className="bg-orange-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg">Registrar Evento</button></div>
+                            {filteredData.fEventos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(e => (
+                                <div key={e.id} className="bg-white p-5 rounded-[25px] flex justify-between items-center border shadow-sm border-l-4 border-l-orange-500">
+                                    <div><p className="font-black text-sm text-gray-800 uppercase">{e.empNombre}</p><p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{e.tipo} • {e.fecha}</p></div>
+                                    <div className="flex items-center gap-4 font-black text-gray-900">-${e.monto.toLocaleString()} <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('eventosNomina').doc(e.id).delete()} className="text-red-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button></div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {tab === 'staff' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onClick={() => setModal(true)} className="bg-white border-2 border-dashed border-gray-200 p-8 rounded-[40px] text-gray-400 font-black flex flex-col items-center gap-2 hover:border-orange-200 hover:text-orange-300 transition-all uppercase text-[10px] tracking-widest shadow-sm"><Icon name="user-plus" /> Añadir Personal</button>
+                            {personal.map(p => (
+                                <div key={p.id} className="bg-white p-6 rounded-[40px] border shadow-sm flex justify-between items-center transition-all hover:shadow-md">
+                                    <div><h4 className="font-black text-gray-800 text-lg">{p.nombre}</h4><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Sueldo Base: ${p.sueldo}</p></div>
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').doc(p.id).delete()} className="p-3 text-red-100 hover:text-red-500 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={18}/></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {tab === 'roles' && (
+                        <div className="space-y-4">
+                             {personal.map(p => (
+                                <div key={p.id} className="bg-white p-5 rounded-3xl flex justify-between items-center shadow-sm border transition-all hover:border-blue-200">
+                                    <span className="font-black text-gray-700">{p.nombre}</span>
+                                    <button onClick={() => calculateLiquidacion(p)} className="bg-blue-600 text-white px-5 py-2 rounded-2xl text-[10px] font-black uppercase shadow-md hover:bg-blue-700">Liquidar Mes</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {modal && (
+                        <div className="fixed inset-0 bg-black/60 z-50 p-4 flex items-center justify-center">
+                            <div className="bg-white w-full max-w-md rounded-[40px] p-10 shadow-2xl relative animate-in zoom-in-95">
+                                <button onClick={() => setModal(false)} className="absolute right-8 top-8 text-gray-300"><Icon name="x"/></button>
+                                {tab === 'diario' ? (
+                                    <form onSubmit={saveDay} className="space-y-5">
+                                        <h3 className="font-black text-2xl mb-4 text-gray-800 tracking-tighter">Evento de Nómina</h3>
+                                        <select className="w-full bg-gray-100 p-4 rounded-3xl border-none font-bold" onChange={e => setDayForm({...dayForm, empId: e.target.value})} required>
+                                            <option value="">Empleado...</option>{personal.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                                        </select>
+                                        <select className="w-full bg-gray-100 p-4 rounded-3xl border-none font-bold" onChange={e => setDayForm({...dayForm, tipo: e.target.value})}>
+                                            <option>Anticipo</option><option>Descuento</option><option>IESS</option><option>Viático</option>
+                                        </select>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-gray-100 p-4 rounded-3xl font-black border-none" onChange={e => setDayForm({...dayForm, monto: e.target.value})} required />
+                                            <input type="date" className="w-full bg-gray-100 p-4 rounded-3xl text-xs font-bold border-none" value={dayForm.fecha} onChange={e => setDayForm({...dayForm, fecha: e.target.value})} />
+                                        </div>
+                                        <button type="submit" className="w-full bg-orange-600 text-white font-black py-5 rounded-[25px] shadow-xl uppercase text-xs mt-4">Guardar Registro</button>
+                                    </form>
+                                ) : (
+                                    <form onSubmit={saveStaff} className="space-y-5">
+                                        <h3 className="font-black text-2xl mb-4 text-gray-800 tracking-tighter">Añadir Staff</h3>
+                                        <input className="w-full bg-gray-100 p-4 rounded-3xl font-bold border-none" placeholder="Nombre Completo" onChange={e => setEmpForm({...empForm, nombre: e.target.value})} required />
+                                        <input type="number" className="w-full bg-gray-100 p-4 rounded-3xl font-black border-none" placeholder="Sueldo Base Mensual" onChange={e => setEmpForm({...empForm, sueldo: parseFloat(e.target.value)})} required />
+                                        <button type="submit" className="w-full bg-gray-900 text-white font-black py-5 rounded-[25px] shadow-xl mt-6 uppercase text-xs">Registrar Colaborador</button>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const CarteraView = ({ cartera, db, appId }) => {
+            const t = useMemo(() => {
+                const i = cartera.filter(x => x.tipo.includes('Cobro')).reduce((a,b) => a+b.monto,0);
+                return { i };
+            }, [cartera]);
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-black text-gray-800 tracking-tighter">Caja y Movimientos</h2>
+                    <div className="bg-white p-10 rounded-[50px] shadow-sm border border-l-8 border-l-green-500">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Ingresos en Caja</p>
+                        <p className="text-5xl font-black text-green-600 tracking-tighter">${t.i.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                     </div>
                     <div className="space-y-3">
-                        {dayMovements.map(m => (
-                            <div key={m.id} className="bg-white p-7 rounded-[40px] flex justify-between items-center border shadow-sm transition-all hover:shadow-md">
-                                <div className="flex items-center gap-5"><div className={`p-4 rounded-3xl ${m.monto >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}><Icon name={m.monto >= 0 ? 'plus' : 'minus'}/></div><div><h4 className="font-black text-gray-800 text-sm uppercase leading-none mb-1 leading-none">{m.cliente}</h4><p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest leading-none">{m.tipo}</p></div></div>
-                                <div className="flex items-center gap-6"><span className={`font-black text-2xl tracking-tighter font-mono ${m.monto >= 0 ? 'text-green-600' : 'text-red-600'}`}>{m.monto >= 0 ? '+' : '-'}${Math.abs(m.monto).toLocaleString()}</span><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').doc(m.id).delete()} className="text-gray-100 hover:text-red-400 p-2.5 active:scale-95 transition-all"><Icon name="trash-2" size={18}/></button></div>
+                        {cartera.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(m => (
+                            <div key={m.id} className="bg-white p-5 rounded-[30px] flex justify-between items-center border shadow-sm transition-all hover:shadow-md">
+                                <div><h4 className="font-black text-gray-800 text-sm mb-1 uppercase leading-none">{m.cliente}</h4><p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{m.tipo} • {new Date(m.fecha).toLocaleDateString()}</p></div>
+                                <div className="flex items-center gap-4"><span className="font-black text-green-600 text-lg">+${m.monto.toLocaleString()}</span> <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').doc(m.id).delete()} className="p-2 text-gray-100 hover:text-red-400"><Icon name="trash-2" size={14}/></button></div>
                             </div>
                         ))}
                     </div>
@@ -528,142 +606,160 @@
             );
         };
 
-        const GateView = ({ users, onAccess, isACMode }) => {
-            const [selected, setSelected] = useState("");
-            const [pass, setPass] = useState("");
-            const [error, setError] = useState(false);
-            
-            const filteredUsers = isACMode ? users.filter(u => u.role === 'vendedor') : users.filter(u => u.role === 'admin');
-
-            const handleLogin = () => {
-                const user = users.find(u => u.name === selected && u.password === pass);
-                if (user) onAccess(user);
-                else { setError(true); setPass(""); }
-            };
+        const GastosView = ({ gastos, db, appId }) => {
             return (
-                <div className="h-screen flex flex-col items-center justify-center p-6 bg-white animate-in fade-in duration-700">
-                    <div className="bg-orange-600 p-8 rounded-[45px] text-white shadow-2xl mb-12 transform hover:rotate-3 transition-transform shadow-orange-200"><Icon name="package" size={60} /></div>
-                    <h1 className="text-4xl font-black text-gray-800 mb-2 leading-none uppercase tracking-widest text-center leading-none">Avena Pro</h1>
-                    <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.5em] mb-16 text-center">{isACMode ? "Terminal Vendedor AC" : "Acceso Administrativo Seguro"}</p>
-                    <div className="w-full max-w-sm bg-white p-12 rounded-[65px] border shadow-2xl space-y-8 border-gray-100 shadow-gray-200">
-                        <div className="space-y-5">
-                            <select className="w-full p-6 rounded-[35px] border-none font-black text-xs shadow-inner bg-gray-50 outline-none focus:ring-2 ring-orange-200 appearance-none cursor-pointer" value={selected} onChange={e => { setSelected(e.target.value); setError(false); }}>
-                                <option value="">Seleccionar Perfil...</option>
-                                {filteredUsers.sort((a,b) => a.name.localeCompare(b.name)).map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-                            </select>
-                            <input type="password" placeholder="••••" className="w-full p-6 rounded-[35px] border-none font-black text-xs shadow-inner bg-gray-50 text-center tracking-[0.5em] outline-none focus:ring-2 ring-orange-200" value={pass} onChange={e => setPass(e.target.value)}/>
-                            {error && <p className="text-center text-red-500 font-black text-[10px] uppercase animate-pulse">Clave Incorrecta</p>}
-                            <button onClick={handleLogin} className="w-full bg-gray-900 text-white py-6 rounded-[40px] font-black uppercase text-[11px] shadow-xl active:scale-95 transition-all hover:bg-black mt-4">Ingresar al Sistema</button>
-                        </div>
+                <div className="space-y-4">
+                    <h2 className="text-2xl font-black text-gray-800 tracking-tighter">Registro de Egresos</h2>
+                    <div className="space-y-3">
+                        {gastos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(g => (
+                            <div key={g.id} className="bg-white p-5 rounded-[30px] border-l-8 border-red-500 shadow-sm flex justify-between items-center transition-all hover:shadow-md">
+                                <div><h4 className="font-black text-gray-800 text-sm mb-1 uppercase leading-none">{g.categoria}</h4><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{g.detalle} • {new Date(g.fecha).toLocaleDateString()}</p></div>
+                                <div className="flex items-center gap-4 font-black text-xl text-red-600">-${g.monto.toLocaleString()} <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').doc(g.id).delete()} className="p-2 text-gray-100 hover:text-red-500 transition-all"><Icon name="trash-2" size={18}/></button></div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             );
         };
 
+        const BalanceView = ({ stats }) => (
+            <div className="space-y-6 animate-in fade-in duration-500">
+                <h2 className="text-2xl font-black text-gray-800 tracking-tighter">Resultados P&G</h2>
+                <div className="bg-white p-10 rounded-[60px] border shadow-sm space-y-10">
+                    <div className="flex justify-between items-center font-black text-2xl text-gray-800 border-b pb-6 tracking-tighter">
+                        <span className="uppercase tracking-widest text-xs text-gray-400">Ventas Finales de Ruta:</span>
+                        <span className="text-green-600 font-extrabold text-3xl">${stats.vtot.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center text-sm text-gray-500 font-bold border-b border-gray-50 pb-4">
+                            <span className="uppercase tracking-widest text-[10px]">(-) Gastos de Personal:</span>
+                            <span className="text-red-500 font-black">-${stats.ntot.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm text-gray-500 font-bold border-b border-gray-50 pb-4">
+                            <span className="uppercase tracking-widest text-[10px]">(-) Gastos Operativos Ruta:</span>
+                            <span className="text-red-500 font-black">-${stats.gtot.toLocaleString()}</span>
+                        </div>
+                    </div>
+                    <div className={`p-10 rounded-[60px] flex flex-col md:flex-row justify-between items-center font-black text-3xl gap-4 shadow-2xl ${stats.utNeta >= 0 ? 'bg-orange-600 text-white' : 'bg-red-600 text-white'}`}>
+                        <div className="text-center md:text-left"><span className="uppercase text-[10px] tracking-widest opacity-80 mb-2 block font-black">Resultado Neto Final</span><span className="text-sm font-bold opacity-90 italic">Beneficio Operativo</span></div>
+                        <span className="text-6xl tracking-tighter font-extrabold">${stats.utNeta.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- COMPONENTE APP (ORQUESTADOR) ---
+
         function App() {
-            const [fbUser, setFbUser] = useState(null);
-            const [currentUser, setCurrentUser] = useState(null);
+            const [user, setUser] = useState(null);
             const [activeTab, setActiveTab] = useState('dashboard');
-            const [loadingAuth, setLoadingAuth] = useState(true);
-            const [globalFilterDay, setGlobalFilterDay] = useState(today);
-            const [isACMode, setIsACMode] = useState(false);
-            const [users, setUsers] = useState([]);
-            const [products, setProducts] = useState(DEFAULT_PRODUCTS);
+            const [loading, setLoading] = useState(true);
+            const [dateRange, setDateRange] = useState({ from: firstDayMonth, to: today });
+
+            // Datos centralizados
             const [cargas, setCargas] = useState([]);
             const [cartera, setCartera] = useState([]);
-            const [facturas, setFacturas] = useState([]);
+            const [gastos, setGastos] = useState([]);
+            const [roles, setRoles] = useState([]);
+            const [eventosNomina, setEventosNomina] = useState([]);
+            const [personal, setPersonal] = useState([]);
+            const [bodega, setBodega] = useState([]);
 
             useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                if (params.get('ac') === 'true') setIsACMode(true);
-
                 const initAuth = async () => {
-                    if (!auth) { setLoadingAuth(false); return; }
+                    if (!auth) { setLoading(false); return; }
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await auth.signInWithCustomToken(__initial_auth_token);
-                        else await auth.signInAnonymously();
-                    } catch (e) { console.error("Auth error:", e); }
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) { console.error(e); }
                 };
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged((u) => { setFbUser(u); setLoadingAuth(false); });
-                const timer = setTimeout(() => setLoadingAuth(false), 5000);
-                return () => { unsubscribe(); clearTimeout(timer); };
+                const unsub = auth?.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+                return () => unsub && unsub();
             }, []);
 
             useEffect(() => {
-                if (!fbUser || !db) return;
-                const collections = ['usuarios', 'productos', 'cargas', 'cartera', 'facturas'];
+                if (!user || !db) return;
+                const collections = ['cargas', 'cartera', 'gastos', 'roles', 'eventosNomina', 'personal', 'bodega'];
                 const unsubs = collections.map(col => {
-                    const q = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
-                    return q.onSnapshot(snap => {
-                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        if (col === 'usuarios') { if (data.length === 0) INITIAL_USERS.forEach(u => q.add(u)); setUsers(data); }
-                        if (col === 'productos') { if (data.length > 0) setProducts(data); else DEFAULT_PRODUCTS.forEach(p => q.doc(p.id).set(p)); }
-                        if (col === 'cargas') setCargas(data);
-                        if (col === 'cartera') setCartera(data);
-                        if (col === 'facturas') setFacturas(data);
-                    }, err => { if (err.code !== 'permission-denied') console.error("DB error:", err); });
+                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
+                        .onSnapshot(snap => {
+                            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            if (col === 'cargas') setCargas(data);
+                            if (col === 'cartera') setCartera(data);
+                            if (col === 'gastos') setGastos(data);
+                            if (col === 'roles') setRoles(data);
+                            if (col === 'eventosNomina') setEventosNomina(data);
+                            if (col === 'personal') setPersonal(data);
+                            if (col === 'bodega') setBodega(data);
+                        }, err => console.error("Snapshot Error:", err));
                 });
                 return () => unsubs.forEach(fn => fn());
-            }, [fbUser]);
+            }, [user]);
 
             const stats = useMemo(() => {
-                const month = globalFilterDay.substring(0, 7);
-                const fCargas = cargas.filter(c => (c.fechaSalida || c.fecha).startsWith(month));
-                const fCartera = cartera.filter(p => p.fecha.startsWith(month));
-                const vtot = fCartera.filter(m => m.tipo === 'Cobro (Cierre Ruta)').reduce((a, b) => a + b.monto, 0);
-                const gtot = fCartera.filter(m => m.tipo === 'Pago Proveedor').reduce((a, b) => a + Math.abs(b.monto), 0);
-                const ctot = fCargas.reduce((a, b) => a + (b.costoTotalVenta || 0), 0);
-                return { vtot, gtot, ctot };
-            }, [cargas, cartera, globalFilterDay]);
-
-            if (loadingAuth) return <div className="h-screen flex items-center justify-center bg-white"><div className="w-14 h-14 border-4 border-orange-600 border-t-transparent rounded-full animate-spin"></div></div>;
-            if (!currentUser) return <GateView users={users} onAccess={(u) => { if(u.role === 'vendedor') setActiveTab('logistica'); setCurrentUser(u); }} isACMode={isACMode} />;
+                const checkDate = (d) => {
+                    const dt = d?.split('T')[0];
+                    return dt >= dateRange.from && dt <= dateRange.to;
+                };
+                const fCargas = cargas.filter(c => checkDate(c.fechaSalida || c.fecha));
+                const fGastos = gastos.filter(g => checkDate(g.fecha));
+                const fRoles = roles.filter(r => checkDate(r.fecha));
+                const fCartera = cartera.filter(p => checkDate(p.fecha));
+                const fEventos = eventosNomina.filter(e => checkDate(e.fecha));
+                
+                const vtot = fCartera.reduce((a, b) => a + (b.monto || 0), 0);
+                const gtot = fGastos.reduce((a, b) => a + (b.monto || 0), 0);
+                const ntot = fRoles.reduce((a, b) => a + (b.neto || 0), 0);
+                
+                return { vtot, gtot, ntot, utNeta: vtot - (gtot + ntot), fCargas, fGastos, fRoles, fCartera, fEventos };
+            }, [cargas, gastos, roles, cartera, eventosNomina, dateRange]);
 
             const NavBtn = ({ active, onClick, icon, label }) => (
-                <button onClick={onClick} className={`w-full flex items-center gap-4 p-5 rounded-[30px] transition-all ${active ? 'bg-gray-900 text-white font-black shadow-2xl scale-105' : 'text-gray-400 hover:bg-gray-100'}`}>
-                    <Icon name={icon} size={22} /> <span className="uppercase tracking-[0.2em] text-[10px]">{label}</span>
+                <button onClick={onClick} className={`w-full flex items-center gap-3 p-4 rounded-3xl transition-all text-sm ${active ? 'bg-gray-900 text-white font-black shadow-2xl' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+                    <Icon name={icon} size={20} /> <span className="uppercase tracking-widest text-[10px]">{label}</span>
                 </button>
             );
 
-            return (
-                <div className={`min-h-screen flex flex-col md:flex-row pb-20 md:pb-0 ${currentUser.role === 'admin' ? 'md:pl-80' : ''}`}>
-                    {currentUser.role === 'admin' && (
-                        <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-80 bg-white border-r flex-col p-8 z-30 shadow-sm print-hidden">
-                            <div className="flex items-center gap-4 mb-14"><div className="bg-orange-600 p-4 rounded-3xl text-white shadow-xl"><Icon name="package" size={32} /></div><span className="font-black text-2xl tracking-tighter uppercase leading-none text-gray-800">Avena Pro</span></div>
-                            <div className="space-y-3 flex-1">
-                                <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon="activity" label="Rentabilidad" />
-                                <NavBtn active={activeTab === 'reference'} onClick={() => setActiveTab('reference')} icon="database" label="Matriz Costos" />
-                                <NavBtn active={activeTab === 'nomina'} onClick={() => setActiveTab('nomina')} icon="credit-card" label="Nómina" />
-                                <NavBtn active={activeTab === 'logistica'} onClick={() => setActiveTab('logistica')} icon="truck" label="Rutas" />
-                                <NavBtn active={activeTab === 'cartera'} onClick={() => setActiveTab('cartera')} icon="landmark" label="Caja Maestro" />
-                                <NavBtn active={activeTab === 'facturas'} onClick={() => setActiveTab('facturas')} icon="file-text" label="Compras" />
-                                <NavBtn active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon="settings" label="Administración" />
-                            </div>
-                            <button onClick={() => setCurrentUser(null)} className="mt-10 text-gray-300 font-black uppercase text-[10px] flex items-center gap-3 px-8 py-5 bg-gray-50 rounded-[30px] hover:text-red-500 shadow-sm transition-all active:scale-95"><Icon name="log-out" size={16}/> Salir</button>
-                        </aside>
-                    )}
+            if (loading) return <div className="h-screen flex items-center justify-center font-black text-orange-600 uppercase tracking-[0.2em] bg-white">Avena Control Pro...</div>;
 
-                    <main className={`p-4 md:p-14 w-full max-w-7xl mx-auto pb-40 ${currentUser.role === 'vendedor' ? 'max-w-4xl' : ''}`}>
-                        {currentUser.role === 'vendedor' && (<div className="flex justify-between items-center mb-10 bg-white p-6 rounded-[40px] shadow-sm border border-gray-100"><div className="flex items-center gap-4"><div className="bg-orange-600 p-3 rounded-2xl text-white shadow-lg"><Icon name="truck"/></div><div><p className="font-black tracking-tighter text-gray-800 uppercase text-xs leading-none">{currentUser.name}</p><p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1 leading-none">Terminal de Ventas</p></div></div><button onClick={() => setCurrentUser(null)} className="text-[10px] font-black uppercase text-red-500 flex items-center gap-3 px-8 py-4 bg-red-50 rounded-[30px] active:scale-95 transition-all shadow-sm">Cerrar Sesión</button></div>)}
-                        
-                        {activeTab === 'dashboard' && currentUser.role === 'admin' && <DashboardView stats={stats} />}
-                        {activeTab === 'reference' && currentUser.role === 'admin' && <MatrizCostosView stats={stats} onBack={() => setActiveTab('dashboard')} />}
-                        {activeTab === 'nomina' && currentUser.role === 'admin' && <NominaView cargas={cargas} onBack={() => setActiveTab('dashboard')} />}
-                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} products={products} db={db} appId={appId} user={currentUser} users={users} onBack={() => setActiveTab('dashboard')} />}
-                        {activeTab === 'cartera' && currentUser.role === 'admin' && <CarteraView cartera={cartera} db={db} appId={appId} filterDay={globalFilterDay} setFilterDay={setGlobalFilterDay} onBack={() => setActiveTab('dashboard')} />}
-                        {activeTab === 'facturas' && currentUser.role === 'admin' && <FacturasView facturas={facturas} products={products} db={db} appId={appId} filterDay={globalFilterDay} onBack={() => setActiveTab('dashboard')} />}
-                        {activeTab === 'settings' && currentUser.role === 'admin' && <AdminSettingsView users={users} db={db} appId={appId} onBack={() => setActiveTab('dashboard')} />}
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row pb-20 md:pb-0 md:pl-72 bg-gray-50">
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm print-hidden">
+                        <div className="flex items-center gap-4 mb-12"><div className="bg-orange-600 p-3 rounded-2xl text-white shadow-xl"><Icon name="package" size={28} /></div><span className="font-black text-2xl tracking-tighter">Avena Pro</span></div>
+                        <div className="space-y-2 flex-1">
+                            <NavBtn active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon="layout" label="Resumen" />
+                            <NavBtn active={activeTab === 'logistica'} onClick={() => setActiveTab('logistica')} icon="truck" label="Rutas y Cargas" />
+                            <NavBtn active={activeTab === 'cartera'} onClick={() => setActiveTab('cartera')} icon="wallet" label="Caja Central" />
+                            <NavBtn active={activeTab === 'nomina'} onClick={() => setActiveTab('nomina')} icon="users" label="Personal" />
+                            <NavBtn active={activeTab === 'gastos'} onClick={() => setActiveTab('gastos')} icon="file-minus" label="Egresos" />
+                            <NavBtn active={activeTab === 'balance'} onClick={() => setActiveTab('balance')} icon="bar-chart-3" label="Resultados" />
+                        </div>
+                        <div className="mt-8 p-6 bg-gray-50 rounded-[35px] border border-gray-100 space-y-3">
+                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest text-center border-b pb-2">Periodo de Análisis</p>
+                            <input type="date" value={dateRange.from} onChange={e => setDateRange({...dateRange, from: e.target.value})} className="w-full text-[10px] p-3 rounded-2xl border-none shadow-sm font-bold bg-white focus:ring-2 ring-orange-200" />
+                            <input type="date" value={dateRange.to} onChange={e => setDateRange({...dateRange, to: e.target.value})} className="w-full text-[10px] p-3 rounded-2xl border-none shadow-sm font-bold bg-white focus:ring-2 ring-orange-200" />
+                        </div>
+                    </aside>
+
+                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-32">
+                        {activeTab === 'dashboard' && <DashboardView stats={stats} />}
+                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} personal={personal} db={db} appId={appId} />}
+                        {activeTab === 'nomina' && <NominaView filteredData={stats} personal={personal} roles={stats.fRoles} db={db} appId={appId} />}
+                        {activeTab === 'cartera' && <CarteraView cartera={stats.fCartera} db={db} appId={appId} />}
+                        {activeTab === 'gastos' && <GastosView gastos={stats.fGastos} db={db} appId={appId} />}
+                        {activeTab === 'balance' && <BalanceView stats={stats} />}
                     </main>
 
-                    {currentUser.role === 'admin' && (
-                        <nav className="md:hidden fixed bottom-6 left-6 right-6 bg-gray-900 rounded-[40px] flex justify-around p-6 z-30 shadow-2xl border border-white/10 print-hidden">
-                            <button onClick={() => setActiveTab('dashboard')} className={activeTab === 'dashboard' ? 'text-orange-500 scale-125' : 'text-gray-500'}><Icon name="activity" size={26} /></button>
-                            <button onClick={() => setActiveTab('reference')} className={activeTab === 'reference' ? 'text-orange-500 scale-125' : 'text-gray-500'}><Icon name="database" size={26} /></button>
-                            <button onClick={() => setActiveTab('nomina')} className={activeTab === 'nomina' ? 'text-orange-500 scale-125' : 'text-gray-500'}><Icon name="credit-card" size={26} /></button>
-                            <button onClick={() => setActiveTab('logistica')} className={activeTab === 'logistica' ? 'text-orange-500 scale-125' : 'text-gray-500'}><Icon name="truck" size={26} /></button>
-                        </nav>
-                    )}
+                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-gray-900/95 backdrop-blur-lg rounded-[30px] flex justify-around p-4 z-30 shadow-2xl border border-white/10 print-hidden">
+                        <button onClick={() => setActiveTab('dashboard')} className={activeTab === 'dashboard' ? 'text-orange-500' : 'text-gray-500'}><Icon name="layout" size={24} /></button>
+                        <button onClick={() => setActiveTab('logistica')} className={activeTab === 'logistica' ? 'text-orange-500' : 'text-gray-500'}><Icon name="truck" size={24} /></button>
+                        <button onClick={() => setActiveTab('cartera')} className={activeTab === 'cartera' ? 'text-orange-500' : 'text-gray-500'}><Icon name="wallet" size={24} /></button>
+                        <button onClick={() => setActiveTab('balance')} className={activeTab === 'balance' ? 'text-orange-500' : 'text-gray-500'}><Icon name="bar-chart-3" size={24} /></button>
+                    </nav>
                 </div>
             );
         }
