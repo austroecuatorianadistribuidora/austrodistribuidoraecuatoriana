@@ -26,6 +26,7 @@
             .print-hidden { display: none !important; } 
             .print-only { display: block !important; }
             body { background: white !important; padding: 0 !important; }
+            .no-shadow { box-shadow: none !important; border: 1px solid #eee !important; }
         }
         .print-only { display: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -41,8 +42,8 @@
         <div style="display: flex; height: 100vh; align-items: center; justify-content: center; background: #fff;">
             <div style="text-align: center;">
                 <div style="width: 40px; height: 40px; border: 4px solid #f97316; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-                <p style="color: #444; font-weight: bold;">Iniciando Avena Pro...</p>
-                <p style="color: #888; font-size: 11px; margin-top: 10px;">Configurando perfiles administrativos...</p>
+                <p style="color: #444; font-weight: bold;">Estabilizando Avena Pro...</p>
+                <p style="color: #888; font-size: 11px; margin-top: 10px;">Configurando enlaces y accesos de red...</p>
             </div>
         </div>
     </div>
@@ -114,39 +115,19 @@
         const ViewHeader = ({ title, sub, onBack, colorClass = "bg-orange-600" }) => (
             <div className="flex justify-between items-center mb-6 bg-white p-5 rounded-[30px] shadow-sm border border-gray-100 print-hidden">
                 <div className="flex items-center gap-4">
-                    <div className={`${colorClass} p-3 rounded-xl text-white shadow-md`}><Icon name="layers" size={20}/></div>
+                    <div className={`${colorClass} p-3 rounded-xl text-white shadow-lg`}><Icon name="layers" size={20}/></div>
                     <div>
                         <h2 className="text-xl font-black tracking-tighter text-gray-800 uppercase leading-none">{title}</h2>
                         <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-1">{sub}</p>
                     </div>
                 </div>
                 {onBack && (
-                    <button onClick={onBack} className="bg-gray-100 p-2.5 rounded-xl text-gray-400 hover:text-gray-800 transition-all">
+                    <button onClick={onBack} className="bg-gray-100 p-2.5 rounded-xl text-gray-400 hover:text-gray-800 transition-all active:scale-95">
                         <Icon name="chevron-left" size={20}/>
                     </button>
                 )}
             </div>
         );
-
-        const copyToClipboardFallback = (text) => {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            textArea.style.top = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                return true;
-            } catch (err) {
-                console.error('Error al copiar:', err);
-                return false;
-            } finally {
-                document.body.removeChild(textArea);
-            }
-        };
 
         // --- VISTAS ---
 
@@ -260,7 +241,7 @@
                     {selectedRol && (
                         <div className="fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center backdrop-blur-md overflow-y-auto">
                             <div className="bg-white w-full max-w-xl rounded-[50px] p-12 shadow-2xl relative animate-in zoom-in-95 my-8 no-shadow">
-                                <button onClick={() => setSelectedRol(null)} className="absolute right-10 top-10 text-gray-300 hover:text-red-500 print-hidden"><Icon name="x" size={24}/></button>
+                                <button onClick={() => setSelectedRol(null)} className="absolute right-10 top-10 text-gray-300 hover:text-red-500 print-hidden p-2"><Icon name="x" size={24}/></button>
                                 <div className="space-y-8">
                                     <div className="text-center space-y-2"><h3 className="text-2xl font-black uppercase tracking-tighter leading-none">Rol de Pagos</h3><p className="text-[10px] font-bold text-gray-400 uppercase">Distribuidora Avena • Ecuador</p></div>
                                     <div className="grid grid-cols-2 py-6 border-y border-gray-100 uppercase font-black text-xs text-gray-600">
@@ -350,12 +331,12 @@
             return (
                 <div className="space-y-6 animate-in fade-in duration-500">
                     <ViewHeader title="Logística" sub="Gestión de Cargas y Retornos" onBack={user.role === 'admin' ? onBack : null} colorClass="bg-orange-500" />
-                    <div className="flex justify-end gap-2 px-2"><input type="date" value={filterDay} onChange={e => setFilterDay(e.target.value)} className="p-3 rounded-2xl font-black text-xs border-none shadow-sm outline-none"/><button onClick={() => handleOpenModal()} className="bg-orange-600 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all"><Icon name="plus" size={24}/></button></div>
+                    <div className="flex justify-end gap-2 px-2"><input type="date" value={filterDay} onChange={e => setFilterDay(e.target.value)} className="p-3 rounded-2xl font-black text-xs border-none shadow-sm outline-none shadow-inner"/><button onClick={() => handleOpenModal()} className="bg-orange-600 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all"><Icon name="plus" size={24}/></button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {filtered.map(c => (
-                            <div key={c.id} className={`bg-white p-7 rounded-[40px] border shadow-sm transition-all hover:shadow-md ${c.estado === 'Liquidado' ? 'border-l-8 border-green-500' : 'border-l-8 border-orange-400'}`}>
+                            <div key={c.id} className={`bg-white p-8 rounded-[45px] border shadow-sm transition-all hover:shadow-md ${c.estado === 'Liquidado' ? 'border-l-8 border-green-500' : 'border-l-8 border-orange-400'}`}>
                                 <div className="flex justify-between items-start"><div><h4 className="font-black text-gray-800 text-lg leading-tight uppercase leading-none mb-1">{c.responsable}</h4><p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(c.fechaSalida).toLocaleTimeString()}</p></div><span className="px-3 py-1 rounded-full text-[8px] font-black uppercase bg-gray-100">{c.estado}</span></div>
-                                <div className="mt-6 flex justify-between items-center pt-5 border-t"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1 leading-none">Neto</p><p className="text-xl font-black text-gray-800 tracking-tighter font-mono">${(c.ventaNeta || c.totalCargado).toLocaleString()}</p></div>{c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Liquidar</button>}</div>
+                                <div className="mt-6 flex justify-between items-center pt-5 border-t"><div><p className="text-[9px] font-bold text-gray-400 uppercase mb-1 leading-none">Neto</p><p className="text-xl font-black text-gray-800 tracking-tighter font-mono">${(c.ventaNeta || c.totalCargado).toLocaleString()}</p></div>{c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-gray-900 text-white px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase shadow-lg hover:bg-black active:scale-95 transition-all">Liquidar</button>}</div>
                                 <div className="flex gap-2 mt-4 pt-4 border-t border-dashed border-gray-100"><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="p-2 text-red-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button><button onClick={() => handleOpenModal(c)} className="p-2 text-blue-100 hover:text-blue-500 transition-colors"><Icon name="edit-3" size={16}/></button></div>
                             </div>
                         ))}
@@ -366,7 +347,7 @@
                                 <button onClick={() => setModal(false)} className="absolute right-8 top-8 text-gray-300 hover:text-red-500 p-2"><Icon name="x"/></button>
                                 <h3 className="font-black text-2xl mb-8 uppercase tracking-tighter leading-none">{editId ? "Corregir Carga" : "Registrar Carga"}</h3>
                                 <div className="space-y-5">
-                                    <select className="w-full bg-gray-100 p-5 rounded-[25px] border-none font-black text-sm shadow-inner outline-none" value={vendedorSel} onChange={e => setVendedorSel(e.target.value)}>
+                                    <select className="w-full bg-gray-100 p-5 rounded-[30px] border-none font-black text-sm shadow-inner outline-none" value={vendedorSel} onChange={e => setVendedorSel(e.target.value)}>
                                         <option value="">Seleccionar Perfil...</option>
                                         {sellers.map(v => <option key={v.id} value={v.name}>{v.name}</option>)}
                                     </select>
@@ -443,7 +424,7 @@
                             <div key={f.id} className={`bg-white p-8 rounded-[45px] border shadow-sm ${f.estado === 'Pagado' ? 'border-l-8 border-green-500' : 'border-l-8 border-red-500'}`}>
                                 <h4 className="font-black text-2xl uppercase tracking-tighter leading-none mb-1">#{f.num}</h4>
                                 <div className="mt-4 bg-green-50 p-5 rounded-[25px] flex justify-between items-center mb-5 font-black text-green-700 font-mono text-sm leading-none"><span>Utilidad Factura:</span><span>${f.totalUtilidad?.toFixed(2)}</span></div>
-                                <div className="flex justify-between items-end border-t pt-5"><p className="text-3xl font-black text-gray-800 tracking-tighter font-mono">${f.total.toLocaleString()}</p><div className="flex gap-2"><button onClick={() => handleOpenModal(f)} className="p-2 text-blue-300 hover:text-blue-500 active:scale-95 transition-all"><Icon name="edit-3"/></button><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturas').doc(f.id).delete()} className="p-2 text-red-200 hover:text-red-500 active:scale-95 transition-all"><Icon name="trash-2"/></button></div></div>
+                                <div className="flex justify-between items-end border-t pt-5"><p className="text-3xl font-black text-gray-800 tracking-tighter">${f.total.toLocaleString()}</p><div className="flex gap-2"><button onClick={() => handleOpenModal(f)} className="p-2 text-blue-300 hover:text-blue-500 active:scale-95 transition-all"><Icon name="edit-3"/></button><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturas').doc(f.id).delete()} className="p-2 text-red-200 hover:text-red-500 active:scale-95 transition-all"><Icon name="trash-2"/></button></div></div>
                             </div>
                         ))}
                     </div>
@@ -452,25 +433,21 @@
         };
 
         const AdminSettingsView = ({ users, db, appId, onBack }) => {
-            const currentURL = window.location.href.split('?')[0];
-            const sellerLink = `${currentURL}?ac=true`;
+            const [nu, setNu] = useState({ name: '', password: '', role: 'vendedor' });
+            
+            const getRealURL = () => {
+                const current = window.location.href.split('?')[0];
+                // Si el URL actual contiene "blob", informar al usuario que debe usar el link de producción
+                if (current.includes('blob:')) return "⚠️ Abre la App desde GitHub o tu Servidor Real para generar el enlace.";
+                return `${current}?ac=true`;
+            };
+
+            const sellerLink = getRealURL();
 
             const copyToClipboard = (text) => {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.left = "-9999px";
-                textArea.style.top = "0";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    alert("Enlace copiado correctamente.");
-                } catch (err) {
-                    console.error('Error al copiar:', err);
-                }
-                document.body.removeChild(textArea);
+                if (text.startsWith('⚠️')) return;
+                const ok = copyToClipboardFallback(text);
+                if (ok) alert("Enlace copiado. Pégalo en el navegador o WhatsApp de los vendedores.");
             };
 
             const handleUpdatePassword = async (userId, newPass) => {
@@ -483,21 +460,27 @@
                     
                     <section className="bg-gradient-dark p-10 rounded-[50px] text-white shadow-2xl space-y-6 relative overflow-hidden">
                         <div className="absolute right-[-20px] top-[-20px] opacity-[0.05]"><Icon name="smartphone" size={200}/></div>
-                        <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-2 leading-none"><Icon name="share-2" className="text-orange-500"/> App Celulares</h3>
+                        <h3 className="text-xl font-black uppercase tracking-widest flex items-center gap-2 leading-none"><Icon name="share-2" className="text-orange-500"/> Terminal de Vendedores</h3>
                         <div className="bg-white/10 p-7 rounded-[40px] border border-white/20 space-y-6">
                             <div className="flex flex-col md:flex-row items-center gap-8">
-                                <div className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(sellerLink)}`} alt="QR" className="w-24 h-24"/></div>
+                                <div className="bg-white p-4 rounded-3xl shadow-xl border border-gray-100">
+                                    {!sellerLink.startsWith('⚠️') ? (
+                                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(sellerLink)}`} alt="QR" className="w-24 h-24"/>
+                                    ) : (
+                                        <div className="w-24 h-24 bg-gray-200 rounded-xl flex items-center justify-center text-gray-400"><Icon name="qr-code" size={40}/></div>
+                                    )}
+                                </div>
                                 <div className="space-y-3 flex-1">
-                                    <p className="text-[10px] font-black uppercase opacity-60">Enlace Exclusivo Vendedores:</p>
+                                    <p className="text-[10px] font-black uppercase opacity-60">Dirección para Celulares:</p>
                                     <code className="block bg-black/40 p-4 rounded-2xl text-[9px] break-all text-orange-300 font-mono mb-4 leading-relaxed">{sellerLink}</code>
-                                    <button onClick={() => copyToClipboard(sellerLink)} className="bg-white text-black px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"><Icon name="copy" size={14}/> Copiar Link</button>
+                                    <button onClick={() => copyToClipboard(sellerLink)} className="bg-white text-black px-8 py-3 rounded-2xl text-[10px] font-black uppercase shadow-xl hover:bg-orange-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"><Icon name="copy" size={14}/> Copiar Link para WhatsApp</button>
                                 </div>
                             </div>
                         </div>
                     </section>
 
                     <section className="bg-white p-8 rounded-[45px] border shadow-sm space-y-8">
-                        <h3 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-tight"><Icon name="users" className="text-blue-500"/> Personal</h3>
+                        <h3 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-tight"><Icon name="users" className="text-blue-500"/> Gestión de Personal</h3>
                         <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 hide-scrollbar">{users.map(u => (
                             <div key={u.id} className="bg-gray-50 p-6 rounded-[35px] border flex flex-col gap-4 transition-all hover:bg-white transition-all shadow-sm">
                                 <div className="flex justify-between items-start"><div><p className="font-black text-gray-800 text-sm uppercase leading-none mb-1 leading-none">{u.name}</p><span className={`text-[8px] font-black uppercase ${u.role === 'admin' ? 'text-blue-600' : 'text-orange-600'}`}>{u.role.toUpperCase()}</span></div><button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('usuarios').doc(u.id).delete()} className="text-red-200 transition-colors hover:text-red-500 p-1"><Icon name="trash-2" size={18}/></button></div>
@@ -540,7 +523,7 @@
             const [pass, setPass] = useState("");
             const [error, setError] = useState(false);
             
-            // FILTRADO DINÁMICO: Si es arranque normal, solo admins. Si es modo AC, solo vendedores.
+            // FILTRADO DINÁMICO: Si es arranque normal (?ac=true no presente), solo admins.
             const filteredUsers = isACMode ? users.filter(u => u.role === 'vendedor') : users.filter(u => u.role === 'admin');
 
             const handleLogin = () => {
