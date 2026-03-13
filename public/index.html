@@ -3,17 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Logística Polaca Pro v1.8</title>
+    <title>Logística Polaca Pro v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-    {
-      "imports": {
-        "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
-        "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
-      }
-    }
-    </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
         
@@ -104,7 +96,41 @@
             padding: 16px 8px;
             text-align: center;
         }
+        
+        .vendor-active {
+            background-color: var(--oneui-orange) !important;
+            color: white !important;
+        }
     </style>
+
+    <!-- NAVEGACIÓN GLOBAL INMEDIATA -->
+    <script>
+        function switchTab(tab) {
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(c => c.classList.remove('active'));
+            const target = document.getElementById('tab-' + tab);
+            if(target) target.classList.add('active');
+
+            const navBtns = document.querySelectorAll('nav button');
+            navBtns.forEach(b => b.classList.remove('tab-active'));
+            const activeBtn = document.getElementById('nav-' + tab);
+            if(activeBtn) activeBtn.classList.add('tab-active');
+
+            const titles = { dashboard: 'Panel', facturas: 'Facturas', logistica: 'Logística', gerencia: 'Gerencia', contabilidad: 'Contabilidad' };
+            document.getElementById('view-title').innerText = titles[tab] || 'Inicio';
+            
+            if (window.renderApp) window.renderApp();
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            if (id === 'modal-factura' && window.initMirror) window.initMirror();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+    </script>
 </head>
 <body class="pb-32">
 
@@ -112,24 +138,23 @@
         <header class="oneui-header">
             <div class="flex justify-between items-start">
                 <div>
-                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Cloud Sincronizado v1.8</div>
-                    <h1 id="view-title" class="text-3xl font-extrabold tracking-tight text-gray-800">Inicio</h1>
+                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Sistema v2.0 Online</div>
+                    <h1 id="view-title" class="text-3xl font-extrabold tracking-tight">Panel</h1>
                 </div>
-                <div id="auth-status" class="bg-gray-200 p-2 rounded-2xl transition-colors">
+                <div id="auth-status" class="bg-gray-200 p-2 rounded-2xl">
                     <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
             </div>
         </header>
 
         <main id="main-container" class="px-5 space-y-6">
-            <!-- PESTAÑA 1: INICIO -->
+            <!-- TAB 1: DASHBOARD -->
             <section id="tab-dashboard" class="tab-content active fade-in">
                 <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
-                    <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Saldo Pendiente en Nube</p>
+                    <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Saldo Pendiente de Cobro</p>
                     <h2 id="dash-total" class="text-4xl font-black mt-1">$0.00</h2>
                     <div class="mt-8 flex justify-between items-center">
-                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold uppercase">Sincronizado</span>
-                        <span class="text-[10px] font-mono font-bold opacity-40">v1.8</span>
+                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold uppercase tracking-tight">v2.0 Táctil OK</span>
                     </div>
                 </div>
                 
@@ -139,85 +164,85 @@
                         <p id="dash-facturas-count" class="text-2xl font-black text-gray-800">0</p>
                     </div>
                     <div class="card-samsung p-6 border border-gray-100 text-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Liquidaciones Hoy</p>
+                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Abonos/Cierres</p>
                         <p id="dash-rutas-count" class="text-2xl font-black text-gray-800">0</p>
                     </div>
                 </div>
             </section>
 
-            <!-- PESTAÑA 2: FACTURAS -->
+            <!-- TAB 2: FACTURAS -->
             <section id="tab-facturas" class="tab-content fade-in">
-                <button onclick="window.openModal('modal-factura')" class="w-full py-5 btn-orange text-[10px] font-black uppercase tracking-[0.2em] mb-4 shadow-lg shadow-orange-100">+ Ingreso Factura Espejo</button>
+                <button onclick="openModal('modal-factura')" class="w-full py-5 btn-orange text-[10px] font-black uppercase tracking-[0.2em] mb-4 shadow-lg shadow-orange-100">+ Factura Espejo Manual</button>
                 <div id="facturas-list" class="space-y-4"></div>
             </section>
 
-            <!-- PESTAÑA 3: LOGÍSTICA -->
+            <!-- TAB 3: LOGÍSTICA -->
             <section id="tab-logistica" class="tab-content fade-in">
                 <div class="flex gap-3 mb-6">
                     <button onclick="window.setVendor('Diego Javier Ciabichay Arias')" id="v-diego" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400">Diego Javier</button>
                     <button onclick="window.setVendor('Byron Armando Miranda Capa')" id="v-byron" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400">Byron Armando</button>
                 </div>
                 <div class="card-samsung p-6 border border-gray-100 space-y-4">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Inventario de Carga</h3>
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Carga Diaria</h3>
                     <div id="logistica-items" class="space-y-3"></div>
                     <div class="pt-4 border-t flex justify-between items-center">
-                        <p class="text-[10px] font-black text-gray-400 uppercase">Costo Total</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase">Costo Distribución</p>
                         <p id="log-carga-total" class="text-xl font-black text-gray-900">$0.00</p>
                     </div>
-                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg">Registrar Salida</button>
+                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase">Registrar Salida</button>
                 </div>
             </section>
 
-            <!-- PESTAÑA 4: GERENCIA -->
+            <!-- TAB 4: GERENCIA -->
             <section id="tab-gerencia" class="tab-content fade-in">
                 <div id="utility-card" class="card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors">
-                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Acumulada</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Bruta Facturada</p>
                     <h2 id="gerencia-utility" class="text-4xl font-black mt-1">$0.00</h2>
                 </div>
                 <div class="card-samsung p-6 border border-gray-100">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase mb-4">Meta Mensual ($19,887.78)</h3>
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase mb-4">Punto de Equilibrio Financiero</h3>
                     <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden mb-2">
                         <div id="gerencia-progress" class="h-full bg-orange-500 transition-all duration-700" style="width: 0%"></div>
                     </div>
-                    <p id="gerencia-percent" class="text-[10px] font-black text-orange-600">0% Logrado</p>
+                    <p id="gerencia-percent" class="text-[10px] font-black text-orange-600">0% de $19,887.78</p>
                 </div>
             </section>
 
-            <!-- PESTAÑA 5: CONTABILIDAD -->
+            <!-- TAB 5: CONTABILIDAD -->
             <section id="tab-contabilidad" class="tab-content fade-in">
                 <div id="contabilidad-ledger" class="space-y-3"></div>
             </section>
         </main>
 
         <nav class="nav-bottom fixed bottom-0 left-0 right-0 h-24 flex justify-around items-center z-50 px-2 pb-4 shadow-2xl">
-            <button onclick="window.switchTab('dashboard')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-dashboard">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+            <button onclick="switchTab('dashboard')" class="flex flex-col items-center gap-1 text-gray-400 p-4" id="nav-dashboard">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                 <span class="text-[8px] font-black uppercase">Panel</span>
             </button>
-            <button onclick="window.switchTab('facturas')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-facturas">
+            <button onclick="switchTab('facturas')" class="flex flex-col items-center gap-1 text-gray-400 p-4" id="nav-facturas">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 <span class="text-[8px] font-black uppercase">Facturas</span>
             </button>
-            <button onclick="window.switchTab('logistica')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-logistica">
+            <button onclick="switchTab('logistica')" class="flex flex-col items-center gap-1 text-gray-400 p-4" id="nav-logistica">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V14a1 1 0 01-1 1H13z" /></svg>
                 <span class="text-[8px] font-black uppercase">Rutas</span>
             </button>
-            <button onclick="window.switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-gerencia">
+            <button onclick="switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 p-4" id="nav-gerencia">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                <span class="text-[8px] font-black uppercase">Gerencia</span>
+                <span class="text-[8px] font-black uppercase">Metas</span>
             </button>
-            <button onclick="window.switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-contabilidad">
+            <button onclick="switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 p-4" id="nav-contabilidad">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span class="text-[8px] font-black uppercase">Libro</span>
             </button>
         </nav>
 
-        <!-- MODAL FACTURA ESPEJO -->
+        <!-- MODAL FACTURA -->
         <div id="modal-factura" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[1000] hidden flex items-end justify-center p-0">
             <div class="card-samsung w-full max-w-md p-8 space-y-6 rounded-b-none animate-in slide-in-from-bottom duration-300">
                 <div class="flex justify-between items-center border-b pb-4">
-                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Registro Espejo</h3>
-                    <button onclick="window.closeModal('modal-factura')" class="text-gray-400 p-2">✕</button>
+                    <h3 class="font-black text-gray-800 text-xs uppercase">Registro Espejo Austro</h3>
+                    <button onclick="closeModal('modal-factura')" class="text-gray-400 p-2">✕</button>
                 </div>
                 <div class="space-y-4">
                     <input id="f-cliente" type="text" placeholder="Cliente" value="DISTRIBUIDORA AUSTROECUATORIANA S.A.S.">
@@ -225,9 +250,9 @@
                         <input id="f-num" type="text" placeholder="N° Factura">
                         <input id="f-fecha" type="date">
                     </div>
-                    <div class="bg-gray-50 rounded-2xl p-4 overflow-x-auto">
+                    <div class="bg-gray-50 rounded-2xl p-4">
                         <table class="mirror-table">
-                            <thead><tr><th>PRODUCTO</th><th>CANT</th><th class="text-right">PDIST</th></tr></thead>
+                            <thead><tr><th>PRODUCTO</th><th>CANT</th><th class="text-right">COSTO</th></tr></thead>
                             <tbody id="f-items-mirror"></tbody>
                         </table>
                     </div>
@@ -241,7 +266,7 @@
                             <p id="f-total-display" class="text-lg font-black text-orange-400">$0.00</p>
                         </div>
                     </div>
-                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black shadow-xl">Sincronizar Factura</button>
+                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black shadow-xl">Guardar en la Nube</button>
                 </div>
             </div>
         </div>
@@ -252,12 +277,12 @@
                 <h3 class="font-black text-gray-800 text-xs uppercase">Registrar Pago</h3>
                 <div class="space-y-4">
                     <input id="ab-monto" type="number" placeholder="Monto ($)" class="text-lg font-black">
-                    <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center relative bg-gray-50">
+                    <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center bg-gray-50 relative">
                         <input type="file" id="ab-foto" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
-                        <p class="text-[9px] font-black text-gray-400 uppercase">Tap para foto comprobante</p>
+                        <p class="text-[9px] font-black text-gray-400 uppercase">Foto del Comprobante</p>
                     </div>
                     <button onclick="window.confirmAbono()" class="w-full py-4 btn-orange uppercase text-[10px] font-black">Confirmar</button>
-                    <button onclick="window.closeModal('modal-abono')" class="w-full text-xs font-bold text-gray-400 uppercase">Cancelar</button>
+                    <button onclick="closeModal('modal-abono')" class="w-full text-xs font-bold text-gray-400 uppercase">Cancelar</button>
                 </div>
             </div>
         </div>
@@ -266,11 +291,11 @@
     <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[2000] shadow-2xl"></div>
 
     <script type="module">
-        import { initializeApp } from "firebase/app";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-        import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+        // USANDO IMPORTACIÓN DIRECTA PARA EVITAR FALLO DE IMPORTMAP
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // TABLA TÉCNICA v1.8
         const PRODUCTOS = [
             { id: 'P1', nombre: 'VASO 165G.', costo: 0.2696, precio: 0.3478, rent: 0.0783 },
             { id: 'P2', nombre: 'VASO 340G.', costo: 0.6087, precio: 0.6957, rent: 0.0870 },
@@ -281,40 +306,25 @@
         let state = { facturas: [], activeTab: 'dashboard', activeVendor: null, user: null, selectedFacturaId: null };
 
         // FIREBASE SETUP
-        const config = JSON.parse(__firebase_config);
-        const app = initializeApp(config);
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-pro-v2-main';
 
-        // REGISTRO GLOBAL DE FUNCIONES
-        window.switchTab = (tab) => {
-            state.activeTab = tab;
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
-            document.getElementById(`nav-${tab}`).classList.add('tab-active');
-            document.getElementById('view-title').innerText = tab.charAt(0).toUpperCase() + tab.slice(1);
-            render();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        // REGISTRO GLOBAL DE FUNCIONES PARA ACCESO TÁCTIL
+        window.setVendor = (v) => { state.activeVendor = v; window.renderApp(); };
+        window.initMirror = () => {
+            const tbody = document.getElementById('f-items-mirror');
+            if(!tbody) return;
+            tbody.innerHTML = PRODUCTOS.map((p, i) => `
+                <tr>
+                    <td class="font-bold text-gray-600 text-[10px]">${p.nombre}</td>
+                    <td><input type="number" id="f-cant-${i}" oninput="window.calcFMirror()" placeholder="0" class="w-full text-center border-none p-1 text-[11px] font-black bg-orange-50 rounded-lg"></td>
+                    <td class="font-mono text-gray-400 text-right">$${p.costo.toFixed(4)}</td>
+                </tr>
+            `).join('');
         };
-
-        window.openModal = (id, factId = null) => {
-            document.getElementById(id).classList.remove('hidden');
-            if (id === 'modal-factura') {
-                document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
-                document.getElementById('f-items-mirror').innerHTML = PRODUCTOS.map((p, i) => `
-                    <tr>
-                        <td class="font-bold text-gray-600 text-[10px]">${p.nombre}</td>
-                        <td><input type="number" id="f-cant-${i}" oninput="window.calcFMirror()" placeholder="0" class="w-full text-center border-none p-1 text-[11px] font-black bg-orange-50 rounded-lg"></td>
-                        <td class="font-mono text-gray-400 text-right">$${p.costo.toFixed(4)}</td>
-                    </tr>
-                `).join('');
-            }
-            if (factId) state.selectedFacturaId = factId;
-        };
-
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
 
         window.calcFMirror = () => {
             let tDistrib = 0; let tUtilidad = 0;
@@ -336,36 +346,34 @@
                 if (el) el.innerText = `$${v.toFixed(2)}`;
                 total += v;
             });
-            document.getElementById('log-carga-total').innerText = `$${total.toFixed(2)}`;
+            const tEl = document.getElementById('log-carga-total');
+            if (tEl) tEl.innerText = `$${total.toFixed(2)}`;
             return total;
         };
 
         window.saveFactura = async () => {
-            if (!state.user) return showToast("SIN CONEXIÓN SEGURA - REINTENTE");
+            if (!state.user) return showToast("ESPERE CONEXIÓN...");
             const btn = document.getElementById('btn-f-save');
             const n = document.getElementById('f-num').value;
-            if (!n) return showToast("INGRESE N° FACTURA");
-            
+            if (!n) return showToast("N° FACTURA?");
             btn.disabled = true; btn.innerText = "SINCRO...";
             const total = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
             const utilidad = parseFloat(document.getElementById('f-utilidad-display').innerText.replace('$',''));
-            
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), {
                     cliente: document.getElementById('f-cliente').value,
                     numFactura: n, fechaEmision: document.getElementById('f-fecha').value,
                     total, utilidad, pagado: 0, saldo: total, estado: 'pendiente', timestamp: serverTimestamp()
                 });
-                showToast("SINCRO EXITOSA"); window.closeModal('modal-factura');
+                showToast("SINCRO EXITOSA"); closeModal('modal-factura');
             } catch (e) { 
-                showToast("ERROR EN NUBE"); btn.disabled = false; btn.innerText = "REINTENTAR";
+                showToast("ERROR NUBE"); btn.disabled = false; btn.innerText = "REINTENTAR";
             }
         };
 
         window.confirmAbono = async () => {
-            if (!state.user) return showToast("SIN CONEXIÓN");
             const m = parseFloat(document.getElementById('ab-monto').value);
-            if (!m || m <= 0) return showToast("MONTO INVÁLIDO");
+            if (!m || m <= 0) return showToast("MONTO?");
             const fact = state.facturas.find(f => f.id === state.selectedFacturaId);
             const nPagado = (fact.pagado || 0) + m;
             const nSaldo = fact.total - nPagado;
@@ -374,34 +382,30 @@
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', state.selectedFacturaId), {
                     pagado: nPagado, saldo: nSaldo, estado: nEstado
                 });
-                showToast("ABONO GUARDADO"); window.closeModal('modal-abono');
+                showToast("ABONO REGISTRADO"); closeModal('modal-abono');
             } catch (e) { showToast("ERROR"); }
         };
 
-        window.setVendor = (v) => { state.activeVendor = v; render(); };
-
         window.saveLiquidation = async (tipo) => {
-            if (!state.user) return showToast("SIN CONEXIÓN");
+            if (!state.user) return showToast("ESPERE...");
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), {
                     vendedor: state.activeVendor, tipo, timestamp: serverTimestamp(), valor: window.calcCarga()
                 });
-                showToast("DATOS GUARDADOS");
-            } catch (e) { showToast("FALLO SINCRO"); }
+                showToast("CARGA GUARDADA");
+            } catch (e) { showToast("ERROR"); }
         };
 
-        // RENDER
-        function render() {
+        window.renderApp = function() {
             const tab = state.activeTab;
             if (tab === 'dashboard') {
                 const pend = state.facturas.reduce((acc, f) => acc + (f.saldo || 0), 0);
                 document.getElementById('dash-total').innerText = `$${pend.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
                 document.getElementById('dash-facturas-count').innerText = state.facturas.filter(f => f.estado === 'pendiente').length;
-                document.getElementById('dash-rutas-count').innerText = state.facturas.filter(f => f.estado === 'abonado' || f.estado === 'cancelado').length;
+                document.getElementById('dash-rutas-count').innerText = state.facturas.filter(f => f.estado === 'abonado').length;
             }
             if (tab === 'facturas') {
                 const list = document.getElementById('facturas-list');
-                // Orden de ingreso (más reciente arriba)
                 const sorted = [...state.facturas].sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                 list.innerHTML = sorted.length ? sorted.map(f => `
                     <div class="card-samsung p-6 border border-gray-100 fade-in">
@@ -409,7 +413,7 @@
                             <div class="max-w-[70%]"><h4 class="font-black text-xs text-gray-900 uppercase truncate">${f.cliente}</h4><p class="text-[9px] text-gray-400 font-bold mt-1">#${f.numFactura}</p></div>
                             <div class="text-right">
                                 <span class="text-lg font-black text-orange-600">$${f.total.toFixed(2)}</span>
-                                <p class="text-[8px] font-black text-blue-500">UTILIDAD: $${(f.utilidad || 0).toFixed(2)}</p>
+                                <p class="text-[8px] font-black text-blue-500 uppercase">Utilidad: $${(f.utilidad || 0).toFixed(2)}</p>
                             </div>
                         </div>
                         <div class="mt-4 flex gap-2">
@@ -417,14 +421,14 @@
                              <span class="badge self-center ${f.estado === 'cancelado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${f.estado}</span>
                         </div>
                         <div class="mt-3 flex gap-2">
-                            <button onclick="window.openModal('modal-abono', '${f.id}')" class="flex-1 bg-gray-100 py-3 rounded-2xl text-[9px] font-black uppercase">Abonar</button>
+                            <button onclick="state.selectedFacturaId='${f.id}'; openModal('modal-abono')" class="flex-1 bg-gray-100 py-4 rounded-2xl text-[9px] font-black uppercase">Abonar</button>
                         </div>
                     </div>
-                `).join('') : '<p class="text-center text-gray-400 py-10 font-bold italic">No hay datos</p>';
+                `).join('') : '<p class="text-center text-gray-400 py-10 font-bold italic">Sin movimientos</p>';
             }
             if (tab === 'logistica') {
-                document.getElementById('v-diego').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Diego Javier Ciabichay Arias' ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-200 text-gray-400'}`;
-                document.getElementById('v-byron').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Byron Armando Miranda Capa' ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-200 text-gray-400'}`;
+                document.getElementById('v-diego').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400 ${state.activeVendor === 'Diego Javier Ciabichay Arias' ? 'vendor-active' : ''}`;
+                document.getElementById('v-byron').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400 ${state.activeVendor === 'Byron Armando Miranda Capa' ? 'vendor-active' : ''}`;
                 document.getElementById('logistica-items').innerHTML = PRODUCTOS.map((p, i) => `
                     <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl">
                         <div class="flex-1"><span class="text-[10px] font-black text-gray-600 uppercase tracking-tighter">${p.nombre}</span></div>
@@ -441,40 +445,29 @@
                 const totalVent = state.facturas.reduce((acc, f) => acc + (f.total || 0), 0);
                 const perc = Math.min((totalVent / 19887.78) * 100, 100);
                 document.getElementById('gerencia-progress').style.width = perc + '%';
-                document.getElementById('gerencia-percent').innerText = `${perc.toFixed(1)}% Alcanzado`;
+                document.getElementById('gerencia-percent').innerText = `${perc.toFixed(1)}% Logrado`;
             }
-        }
+        };
 
-        // INIT CORE
+        // INIT
         async function start() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else { await signInAnonymously(auth); }
                 
-                state.user = auth.currentUser;
-                if (state.user) {
-                    document.getElementById('cloud-sync').style.opacity = '1';
-                    document.getElementById('auth-status').className = "bg-green-100 p-2 rounded-2xl";
-                    setupListeners();
-                }
-                
                 onAuthStateChanged(auth, (u) => {
-                    state.user = u;
                     if (u) {
-                        document.getElementById('auth-status').className = "bg-green-100 p-2 rounded-2xl text-green-600";
-                        setupListeners();
+                        state.user = u;
+                        document.getElementById('cloud-sync').style.opacity = '1';
+                        document.getElementById('auth-status').className = "bg-green-100 p-2 rounded-2xl text-green-600 shadow-sm";
+                        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
+                            state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                            window.renderApp();
+                        });
                     }
                 });
             } catch (e) { console.error(e); }
-        }
-
-        function setupListeners() {
-            if (!state.user) return;
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
-                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                render();
-            });
         }
 
         function showToast(m) { 
@@ -484,6 +477,7 @@
             setTimeout(() => t.style.opacity = '0', 2500); 
         }
 
+        window.state = state;
         start();
     </script>
 </body>
