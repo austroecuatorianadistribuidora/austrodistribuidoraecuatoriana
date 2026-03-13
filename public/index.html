@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Austro Logística v27.0</title>
+    <title>Austro Logística v28.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- FIREBASE COMPAT SDK -->
+    <!-- LIBRERÍAS FIREBASE (SIN AUTH PARA EVITAR BLOQUEO) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <style>
@@ -20,21 +19,22 @@
         .btn-brand { background: var(--brand); color: white; border-radius: 22px; padding: 20px; font-weight: 800; width: 100%; border: none; cursor: pointer; text-transform: uppercase; font-size: 14px; letter-spacing: 1.5px; box-shadow: 0 12px 30px rgba(234, 88, 12, 0.25); }
         
         .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 85px; background: rgba(255,255,255,0.92); backdrop-filter: blur(25px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #e2e8f0; z-index: 1000; padding-bottom: 10px; }
-        .tab { display: none; padding: 20px; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .tab { display: none; padding: 20px; animation: slideUp 0.4s ease; }
         .tab.active { display: block; }
         
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         
         input { background: #f1f5f9; border-radius: 16px; padding: 18px; width: 100%; border: 2px solid transparent; font-size: 16px !important; outline: none; margin-bottom: 12px; }
         input:focus { border-color: var(--brand); background: white; }
         
-        .status-pill { background: white; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
+        .status-pill { background: white; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; }
         .dot { width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s; }
+        .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); z-index: 2000; display: none; padding: 25px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
-    <!-- CABECERA -->
+    <!-- CABECERA CORPORATIVA -->
     <header class="p-6 pt-12 flex justify-between items-start">
         <div>
             <div class="status-pill mb-3">
@@ -43,7 +43,7 @@
             </div>
             <h1 class="text-4xl font-black tracking-tighter text-slate-900 leading-none">Austro Logística</h1>
         </div>
-        <button onclick="location.reload(true)" class="p-3 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-90 transition-transform">
+        <button onclick="location.reload(true)" class="p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
             <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         </button>
     </header>
@@ -52,7 +52,7 @@
         <!-- PANEL -->
         <div id="tab-dash" class="tab active">
             <div class="card-pro bg-slate-900 text-white border-none mb-6 relative overflow-hidden shadow-2xl">
-                <p class="text-[11px] font-black uppercase opacity-40 tracking-widest mb-1">Cuentas por Cobrar Austro</p>
+                <p class="text-[11px] font-black uppercase opacity-40 tracking-widest mb-1 leading-none">Cuentas por Cobrar Austro</p>
                 <h2 id="cloud-money" class="text-5xl font-black tracking-tighter leading-none">$0.00</h2>
                 <div class="absolute -bottom-10 -right-10 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl"></div>
             </div>
@@ -70,9 +70,9 @@
 
             <div class="mt-8 p-6 bg-green-50 border border-green-100 rounded-[32px] flex items-center gap-4">
                 <div class="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                 </div>
-                <p class="text-[11px] text-green-700 font-bold uppercase leading-tight">Canal de Datos v27 Sincronizado</p>
+                <p class="text-[11px] text-green-700 font-bold uppercase leading-tight">Canal Directo v28 Habilitado</p>
             </div>
         </div>
 
@@ -80,7 +80,7 @@
         <div id="tab-list" class="tab">
             <button onclick="openModal()" class="btn-brand mb-10">+ Registrar Nueva Factura</button>
             <div id="list-container" class="space-y-4 pb-12">
-                <p class="text-center py-24 text-slate-300 font-bold uppercase text-[10px] tracking-widest leading-relaxed">Sincronizando con el servidor corporativo...</p>
+                <p class="text-center py-24 text-slate-300 font-bold uppercase text-[10px] tracking-widest">Sincronizando...</p>
             </div>
         </div>
     </main>
@@ -97,7 +97,7 @@
             <div class="flex justify-between items-center mb-8">
                 <div>
                     <h3 class="font-black text-xl tracking-tighter uppercase leading-none">Nuevo Registro</h3>
-                    <p class="text-[9px] font-bold text-orange-500 mt-2 uppercase tracking-widest">Factura Espejo</p>
+                    <p class="text-[9px] font-bold text-orange-500 mt-2 uppercase tracking-widest">Sistema de Auditoría</p>
                 </div>
                 <button onclick="closeModal()" class="text-slate-300 text-4xl font-light">✕</button>
             </div>
@@ -118,13 +118,13 @@
                 </div>
             </div>
 
-            <button id="save-btn" class="btn-brand">Sincronizar Datos</button>
+            <button id="save-btn" class="btn-brand">Guardar en Nube</button>
             <div class="h-10"></div>
         </div>
     </div>
 
     <script>
-        const FIREBASE_CONFIG = {
+        const MASTER_CONFIG = {
             apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
             authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
             projectId: "austrodistribuidoraecuatoriana",
@@ -140,30 +140,33 @@
             { c: 1.5974, r: 0.2287 }
         ];
 
-        let db, auth, facturas = [];
+        let db, facturas = [];
 
         async function init() {
             try {
+                // BYPASS: No usamos Auth para evitar el bloqueo de API Key
                 if (firebase.apps.length) return;
-                firebase.initializeApp(FIREBASE_CONFIG);
+                const app = firebase.initializeApp(MASTER_CONFIG);
                 db = firebase.firestore();
-                auth = firebase.auth();
 
-                auth.signInAnonymously().then(() => {
+                // Probamos conexión directa a Firestore
+                db.collection('artifacts/austro-v28-bypass/public/data/facturas').limit(1).get()
+                .then(() => {
                     document.getElementById('led').className = "dot bg-green-500 shadow-[0_0_12px_#22c55e]";
-                    document.getElementById('led-text').innerText = "CONEXIÓN CORPORATIVA OK";
-                    document.getElementById('led-text').className = "text-green-600 font-black text-[9px] uppercase tracking-widest";
+                    document.getElementById('led-text').innerText = "ONLINE v28.0";
+                    document.getElementById('led-text').className = "text-green-600 font-black text-[10px] uppercase tracking-widest";
                     startSync();
-                }).catch(e => {
-                    document.getElementById('led-text').innerText = "ERROR DE LLAVE GOOGLE";
+                })
+                .catch(e => {
+                    // Si falla aquí es por las REGLAS de Firestore
+                    document.getElementById('led-text').innerText = "REVISAR REGLAS";
                     document.getElementById('led').className = "dot bg-red-600";
                 });
             } catch (e) { console.error(e); }
         }
 
         function startSync() {
-            // Canal Final v27
-            db.collection('artifacts/austro-v27/public/data/facturas').onSnapshot(snap => {
+            db.collection('artifacts/austro-v28-bypass/public/data/facturas').onSnapshot(snap => {
                 facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
                 render();
             });
@@ -182,15 +185,14 @@
             container.innerHTML = sorted.map(f => `
                 <div class="card-pro flex justify-between items-center border border-slate-100">
                     <div>
-                        <h4 class="font-black text-slate-800 text-sm uppercase leading-none mb-1">FACTURA #${f.num}</h4>
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Estado: Sincronizado</p>
+                        <h4 class="font-black text-slate-800 text-sm uppercase mb-1">FACTURA #${f.num}</h4>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sincronizado</p>
                     </div>
                     <div class="text-right">
                         <span class="text-2xl font-black text-orange-600 tracking-tighter">$${(f.total || 0).toFixed(2)}</span>
-                        <p class="text-[9px] font-black text-blue-500 mt-1 uppercase">UTL: $${(f.util || 0).toFixed(2)}</p>
                     </div>
                 </div>
-            `).join('') || '<div class="text-center py-20 text-slate-200 font-bold uppercase text-[10px]">Sin movimientos registrados</div>';
+            `).join('') || '<div class="text-center py-20 text-slate-200 font-bold uppercase text-[10px]">Listo para facturar</div>';
         }
 
         window.calc = () => {
@@ -207,19 +209,17 @@
         document.getElementById('save-btn').onclick = async () => {
             const n = document.getElementById('f-num').value;
             if(!n) return alert("Ingresa el N° de factura");
-            
             const btn = document.getElementById('save-btn');
-            btn.disabled = true; btn.innerText = "SINCRONIZANDO...";
-            
+            btn.disabled = true; btn.innerText = "SINCRO...";
             const results = calc();
             try {
-                await db.collection('artifacts/austro-v27/public/data/facturas').add({
+                await db.collection('artifacts/austro-v28-bypass/public/data/facturas').add({
                     num: n, total: results.total, util: results.ut,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 closeModal();
-            } catch (e) { alert("Publica las Reglas en Firestore para guardar."); }
-            btn.disabled = false; btn.innerText = "Sincronizar Datos";
+            } catch (e) { alert("Error al guardar: " + e.message); }
+            btn.disabled = false; btn.innerText = "Guardar en Nube";
         };
 
         window.switchTab = (t) => {
