@@ -74,11 +74,19 @@
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
         // --- FIREBASE INITIALIZATION ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+        let db, auth, appId;
+        try {
+            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (configStr) {
+                const firebaseConfig = JSON.parse(configStr);
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+            }
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+        } catch (e) {
+            console.error("Fallo configuración Firebase:", e);
+        }
 
         // --- COMPONENTES UI GLOBALES ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -128,21 +136,25 @@
                 if (e) e.preventDefault();
                 if(!form.numFactura) return alert("Ingrese el número de factura");
                 
-                const data = {
-                    numFactura: form.numFactura,
-                    fecha: form.fecha,
-                    items: form.items.map(it => ({ id: it.id, nombre: it.nombre, cantidad: it.cantidad, costo: it.costo, total: it.cantidad * it.costo })),
-                    total: calc.total,
-                    saldoPendiente: calc.total,
-                    utilidadCompra: calc.utilidad,
-                    estado: 'Pendiente',
-                    respaldo: form.respaldoDoc,
-                    createdAt: new Date().toISOString()
-                };
+                try {
+                    const data = {
+                        numFactura: form.numFactura,
+                        fecha: form.fecha,
+                        items: form.items.map(it => ({ id: it.id, nombre: it.nombre, cantidad: it.cantidad, costo: it.costo, total: it.cantidad * it.costo })),
+                        total: calc.total,
+                        saldoPendiente: calc.total,
+                        utilidadCompra: calc.utilidad,
+                        estado: 'Pendiente',
+                        respaldo: form.respaldoDoc,
+                        createdAt: new Date().toISOString()
+                    };
 
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
-                setModalNueva(false);
-                resetForm();
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
+                    setModalNueva(false);
+                    resetForm();
+                } catch (err) {
+                    console.error("Error al guardar:", err);
+                }
             };
 
             const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
@@ -152,16 +164,20 @@
             const registrarAbono = async (factura) => {
                 const monto = parseFloat(pagoForm.monto);
                 if (isNaN(monto) || monto <= 0) return;
-                const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
-                const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
-                    saldoPendiente: nuevoSaldo, estado: nuevoEstado
-                });
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
-                    fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
-                });
-                setModalPago(null);
-                setPagoForm({ monto: '', fecha: today, comprobante: null });
+                try {
+                    const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
+                    const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
+                        saldoPendiente: nuevoSaldo, estado: nuevoEstado
+                    });
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
+                        fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
+                    });
+                    setModalPago(null);
+                    setPagoForm({ monto: '', fecha: today, comprobante: null });
+                } catch (err) {
+                    console.error("Error al abonar:", err);
+                }
             };
 
             return (
@@ -284,7 +300,6 @@
                                                     <p className="text-[10px] font-bold text-slate-600">ARIAS JAIME</p>
                                                 </div>
                                                 
-                                                {/* BLOQUE DE UTILIDAD PROYECTADA */}
                                                 <div className="bg-green-50 p-6 rounded-xl border border-green-200 text-left">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Icon name="trending-up" className="text-green-600" size={18}/>
@@ -299,7 +314,7 @@
                                                 <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">SUBTOTAL 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
                                                 <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
                                                 <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4">
-                                                    <span className="text-xs font-black uppercase">VALOR TOTAL</span>
+                                                    <span className="text-xs font-black">VALOR TOTAL</span>
                                                     <span className="text-3xl font-black">${calc.total.toFixed(2)}</span>
                                                 </div>
                                             </div>
@@ -315,7 +330,7 @@
                     )}
 
                     {modalPago && (
-                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                             <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left overflow-hidden">
                                 <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
                                 <button onClick={() => setModalPago(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
@@ -370,7 +385,7 @@
                     </div>
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-md overflow-y-auto">
-                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
+                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <h3 className="font-black text-xl mb-8 uppercase text-slate-800 italic">Nueva Carga de Ruta</h3>
                                 <form onSubmit={async (e) => {
@@ -420,8 +435,8 @@
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {inventario.map(p => (
                             <Card key={p.id} className="group hover:scale-105 transition-all cursor-default relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: p.color }}></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">{p.nombre}</p>
+                                <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest text-left">{p.nombre}</p>
                                 <p className={`text-5xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
                                 <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase italic tracking-widest">Unidades en Bodega</p>
                                 <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between text-[9px] font-black uppercase opacity-60 italic text-left">
@@ -502,11 +517,11 @@
                     <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                             <div><h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Utilidad real hoy vs Inversión mensual.</p></div>
-                            <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2">Meta de Superación</p></div>
+                            <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2 font-black">Meta Alcanzada</p></div>
                         </div>
-                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
+                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200 text-left">
                             <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
-                                {perc > 15 ? `$${utilidad.toLocaleString()} USD LOGRADOS` : ''}
+                                {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
