@@ -58,7 +58,6 @@
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
-        const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
         // --- CONFIGURACIÓN GLOBAL (PRODUCTOS SEGÚN PDF 5913) ---
         const today = new Date().toISOString().split('T')[0];
@@ -73,23 +72,12 @@
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION (GLOBAL) ---
-        let db = null;
-        let auth = null;
-        let appId = 'distribuidora-avena-v3';
-
-        try {
-            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-            if (configStr) {
-                const firebaseConfig = JSON.parse(configStr);
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                auth = firebase.auth();
-            }
-            if (typeof __app_id !== 'undefined') appId = __app_id;
-        } catch (e) {
-            console.error("Fallo inicialización Firebase:", e);
-        }
+        // --- FIREBASE INITIALIZATION ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
 
         // --- COMPONENTES UI GLOBALES ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -115,7 +103,6 @@
 
         // --- VISTAS ---
 
-        // VISTA 1: FACTURACIÓN MANUAL (DISEÑO ESPEJO)
         const FacturacionView = ({ facturas, db, appId, onClose }) => {
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
@@ -138,7 +125,6 @@
             const guardarFactura = async (e) => {
                 if (e) e.preventDefault();
                 if(!form.numFactura) return alert("Ingrese el número de factura");
-                if(!db) return alert("Error de conexión a la base de datos");
                 
                 try {
                     const data = {
@@ -157,14 +143,14 @@
                     setModalNueva(false);
                     resetForm();
                 } catch (err) {
-                    console.error("Error al guardar factura:", err);
+                    console.error("Error al guardar:", err);
+                    alert("Error al conectar con la base de datos.");
                 }
             };
 
             const registrarAbono = async (factura) => {
                 const monto = parseFloat(pagoForm.monto);
                 if (isNaN(monto) || monto <= 0) return;
-                if (!db) return;
                 try {
                     const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
                     const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
@@ -187,10 +173,10 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="1. Registro e Ingresos" onClose={onClose} />
+                    <ViewHeader title="Facturación" sub="1. Registro Manual Espejo" onClose={onClose} />
                     <div className="flex justify-end mb-4 text-left">
                         <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
-                            <Icon name="file-plus" size={20}/> Nueva Factura Espejo
+                            <Icon name="file-plus" size={20}/> Nueva Factura Manual
                         </button>
                     </div>
 
@@ -200,19 +186,17 @@
                                 <div className="text-left flex-1">
                                     <h4 className="font-black text-slate-800 uppercase tracking-tighter text-lg leading-tight">Factura #{f.numFactura}</h4>
                                     <div className="flex gap-4 mt-1">
-                                        <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Icon name="calendar" size={12}/> {f.fecha}</span>
+                                        <span className="text-[10px] font-black uppercase text-slate-400">{f.fecha}</span>
                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${f.estado === 'Cancelado' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{f.estado}</span>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l md:border-r border-slate-100 w-full md:w-auto font-black">
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1 text-slate-400">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1 text-slate-400">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
+                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
+                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
                                 </div>
                                 <div className="flex gap-2 w-full md:w-auto justify-end">
                                     {f.estado !== 'Cancelado' && (
-                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 shadow-sm">
-                                            <Icon name="banknote" size={24}/>
-                                        </button>
+                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 shadow-sm"><Icon name="banknote" size={24}/></button>
                                     )}
                                     <button onClick={() => { if(confirm('¿Desea eliminar este registro?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
                                         <Icon name="trash-2" size={24}/>
@@ -239,12 +223,12 @@
                                                     <p>TELÉFONO: 022765404</p>
                                                 </div>
                                             </div>
-                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3 text-left">
-                                                <div className="bg-slate-900 text-white p-3 rounded">
+                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3">
+                                                <div className="bg-slate-900 text-white p-3 rounded text-left">
                                                     <p className="text-[8px] font-black uppercase opacity-60">FACTURA Nº</p>
                                                     <input required placeholder="003-102-0000XXXXX" className="bg-transparent text-lg font-black border-none outline-none w-full placeholder:text-slate-700" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
                                                 </div>
-                                                <div className="bg-slate-50 border p-3 rounded">
+                                                <div className="bg-slate-50 border p-3 rounded text-left">
                                                     <p className="text-[8px] font-black text-slate-400 uppercase">FECHA EMISIÓN</p>
                                                     <input type="date" required className="bg-transparent font-black border-none outline-none w-full" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
                                                 </div>
@@ -253,13 +237,12 @@
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
                                             <div className="space-y-1 border-r pr-8 border-slate-100">
-                                                <p className="text-slate-400 mb-2 font-black italic">Adquiriente:</p>
-                                                <p className="text-slate-900 font-black text-xs tracking-tight uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
+                                                <p className="text-slate-400 mb-2 font-black">Adquiriente:</p>
+                                                <p className="text-slate-900 font-black text-xs uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
                                                 <p>RUC: 0195174555001</p>
-                                                <p>CIUDAD: CUENCA</p>
                                             </div>
                                             <div>
-                                                <p className="text-slate-400 mb-2 font-black italic text-left">Cargar Respaldo:</p>
+                                                <p className="text-slate-400 mb-2 font-black">Cargar Respaldo:</p>
                                                 <input type="file" className="text-[9px] w-full" onChange={e => {
                                                     const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
                                                     if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -271,9 +254,9 @@
                                             <table className="w-full invoice-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Cod. Principal</th>
+                                                        <th>Cod.</th>
                                                         <th>Descripción</th>
-                                                        <th className="w-24 text-center">Cantidad</th>
+                                                        <th className="w-24 text-center">Cant.</th>
                                                         <th className="w-32 text-right">Precio Uni.</th>
                                                         <th className="w-32 text-right">Total</th>
                                                     </tr>
@@ -282,9 +265,9 @@
                                                     {form.items.map((it, idx) => (
                                                         <tr key={it.id}>
                                                             <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
-                                                            <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
+                                                            <td className="text-left font-black text-slate-800 text-xs">{it.nombre}</td>
                                                             <td className="p-0">
-                                                                <input type="number" min="0" className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
+                                                                <input type="number" min="0" className="w-full text-center py-3 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
                                                                     const ni = [...form.items];
                                                                     ni[idx].cantidad = parseInt(e.target.value) || 0;
                                                                     setForm({...form, items: ni});
@@ -299,26 +282,25 @@
                                         </div>
 
                                         <div className="flex flex-col md:flex-row justify-between gap-10">
-                                            <div className="flex-1 space-y-4">
-                                                <div className="bg-slate-50 p-5 rounded border w-full text-left italic">
+                                            <div className="flex-1 space-y-4 text-left">
+                                                <div className="bg-slate-50 p-5 rounded border w-full italic">
                                                     <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Vendedor:</p>
                                                     <p className="text-[10px] font-bold text-slate-600">ARIAS JAIME</p>
                                                 </div>
-                                                <div className="bg-green-50 p-6 rounded-xl border border-green-200 text-left">
+                                                <div className="bg-green-50 p-6 rounded-xl border border-green-200">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Icon name="trending-up" className="text-green-600" size={18}/>
                                                         <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Utilidad Gana en esta compra ✨</p>
                                                     </div>
                                                     <p className="text-4xl font-black text-green-800 tracking-tighter">${calc.utilidad.toFixed(2)}</p>
-                                                    <p className="text-[9px] font-bold text-green-600 uppercase mt-2">Margen bruto estimado sobre PVD</p>
                                                 </div>
                                             </div>
                                             <div className="w-full md:w-80 space-y-2">
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase text-left">Subtotal 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase text-left">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
-                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
-                                                    <span className="text-xs font-black uppercase tracking-tighter">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
+                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">SUBTOTAL 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
+                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
+                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4">
+                                                    <span className="text-xs font-black uppercase">VALOR TOTAL</span>
+                                                    <span className="text-3xl font-black">${calc.total.toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -344,11 +326,11 @@
                                 </div>
                                 <div className="space-y-4">
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Monto del Pago $</label>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 text-left block">Monto del Pago $</label>
                                         <input type="number" step="0.01" className="w-full bg-white border border-slate-200 p-5 rounded-[20px] font-black outline-none focus:ring-2 focus:ring-green-400 shadow-inner" value={pagoForm.monto} onChange={e => setPagoForm({...pagoForm, monto: e.target.value})} placeholder="0.00" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 italic">Captura de Comprobante</label>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 text-left block">Captura de Comprobante</label>
                                         <input type="file" accept="image/*" className="text-xs w-full" onChange={e => {
                                             const r = new FileReader(); r.onload = () => setPagoForm({...pagoForm, comprobante: r.result});
                                             if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -371,29 +353,28 @@
 
             return (
                 <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Logística" sub="2. Despachos y Jornada" onClose={onClose} />
+                    <ViewHeader title="Logística" sub="2. Despachos Diarios" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {cargas.map(c => (
                             <Card key={c.id} className="border-l-8 border-l-orange-400">
                                 <div className="flex justify-between items-start">
                                     <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tighter">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40 text-slate-400">Valor Cargado</p><p className="text-slate-800 text-xl font-black tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
+                                    <div className="text-right font-black font-black"><p className="text-[8px] uppercase opacity-40">Valor Cargado</p><p className="text-slate-800 text-xl font-black tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end">
-                                    <button onClick={() => { if(confirm('¿Eliminar despacho?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete() }} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
                                 </div>
                             </Card>
                         ))}
                     </div>
                     {modal && (
-                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-md overflow-y-auto">
+                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
                             <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <h3 className="font-black text-xl mb-8 uppercase text-slate-800 italic">Nueva Carga de Ruta</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
-                                    if(!db) return;
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
                                         responsable: form.vendedor, fecha: today, estado: 'En Tránsito', totalCargado: totalCarga,
                                         items: form.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, costo: it.costo }))
@@ -509,11 +490,11 @@
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl">
+                        <Card className="bg-orange-600 border-none shadow-2xl text-left">
                             <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto Equilibrio)</p>
                             <p className="text-4xl font-black tracking-tighter">${Math.round(ventaMetaBruta).toLocaleString()}</p>
                         </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
+                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl text-left`}>
                             <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Utilidad Neta Real</p>
                             <p className="text-4xl font-black tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                         </Card>
@@ -523,14 +504,14 @@
                             <div><h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic leading-relaxed">Utilidad real hoy vs Inversión mensual fija.</p></div>
                             <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2 font-black">Meta de Superación</p></div>
                         </div>
-                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
+                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200 text-left">
                             <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
                                 {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
-                    <Card className="border-t-8 border-red-500 shadow-md bg-red-50/30 text-left">
-                        <div className="flex items-center gap-3 mb-6 font-black"><Icon name="alert-circle" className="text-red-600" size={24}/><h3 className="font-black text-lg uppercase tracking-tighter text-red-800 italic text-left">Cuentas por Pagar Proveedores</h3></div>
+                    <Card className="border-t-8 border-red-500 shadow-md bg-red-50/30 text-left text-left">
+                        <div className="flex items-center gap-3 mb-6 font-black"><Icon name="alert-circle" className="text-red-600" size={24}/><h3 className="font-black text-lg uppercase tracking-tighter text-red-800 italic">Cuentas por Pagar Proveedores</h3></div>
                         <div className="text-center py-12"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">Saldo total adeudado a Proveedores</p><p className="text-7xl font-black text-red-600 tracking-tighter">${saldoPagar.toLocaleString()}</p></div>
                     </Card>
                 </div>
@@ -548,9 +529,10 @@
             const [facturasProv, setFacturasProv] = useState([]);
 
             useEffect(() => {
-                if (!auth) { setLoading(false); return; }
                 const initAuth = async () => {
+                    if (!auth) { setLoading(false); return; }
                     try {
+                        const { signInAnonymously, signInWithCustomToken } = firebase.auth;
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
@@ -559,7 +541,10 @@
                     } catch (e) { console.error("Error Auth:", e); }
                 };
                 initAuth();
-                const unsubAuth = auth.onAuthStateChanged(u => { if (u) setUser(u); setLoading(false); });
+                const unsubAuth = auth.onAuthStateChanged(u => { 
+                    setUser(u); 
+                    setLoading(false); 
+                });
                 return () => { if(unsubAuth) unsubAuth(); };
             }, []);
 
@@ -567,14 +552,14 @@
                 if (!user || !db) return;
                 const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
                 const unsubs = collections.map(col => {
-                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
-                        .onSnapshot(snap => {
-                            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                            if (col === 'cargas') setCargas(data);
-                            if (col === 'cartera') setCartera(data);
-                            if (col === 'gastos') setGastos(data);
-                            if (col === 'facturasProveedor') setFacturasProv(data);
-                        }, err => console.error(`Error snapshot ${col}:`, err));
+                    const collectionPath = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
+                    return collectionPath.onSnapshot(snap => {
+                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                        if (col === 'cargas') setCargas(data);
+                        if (col === 'cartera') setCartera(data);
+                        if (col === 'gastos') setGastos(data);
+                        if (col === 'facturasProveedor') setFacturasProv(data);
+                    }, err => console.error(`Error snapshot ${col}:`, err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
@@ -603,13 +588,8 @@
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-16 text-left">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3">
-                                <Icon name="package" size={28}/>
-                            </div>
-                            <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none">Avena Pro</span>
-                        </div>
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm text-left">
+                        <div className="flex items-center gap-3 mb-16"><div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div><span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none">Avena Pro</span></div>
                         <nav className="space-y-2 flex-1">
                             <NavItem id="facturacion" icon="scan" label="1. Facturación" />
                             <NavItem id="logistica" icon="truck" label="2. Logística" />
