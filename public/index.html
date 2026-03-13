@@ -68,7 +68,7 @@
             { id: 'p4', codigo: 'P000000006', nombre: '04 EMPACADO AVENA POLACA 1000G', costo: 1.597390, pvd: 1.8260, color: '#c2410c' },
         ];
 
-        // --- DESGLOSE DE GASTOS SEGÚN IMAGEN ---
+        // --- GASTOS SEGÚN IMAGEN ---
         const GASTOS_VENTAS_DETALLE = [
             { concepto: "Sueldos empleados", valor: 964.00 },
             { concepto: "Combustible", valor: 350.00 },
@@ -92,26 +92,15 @@
         const TOTAL_VENTAS = 3339.80;
         const TOTAL_ADMIN = 240.00;
         const TOTAL_GASTOS_FIJOS = 3579.80;
-        
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
         // --- FIREBASE INITIALIZATION ---
-        let db = null;
-        let auth = null;
-        let appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidaustroapp-v1';
-
-        try {
-            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-            if (configStr) {
-                const firebaseConfig = JSON.parse(configStr);
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                auth = firebase.auth();
-            }
-        } catch (e) {
-            console.error("Fallo inicialización Firebase:", e);
-        }
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        if (firebaseConfig && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebaseConfig ? firebase.firestore() : null;
+        const auth = firebaseConfig ? firebase.auth() : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidaustroapp-v1';
 
         // --- COMPONENTES UI GLOBALES ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -137,9 +126,10 @@
 
         // --- VISTAS ---
 
-        const FacturacionView = ({ facturas, onClose }) => {
+        const FacturacionView = ({ facturas, db, appId, user, onClose }) => {
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
+            const [isSaving, setIsSaving] = useState(false);
             const [form, setForm] = useState({
                 numFactura: '',
                 fecha: today,
@@ -158,9 +148,11 @@
 
             const handleGuardarFactura = async (e) => {
                 if (e) e.preventDefault();
-                if(!form.numFactura) return; 
-                if(!db) return;
+                if (!user) return console.error("No autenticado");
+                if (!form.numFactura) return console.error("Falta número de factura");
+                if (!db) return console.error("Base de datos no disponible");
                 
+                setIsSaving(true);
                 try {
                     const data = {
                         numFactura: form.numFactura,
@@ -178,11 +170,14 @@
                     setModalNueva(false);
                     resetForm();
                 } catch (err) {
-                    console.error("Error al guardar:", err);
+                    console.error("Error al guardar factura:", err);
+                } finally {
+                    setIsSaving(false);
                 }
             };
 
             const registrarAbono = async (factura) => {
+                if (!user || !db) return;
                 const monto = parseFloat(pagoForm.monto);
                 if (isNaN(monto) || monto <= 0) return;
                 try {
@@ -203,8 +198,6 @@
 
             const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
 
-            const facturasOrdenadas = useMemo(() => [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)), [facturas]);
-
             return (
                 <div className="space-y-6 fade-in text-left">
                     <ViewHeader title="Facturación" sub="1. Registro e Ingresos Manuales" onClose={onClose} />
@@ -215,7 +208,7 @@
                     </div>
 
                     <div className="space-y-4">
-                        {facturasOrdenadas.map(f => (
+                        {[...facturas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
                             <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
                                 <div className="text-left flex-1">
                                     <h4 className="font-black text-slate-800 uppercase tracking-tighter text-lg leading-tight">Factura #{f.numFactura}</h4>
@@ -242,7 +235,7 @@
 
                     {modalNueva && (
                         <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-2 sm:p-10 backdrop-blur-sm overflow-hidden">
-                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden relative shadow-2xl animate-in zoom-in-95">
+                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden relative shadow-2xl">
                                 <button onClick={() => setModalNueva(false)} className="absolute top-4 right-4 z-10 p-3 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-all">
                                     <Icon name="x" size={24}/>
                                 </button>
@@ -250,7 +243,7 @@
                                     <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
                                         <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900">
                                             <div className="text-left space-y-1">
-                                                <h3 className="text-xl font-black text-slate-900 uppercase italic leading-none mb-3 tracking-tighter italic">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
+                                                <h3 className="text-xl font-black text-slate-900 uppercase italic leading-none mb-3 tracking-tighter">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
                                                 <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px]">
                                                     <p>VIA QUININDE MARGEN DERECHO KM13</p>
                                                     <p>RUC: 1792039754001</p>
@@ -304,10 +297,9 @@
                                                             <td className="p-0">
                                                                 <input 
                                                                     type="number" 
-                                                                    min="0" 
-                                                                    placeholder=""
                                                                     className="w-full text-center py-3 font-black bg-orange-50 border-none focus:ring-0" 
                                                                     value={it.cantidad === 0 ? '' : it.cantidad} 
+                                                                    placeholder=""
                                                                     onChange={e => {
                                                                         const ni = [...form.items];
                                                                         ni[idx].cantidad = e.target.value === '' ? 0 : parseInt(e.target.value);
@@ -332,15 +324,12 @@
                                                 <div className="bg-green-50 p-6 rounded-xl border border-green-200">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Icon name="trending-up" className="text-green-600" size={18}/>
-                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Utilidad Gana en esta compra ✨</p>
+                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Utilidad Estimada ✨</p>
                                                     </div>
                                                     <p className="text-4xl font-black text-green-800 tracking-tighter">${calc.utilidad.toFixed(2)}</p>
-                                                    <p className="text-[9px] font-bold text-green-600 uppercase mt-2">Margen bruto estimado sobre PVD</p>
                                                 </div>
                                             </div>
                                             <div className="w-full md:w-80 space-y-2 text-left">
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase">Subtotal 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
                                                 <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
                                                     <span className="text-xs font-black uppercase tracking-tighter">VALOR TOTAL</span>
                                                     <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
@@ -350,8 +339,10 @@
                                     </div>
                                 </div>
                                 <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all">Cancelar y Salir</button>
-                                    <button onClick={handleGuardarFactura} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all">Grabar Factura ✨</button>
+                                    <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all">Cancelar</button>
+                                    <button onClick={handleGuardarFactura} disabled={isSaving} className={`px-10 py-4 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-orange-600'} text-white rounded-2xl font-black uppercase text-[10px] shadow-xl transition-all`}>
+                                        {isSaving ? 'Grabando...' : 'Grabar Factura ✨'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -360,11 +351,12 @@
             );
         };
 
-        const LogisticaView = ({ cargas, db, appId, onClose }) => {
+        const LogisticaView = ({ cargas, db, appId, user, onClose }) => {
             const [modal, setModal] = useState(false);
             const [form, setForm] = useState({ vendedor: '', items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 })) });
             
             const handleGuardarCarga = async () => {
+                if (!user || !db) return;
                 const totalCargado = form.items.reduce((a, b) => a + (b.q * b.pvd), 0);
                 if (totalCargado <= 0) return;
                 try {
@@ -383,55 +375,39 @@
             return (
                 <div className="space-y-6 fade-in text-left">
                     <ViewHeader title="Logística" sub="2. Despachos y Jornada" onClose={onClose} />
-                    <div className="flex justify-end mb-4 text-left">
-                        <button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all flex items-center gap-2 font-black uppercase text-xs">
-                            <Icon name="plus"/> Nuevo Despacho
-                        </button>
-                    </div>
+                    <div className="flex justify-end mb-4 text-left"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs"><Icon name="plus"/> Nuevo Despacho</button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {cargas.map(c => (
                             <Card key={c.id} className="border-l-8 border-l-orange-400">
                                 <div className="flex justify-between items-start text-left">
                                     <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tighter">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40 text-slate-400">Valor Cargado</p><p className="text-slate-800 text-xl font-black tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
-                                </div>
-                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end">
-                                    <button onClick={() => { if(confirm('¿Eliminar despacho?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete() }} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40">Valor</p><p className="text-slate-800 text-xl tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
                                 </div>
                             </Card>
                         ))}
                     </div>
-
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
                             <Card className="max-w-2xl w-full text-left">
-                                <h3 className="text-xl font-black mb-4 uppercase">Carga de Mercancía</h3>
+                                <h3 className="text-xl font-black mb-4 uppercase italic">Despacho de Ruta</h3>
                                 <div className="space-y-4">
                                     <select className="w-full p-4 bg-slate-50 rounded-xl font-bold uppercase text-xs" value={form.vendedor} onChange={e => setForm({...form, vendedor: e.target.value})}>
                                         <option value="">Seleccione Vendedor</option>
                                         {VENDEDORES.map(v => <option key={v} value={v}>{v}</option>)}
                                     </select>
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 hide-scrollbar">
                                         {form.items.map((it, idx) => (
                                             <div key={it.id} className="flex justify-between items-center border-b pb-2">
                                                 <span className="text-[10px] font-black uppercase flex-1">{it.nombre}</span>
-                                                <input 
-                                                    type="number" 
-                                                    placeholder=""
-                                                    className="w-24 p-2 bg-orange-50 rounded text-center font-black" 
-                                                    value={it.q === 0 ? '' : it.q} 
-                                                    onChange={e => {
-                                                        const ni = [...form.items]; 
-                                                        ni[idx].q = e.target.value === '' ? 0 : parseInt(e.target.value); 
-                                                        setForm({...form, items: ni});
-                                                    }} 
-                                                />
+                                                <input type="number" placeholder="" className="w-24 p-2 bg-orange-50 rounded text-center font-black" value={it.q === 0 ? '' : it.q} onChange={e => {
+                                                    const ni = [...form.items]; ni[idx].q = e.target.value === '' ? 0 : parseInt(e.target.value); setForm({...form, items: ni});
+                                                }} />
                                             </div>
                                         ))}
                                     </div>
                                     <div className="flex justify-end gap-2 pt-4">
-                                        <button onClick={() => setModal(false)} className="px-6 py-2 font-bold uppercase text-xs tracking-widest">Cerrar</button>
-                                        <button onClick={handleGuardarCarga} className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black uppercase text-xs shadow-lg">Despachar</button>
+                                        <button onClick={() => setModal(false)} className="px-6 py-2 font-bold uppercase text-xs">Cerrar</button>
+                                        <button onClick={handleGuardarCarga} className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black uppercase text-xs">Despachar</button>
                                     </div>
                                 </div>
                             </Card>
@@ -454,15 +430,10 @@
                     <ViewHeader title="Inventario" sub="3. Control de Stock Central" onClose={onClose} />
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {inventario.map(p => (
-                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default relative overflow-hidden text-left">
+                            <Card key={p.id} className="relative overflow-hidden text-left">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest leading-tight">{p.nombre}</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 leading-tight">{p.nombre}</p>
                                 <p className={`text-5xl font-black tracking-tighter text-center ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase italic tracking-widest text-center">Unidades en Bodega</p>
-                                <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between text-[9px] font-black uppercase opacity-60 italic">
-                                    <div><p>Entradas</p><p className="text-green-600">+{p.ingresado}</p></div>
-                                    <div className="text-right"><p>Salidas</p><p className="text-red-500">-{p.despachado}</p></div>
-                                </div>
                             </Card>
                         ))}
                     </div>
@@ -483,27 +454,21 @@
             return (
                 <div className="space-y-6 fade-in text-left">
                     <ViewHeader title="Contabilidad" sub="4. Movimientos de Caja" onClose={onClose} />
-                    <Card className="p-0 overflow-hidden shadow-xl border-none">
+                    <Card className="p-0 overflow-hidden border-none shadow-xl">
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs font-bold">
-                                <thead className="bg-slate-50 font-black text-slate-500 uppercase tracking-widest text-left">
-                                    <tr><th className="p-6">Fecha</th><th className="p-6">Referencia / Detalle</th><th className="p-6 text-left">Ingreso</th><th className="p-6 text-left">Egreso</th><th className="p-6 text-right">Balance</th></tr>
+                                <thead className="bg-slate-50 text-slate-500 uppercase font-black text-left">
+                                    <tr><th className="p-6">Fecha</th><th className="p-6">Detalle</th><th className="p-6">Monto</th><th className="p-6 text-right">Balance</th></tr>
                                 </thead>
-                                <tbody className="text-slate-700">
-                                    {movimientos.length > 0 ? movimientos.map((m, idx) => (
-                                        <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                            <td className="p-6 text-slate-400 font-mono tracking-tighter">{m.fecha || today}</td>
-                                            <td className="p-6 uppercase italic font-black text-slate-900 tracking-tight">
-                                                {m.ref}
-                                                {m.categoria && <span className="block text-[8px] text-slate-400 font-black tracking-widest mt-1">CAT: {m.categoria}</span>}
-                                            </td>
-                                            <td className="p-6 text-green-600 font-black text-left">{m.category === 'Ingreso' ? `+$${(m.val || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="p-6 text-red-500 font-black text-left">{m.category === 'Egreso' ? `-$${Math.abs(m.val || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="p-6 text-right font-black text-slate-900 tracking-tighter">${(m.balanceAcumulado || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                <tbody>
+                                    {movimientos.map((m, idx) => (
+                                        <tr key={idx} className="border-b border-slate-50">
+                                            <td className="p-6 text-slate-400 font-mono">{m.fecha}</td>
+                                            <td className="p-6 font-black uppercase italic">{m.ref}</td>
+                                            <td className={`p-6 font-black ${m.val > 0 ? 'text-green-600' : 'text-red-500'}`}>{m.val > 0 ? '+' : ''}${m.val.toFixed(2)}</td>
+                                            <td className="p-6 text-right font-black">${m.balanceAcumulado.toFixed(2)}</td>
                                         </tr>
-                                    )) : (
-                                        <tr><td colSpan="5" className="p-10 text-center text-slate-300 uppercase font-black tracking-widest">No hay movimientos registrados</td></tr>
-                                    )}
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -515,89 +480,54 @@
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
-            const ventaMetaBruta = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
             return (
                 <div className="space-y-6 fade-in pb-12 text-left text-slate-800 font-bold">
                     <ViewHeader title="Gerencia" sub="5. Resumen Ejecutivo" onClose={onClose} />
-                    
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
-                        <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10 text-left">
-                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Mensual Fija</p>
-                                <p className="text-4xl font-black tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                            </div>
-                            <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
+                        <Card className="bg-slate-900 border-none shadow-2xl text-left">
+                            <p className="text-[10px] font-black uppercase opacity-50 mb-4 italic tracking-widest">Inversión Fija</p>
+                            <p className="text-4xl tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         </Card>
                         <Card className="bg-orange-600 border-none shadow-2xl text-left">
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto Equilibrio)</p>
-                            <p className="text-4xl font-black tracking-tighter">${Math.round(ventaMetaBruta).toLocaleString()}</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 mb-4 italic tracking-widest">Utilidad Bruta</p>
+                            <p className="text-4xl tracking-tighter">${utilidad.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         </Card>
                         <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl text-left`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Utilidad Neta Real</p>
-                            <p className="text-4xl font-black tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 mb-4 italic tracking-widest">Resultado Neto</p>
+                            <p className="text-4xl tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         </Card>
                     </div>
 
                     <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                            <div><h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic leading-relaxed">Utilidad real hoy vs Inversión mensual fija.</p></div>
-                            <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2 font-black">Meta de Superación</p></div>
-                        </div>
-                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
-                            <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
-                                {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
+                        <h3 className="font-black text-3xl uppercase tracking-tighter italic mb-4">Punto de Equilibrio: {perc}%</h3>
+                        <div className="w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
+                            <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
+                                {perc > 15 ? `$${utilidad.toLocaleString()} GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
 
-                    {/* DESGLOSE EXACTO SEGÚN IMAGEN */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-white border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="bg-slate-50 p-6 border-b border-slate-200">
-                                <h3 className="font-black uppercase text-sm tracking-tighter italic">Gastos en Ventas</h3>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Operación y Logística de Ruta</p>
-                            </div>
-                            <div className="p-4 space-y-2">
-                                {GASTOS_VENTAS_DETALLE.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50/30 border-b border-dashed border-slate-100 last:border-0">
-                                        <span className="text-[10px] font-black text-slate-600 uppercase italic tracking-tighter">{item.concepto}</span>
-                                        <span className="text-xs font-black text-slate-900">${item.valor.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        <Card className="bg-white border border-slate-200">
+                            <h3 className="font-black uppercase text-sm mb-4 italic">Gastos de Ventas (${TOTAL_VENTAS.toFixed(2)})</h3>
+                            <div className="space-y-2">
+                                {GASTOS_VENTAS_DETALLE.map((i, idx) => (
+                                    <div key={idx} className="flex justify-between text-[10px] uppercase font-bold border-b pb-2 border-dashed border-slate-100 italic">
+                                        <span>{i.concepto}</span><span>${i.valor.toFixed(2)}</span>
                                     </div>
                                 ))}
-                                <div className="flex justify-between items-center p-4 bg-orange-50 text-orange-700 rounded-2xl mt-4">
-                                    <span className="font-black uppercase tracking-widest text-[10px] italic">Subtotal Ventas</span>
-                                    <span className="text-xl font-black">${TOTAL_VENTAS.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                </div>
                             </div>
                         </Card>
-
-                        <div className="space-y-6">
-                            <Card className="bg-white border border-slate-200 shadow-sm overflow-hidden h-fit">
-                                <div className="bg-slate-50 p-6 border-b border-slate-200">
-                                    <h3 className="font-black uppercase text-sm tracking-tighter italic">Gastos Administrativos</h3>
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">Gestión y Suministros</p>
-                                </div>
-                                <div className="p-4 space-y-2">
-                                    {GASTOS_ADMIN_DETALLE.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center p-3 bg-slate-50/30 border-b border-dashed border-slate-100 last:border-0">
-                                            <span className="text-[10px] font-black text-slate-600 uppercase italic tracking-tighter">{item.concepto}</span>
-                                            <span className="text-xs font-black text-slate-900">${item.valor.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                        </div>
-                                    ))}
-                                    <div className="flex justify-between items-center p-4 bg-slate-50 text-slate-700 rounded-2xl mt-4">
-                                        <span className="font-black uppercase tracking-widest text-[10px] italic">Subtotal Admin</span>
-                                        <span className="text-xl font-black">${TOTAL_ADMIN.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                        <Card className="bg-white border border-slate-200">
+                            <h3 className="font-black uppercase text-sm mb-4 italic">Gastos Administrativos (${TOTAL_ADMIN.toFixed(2)})</h3>
+                            <div className="space-y-2">
+                                {GASTOS_ADMIN_DETALLE.map((i, idx) => (
+                                    <div key={idx} className="flex justify-between text-[10px] uppercase font-bold border-b pb-2 border-dashed border-slate-100 italic">
+                                        <span>{i.concepto}</span><span>${i.valor.toFixed(2)}</span>
                                     </div>
-                                </div>
-                            </Card>
-
-                            <Card className="bg-slate-900 text-white p-8 rounded-[40px] shadow-2xl flex flex-col justify-center items-center text-center">
-                                <Icon name="calculator" size={40} className="text-orange-500 mb-4 opacity-50"/>
-                                <h3 className="font-black uppercase text-xs tracking-[0.3em] opacity-50 mb-2 italic">Total Gastos Fijos</h3>
-                                <p className="text-5xl font-black tracking-tighter italic">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                                <p className="text-[9px] font-bold text-white/40 uppercase mt-4 max-w-[200px] leading-relaxed italic">Base de cálculo requerida para determinar rentabilidad y punto de equilibrio mensual.</p>
-                            </Card>
-                        </div>
+                                ))}
+                            </div>
+                        </Card>
                     </div>
                 </div>
             );
@@ -614,81 +544,64 @@
             const [facturasProv, setFacturasProv] = useState([]);
 
             useEffect(() => {
+                if (!auth) { setLoading(false); return; }
                 const initAuth = async () => {
-                    if (!auth) { 
-                        setTimeout(() => setLoading(false), 2000);
-                        return; 
-                    }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { 
-                        console.error("Error Auth:", e); 
-                    }
+                    } catch (e) { console.error("Error Auth:", e); }
                 };
                 initAuth();
-                const unsubAuth = auth ? auth.onAuthStateChanged(u => { 
-                    setUser(u); 
-                    setLoading(false); 
-                }) : null;
-
-                const timeout = setTimeout(() => setLoading(false), 5000);
-
-                return () => { 
-                    if(unsubAuth) unsubAuth(); 
-                    clearTimeout(timeout);
-                };
+                const unsubAuth = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+                return () => unsubAuth();
             }, []);
 
             useEffect(() => {
                 if (!user || !db) return;
-                const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
-                const unsubs = collections.map(col => {
-                    const collectionPath = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
-                    return collectionPath.onSnapshot(snap => {
-                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        if (col === 'cargas') setCargas(data);
-                        if (col === 'cartera') setCartera(data);
-                        if (col === 'gastos') setGastos(data);
-                        if (col === 'facturasProveedor') setFacturasProv(data);
-                    }, err => console.error(`Error snapshot ${col}:`, err));
+                const cols = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
+                const unsubs = cols.map(col => {
+                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
+                        .onSnapshot(snap => {
+                            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            if (col === 'cargas') setCargas(data);
+                            if (col === 'cartera') setCartera(data);
+                            if (col === 'gastos') setGastos(data);
+                            if (col === 'facturasProveedor') setFacturasProv(data);
+                        });
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
 
             const stats = useMemo(() => {
-                const utilidadBruta = cargas.reduce((total, c) => {
-                    const itemsUtilidad = (c.items || []).reduce((acc, it) => acc + (it.q * (it.pvd - it.cost)), 0);
-                    return total + itemsUtilidad;
+                const utilidadBruta = cargas.reduce((acc, c) => {
+                    const itemsUtil = (c.items || []).reduce((sub, it) => sub + (it.q * (it.pvd - (it.cost || it.costo))), 0);
+                    return acc + itemsUtil;
                 }, 0);
                 return { utilidadBruta };
             }, [cargas]);
 
             if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white border-none text-left">
+                <div className="h-screen flex flex-col items-center justify-center bg-white">
                     <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Distribuidora Austro App • Conectando...</p>
+                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Distribuidora Austro App • Cargando...</p>
                 </div>
             );
 
             const NavItem = ({ id, icon, label }) => (
                 <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-white hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}>
-                    <Icon name={icon} size={22}/>
-                    <span className="hidden md:inline">{label}</span>
+                    <Icon name={icon} size={22}/><span className="hidden md:inline">{label}</span>
                 </button>
             );
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm text-left">
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
                         <div className="flex items-center gap-3 mb-16 text-left">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3">
-                                <Icon name="package" size={28}/>
-                            </div>
-                            <span className="font-black text-xl tracking-tighter italic text-orange-600 uppercase leading-none">Distribuidoraustroapp</span>
+                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
+                            <span className="font-black text-xl tracking-tighter italic text-orange-600 uppercase leading-none leading-tight">Distribuidora Austroapp</span>
                         </div>
                         <nav className="space-y-2 flex-1">
                             <NavItem id="facturacion" icon="scan" label="1. Facturación" />
@@ -698,18 +611,18 @@
                             <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" />
                         </nav>
                         <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden">
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic leading-none">A pagar Proveedor</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter leading-none">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className="text-[8px] font-black uppercase opacity-50 mb-1 italic">A pagar Proveedor</p>
+                            <p className="text-2xl font-black text-orange-400 tracking-tighter">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         </div>
                     </aside>
-                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-center md:text-left text-left">
-                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} db={db} appId={appId} onClose={() => setActiveTab('gerencia')} />}
+                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-left">
+                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
+                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'inventario' && <InventarioView facturas={facturasProv} cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={facturasProv} onClose={() => setActiveTab('facturacion')} />}
                     </main>
-                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl text-left">
+                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
                         {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
                                 <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
