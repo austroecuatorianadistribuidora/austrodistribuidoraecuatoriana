@@ -3,535 +3,330 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avena Control Pro - Versión 1.2 ✨</title>
-    <!-- Dependencias estables -->
-    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <title>Logística Polaca 1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
-    
-    <!-- Firebase SDK (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b; }
-        
-        .invoice-paper { 
-            background: white; 
-            box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25); 
-            border: 1px solid #e2e8f0; 
-            max-width: 850px;
-            margin: auto;
-        }
-        
-        .invoice-table th, .invoice-table td { 
-            border: 1px solid #cbd5e1; 
-            padding: 10px; 
-            font-size: 0.7rem; 
-        }
-        
-        .invoice-table th { 
-            background-color: #f8fafc; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-            color: #475569;
-        }
-
-        .progress-bar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .hide-scrollbar::-webkit-scrollbar { width: 6px; }
-        .hide-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        
-        .btn-disabled { opacity: 0.5; cursor: not-allowed; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { color: #2563eb; border-top: 2px solid #2563eb; }
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .status-badge { font-size: 10px; padding: 2px 8px; border-radius: 9999px; font-weight: 700; text-transform: uppercase; }
+        .status-pendiente { background-color: #fef3c7; color: #92400e; }
+        .status-abonado { background-color: #dbeafe; color: #1e40af; }
+        .status-cancelado { background-color: #d1fae5; color: #065f46; }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-100 pb-24">
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+    <div id="app">
+        <!-- Header -->
+        <header class="bg-white border-b p-4 sticky top-0 z-40 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-2">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-800 leading-tight">Logística Polaca <span class="text-blue-600">1.1</span></h1>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Control Administrativo</p>
+                </div>
+            </div>
+            <div id="user-indicator" class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-400">Iniciando...</div>
+        </header>
 
-        // --- CONFIGURACIÓN GLOBAL ---
-        const today = new Date().toISOString().split('T')[0];
-        const PRODUCTOS_BASE = [
-            { id: 'p1', codigo: 'P000000256', nombre: '01 EMPACADO AVENA POLACA 165G', costo: 0.269565, pvd: 0.3478 },
-            { id: 'p2', codigo: 'P000000247', nombre: '02 EMPACADO AVENA POLACA 340G', costo: 0.608694, pvd: 0.6956 },
-            { id: 'p3', codigo: 'P000000005', nombre: '03 EMPACADO AVENA POLACA 500G', costo: 0.777042, pvd: 0.8869 },
-            { id: 'p4', codigo: 'P000000006', nombre: '04 EMPACADO AVENA POLACA 1000G', costo: 1.597390, pvd: 1.8260 },
+        <!-- Main Content -->
+        <main class="max-w-md mx-auto p-4" id="main-content">
+            <div class="flex justify-center py-20">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        </main>
+
+        <!-- Navigation Bar -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 z-50 shadow-2xl">
+            <button onclick="switchTab('dashboard')" class="nav-btn flex flex-col items-center w-full py-1 text-gray-400" id="btn-dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-width="2"/></svg>
+                <span class="text-[10px] mt-1 font-medium">Inicio</span>
+            </button>
+            <button onclick="switchTab('logistica')" class="nav-btn flex flex-col items-center w-full py-1 text-gray-400" id="btn-logistica">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2"/></svg>
+                <span class="text-[10px] mt-1 font-medium">Carga</span>
+            </button>
+            <button onclick="switchTab('rutas')" class="nav-btn flex flex-col items-center w-full py-1 text-gray-400" id="btn-rutas">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1m-4 0h1" stroke-width="2"/></svg>
+                <span class="text-[10px] mt-1 font-medium">Estados</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-logistica-v1';
+
+        const PRODUCTOS = [
+            { id: 'P000000256', nombre: 'AVENA POLACA 165G', precio: 0.269565 },
+            { id: 'P000000247', nombre: 'AVENA POLACA 340G', precio: 0.608694 },
+            { id: 'P000000005', nombre: 'AVENA POLACA 500G', precio: 0.777042 },
+            { id: 'P000000006', nombre: 'AVENA POLACA 1000G', precio: 1.597390 }
         ];
 
-        const TOTAL_GASTOS_FIJOS = 3579.80;
-        const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
-        const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
+        let facturas = [];
+        let activeTab = 'dashboard';
 
-        // --- FIREBASE SETUP ---
-        const configRaw = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const firebaseConfig = JSON.parse(configRaw);
-        if (!firebase.apps.length && firebaseConfig.apiKey) firebase.initializeApp(firebaseConfig);
-        
-        const db = firebase.apps.length ? firebase.firestore() : null;
-        const auth = firebase.apps.length ? firebase.auth() : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
-
-        // --- COMPONENTES UI ATÓMICOS ---
-        const Icon = ({ name, size = 20, className = "" }) => {
-            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
-            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
-        };
-
-        const Card = ({ children, className = "" }) => (
-            <div className={`bg-white p-6 rounded-[32px] border border-gray-200 shadow-sm ${className}`}>{children}</div>
-        );
-
-        const ViewHeader = ({ title, sub, onClose }) => (
-            <div className="flex justify-between items-center border-b pb-6 mb-6 text-left">
-                <div>
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none italic">{title}</h2>
-                    {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest italic">{sub}</p>}
-                </div>
-                <button onClick={onClose} className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all">
-                    <Icon name="x" size={24}/>
-                </button>
-            </div>
-        );
-
-        // --- SUB-VISTAS (DECLARADAS ANTES DE APP) ---
-
-        // VISTA 1: FACTURACIÓN 1.2 ESPEJO
-        const FacturacionView = ({ facturas, user, onClose }) => {
-            const [modalNueva, setModalNueva] = useState(false);
-            const [modalPago, setModalPago] = useState(null);
-            const [isSaving, setIsSaving] = useState(false);
-            const [form, setForm] = useState({
-                numFactura: '',
-                fecha: today,
-                items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })),
-                respaldoDoc: null
-            });
-            const [pagoForm, setPagoForm] = useState({ monto: '', fecha: today, comprobante: null });
-
-            const calc = useMemo(() => {
-                const subtotal = form.items.reduce((acc, it) => acc + (it.cantidad * it.costo), 0);
-                const iva = subtotal * 0.15;
-                const total = subtotal + iva;
-                const utilidad = form.items.reduce((acc, it) => acc + (it.cantidad * (it.pvd - it.costo)), 0);
-                return { subtotal, iva, total, utilidad };
-            }, [form.items]);
-
-            const onGuardarFactura = async (e) => {
-                if (e) e.preventDefault();
-                if (!user || !db) return alert("Error: Base de datos no conectada. Reinicie la web.");
-                if (!form.numFactura) return alert("Ingrese el Número de Factura");
-                
-                setIsSaving(true);
-                try {
-                    const data = {
-                        numFactura: form.numFactura,
-                        fecha: form.fecha,
-                        items: form.items.map(it => ({ id: it.id, nombre: it.nombre, cantidad: it.cantidad, costo: it.costo, total: it.cantidad * it.costo })),
-                        total: calc.total,
-                        saldoPendiente: calc.total,
-                        utilidadCompra: calc.utilidad,
-                        estado: 'Pendiente',
-                        respaldo: form.respaldoDoc,
-                        createdAt: new Date().toISOString()
-                    };
-
-                    // REGLA 1: Ruta estricta obligatoria
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
-                    
-                    setModalNueva(false);
-                    setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
-                } catch (err) {
-                    console.error("Firebase save error:", err);
-                    alert("Error de conexión al intentar grabar los datos.");
-                } finally {
-                    setIsSaving(false);
+        // --- AUTH & DATA ---
+        async function initApp() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await auth.signInWithCustomToken(__initial_auth_token);
+                } else {
+                    await auth.signInAnonymously();
                 }
-            };
+            } catch (e) { console.error("Auth error", e); }
 
-            const registrarAbono = async (factura) => {
-                const monto = parseFloat(pagoForm.monto);
-                if (isNaN(monto) || monto <= 0 || !db) return;
-                try {
-                    const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
-                    const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
-                    
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
-                        saldoPendiente: nuevoSaldo, estado: nuevoEstado
-                    });
-                    
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
-                        fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
-                    });
-                    
-                    setModalPago(null);
-                    setPagoForm({ monto: '', fecha: today, comprobante: null });
-                } catch (err) { console.error(err); }
-            };
-
-            const facturasOrdenadas = useMemo(() => [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)), [facturas]);
-
-            return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Facturación 1.2" sub="Carga Manual Espejo • Datos Blindados" onClose={onClose} />
-                    
-                    <div className="flex justify-end mb-4">
-                        <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
-                            <Icon name="file-plus" size={20}/> Nueva Factura Manual
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        {facturasOrdenadas.map(f => (
-                            <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
-                                <div className="text-left flex-1">
-                                    <h4 className="font-black text-slate-800 uppercase text-lg italic tracking-tight">Factura #{f.numFactura}</h4>
-                                    <div className="flex gap-4 mt-1 font-bold text-[10px] text-slate-400 uppercase">
-                                        <span>{f.fecha}</span>
-                                        <span className={f.estado === 'Cancelado' ? 'text-green-600' : 'text-red-600'}>{f.estado}</span>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l border-slate-100 font-black">
-                                    <div><p className="text-[8px] uppercase opacity-40">Monto</p><p>${f.total?.toFixed(2)}</p></div>
-                                    <div><p className="text-[8px] uppercase opacity-40">Saldo</p><p className={f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}>${f.saldoPendiente?.toFixed(2)}</p></div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {f.estado !== 'Cancelado' && (
-                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl shadow-sm"><Icon name="banknote" size={24}/></button>
-                                    )}
-                                    <button onClick={() => { if(confirm('¿Eliminar factura?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
-                                        <Icon name="trash-2" size={24}/>
-                                    </button>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-
-                    {modalNueva && (
-                        <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2 sm:p-10 backdrop-blur-md overflow-hidden">
-                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95">
-                                <button onClick={() => setModalNueva(false)} className="absolute top-4 right-4 z-10 p-3 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-all"><Icon name="x" size={24}/></button>
-                                <div className="flex-1 overflow-y-auto p-4 sm:p-10 hide-scrollbar">
-                                    <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
-                                        {/* DISEÑO ESPEJO FACTURA POLACA */}
-                                        <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900 gap-10">
-                                            <div className="text-left space-y-1 flex-1">
-                                                <h3 className="text-2xl font-black text-slate-900 uppercase italic leading-none mb-4">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
-                                                <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px] italic">
-                                                    <p>VIA QUININDE MARGEN DERECHO KM13</p>
-                                                    <p>RUC: 1792039754001</p>
-                                                    <p>TELÉFONO: 022765404</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full md:w-64 space-y-3">
-                                                <div className="bg-slate-900 text-white p-3 rounded text-left">
-                                                    <p className="text-[8px] font-black uppercase opacity-60 italic">NÚMERO FACTURA</p>
-                                                    <input required placeholder="003-102-..." className="bg-transparent text-lg font-black border-none outline-none w-full italic" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
-                                                </div>
-                                                <div className="bg-slate-50 border p-3 rounded text-left">
-                                                    <p className="text-[8px] font-black text-slate-400 uppercase italic">FECHA EMISIÓN</p>
-                                                    <input type="date" className="bg-transparent font-black border-none outline-none w-full" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
-                                            <div className="space-y-1 border-r pr-8 border-slate-100 font-black">
-                                                <p className="text-slate-400 mb-2 italic uppercase font-black">Adquiriente:</p>
-                                                <p className="text-slate-900 font-black text-xs uppercase tracking-tight">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
-                                                <p>RUC: 0195174555001</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-slate-400 mb-2 font-black italic">Subir Respaldo Digital:</p>
-                                                <input type="file" className="text-[9px] w-full" onChange={e => {
-                                                    const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
-                                                    if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
-                                                }} />
-                                            </div>
-                                        </div>
-
-                                        <div className="overflow-x-auto mb-10">
-                                            <table className="w-full invoice-table text-left">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Cod.</th>
-                                                        <th>Descripción</th>
-                                                        <th className="w-24 text-center">Cant.</th>
-                                                        <th className="w-32 text-right">Precio Uni.</th>
-                                                        <th className="w-32 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {form.items.map((it, idx) => (
-                                                        <tr key={it.id}>
-                                                            <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
-                                                            <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
-                                                            <td className="p-0">
-                                                                <input type="number" min="0" className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
-                                                                    const ni = [...form.items];
-                                                                    ni[idx].cantidad = parseInt(e.target.value) || 0;
-                                                                    setForm({...form, items: ni});
-                                                                }} />
-                                                            </td>
-                                                            <td className="text-right font-mono text-slate-500">${it.costo.toFixed(6)}</td>
-                                                            <td className="text-right font-black text-slate-900">${(it.cantidad * it.costo).toFixed(2)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div className="flex flex-col md:flex-row justify-between gap-10">
-                                            <div className="flex-1 space-y-4 text-left italic">
-                                                <div className="bg-slate-50 p-5 rounded border w-full italic text-[10px] font-black">
-                                                    <p className="text-slate-400 mb-1 uppercase tracking-widest">OBSERVACIÓN:</p>
-                                                    <p className="text-slate-600 font-bold uppercase tracking-tight">VENDEDOR: ARIAS JAIME</p>
-                                                </div>
-                                                <div className="bg-green-50 p-6 rounded-xl border border-green-200">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Icon name="trending-up" className="text-green-600" size={18}/>
-                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest italic">Utilidad que se gana ✨</p>
-                                                    </div>
-                                                    <p className="text-4xl font-black text-green-800 tracking-tighter">${calc.utilidad.toFixed(2)}</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full md:w-80 space-y-2 text-left font-black italic">
-                                                <div className="flex justify-between text-[10px] border-b pb-2 font-black"><span className="text-slate-400 uppercase tracking-widest">SUBTOTAL 15%</span><span className="text-slate-800">${calc.subtotal.toFixed(2)}</span></div>
-                                                <div className="flex justify-between text-[10px] border-b pb-2 font-black"><span className="text-slate-400 uppercase tracking-widest">IVA 15%</span><span className="text-slate-800">${calc.iva.toFixed(2)}</span></div>
-                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
-                                                    <span className="text-xs font-black uppercase tracking-tighter italic italic">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black tracking-tighter italic italic">${calc.total.toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button onClick={() => setModalNueva(false)} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 transition-all">Cerrar</button>
-                                    <button onClick={onGuardarFactura} disabled={isSaving || !user} className={`px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all ${(!user || isSaving) ? 'btn-disabled' : ''}`}>
-                                        {isSaving ? "Guardando..." : user ? "Grabar Factura 1.2 ✨" : "Reconectando..."}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // VISTA 2: LOGÍSTICA
-        const LogisticaView = ({ cargas, onClose }) => (
-            <div className="space-y-6 fade-in text-left font-black italic">
-                <ViewHeader title="Logística" sub="Despachos en Ruta" onClose={onClose} />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {cargas.map(c => (
-                        <Card key={c.id} className="border-l-8 border-l-orange-400">
-                            <div className="flex justify-between items-start">
-                                <div><h4 className="uppercase text-sm italic">{c.responsable}</h4><span className="text-[9px] text-slate-400 mt-1 block uppercase italic tracking-widest">{c.estado} • {c.fecha}</span></div>
-                                <div className="text-right"><p className="text-[8px] uppercase opacity-40">Monto Carga</p><p className="text-slate-800 text-xl tracking-tighter italic">${(c.totalCargado || 0).toLocaleString()}</p></div>
-                            </div>
-                        </Card>
-                    ))}
-                </div>
-            </div>
-        );
-
-        // VISTA 3: INVENTARIO
-        const InventarioView = ({ facturas, cargas, onClose }) => {
-            const stock = useMemo(() => {
-                const s = {};
-                PRODUCTOS_BASE.forEach(p => s[p.id] = { ...p, ingresado: 0, despachado: 0 });
-                facturas.forEach(f => f.items?.forEach(it => { if(s[it.id]) s[it.id].ingresado += (it.cantidad || 0); }));
-                cargas.forEach(c => c.items?.forEach(it => { if(s[it.pId]) s[it.pId].despachado += (it.q || 0); }));
-                return Object.values(s);
-            }, [facturas, cargas]);
-            return (
-                <div className="space-y-6 fade-in text-left font-black italic">
-                    <ViewHeader title="Inventario" sub="Existencia en Bodega" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {stock.map(p => (
-                            <Card key={p.id} className="relative overflow-hidden group">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
-                                <p className="text-[10px] uppercase mb-4 italic tracking-widest">{p.nombre}</p>
-                                <p className="text-5xl tracking-tighter text-center italic">{(p.ingresado - p.despachado).toLocaleString()}</p>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        // VISTA 4: CONTABILIDAD
-        const ContabilidadView = ({ cartera, gastos, onClose }) => {
-            const items = [...cartera.map(i => ({...i, val: i.monto})), ...gastos.map(e => ({...e, val: -e.monto}))].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-            return (
-                <div className="space-y-6 fade-in text-left font-black italic">
-                    <ViewHeader title="Contabilidad" sub="Movimientos de Caja" onClose={onClose} />
-                    <Card className="p-0 overflow-hidden border border-gray-100 shadow-sm">
-                        <table className="w-full text-xs text-left">
-                            <thead className="bg-slate-50 uppercase tracking-widest text-[9px] italic">
-                                <tr><th className="p-6 italic">Fecha</th><th className="p-6 italic">Detalle</th><th className="p-6 text-right italic font-black">Monto</th></tr>
-                            </thead>
-                            <tbody>
-                                {items.map((m, i) => (
-                                    <tr key={i} className="border-b border-slate-50 italic">
-                                        <td className="p-6 text-slate-400 font-mono tracking-tighter italic">{m.fecha}</td>
-                                        <td className="p-6 uppercase tracking-tight italic">{m.cliente || m.detalle}</td>
-                                        <td className={`p-6 text-right font-black ${m.val > 0 ? 'text-green-600' : 'text-red-500'}`}>${Math.abs(m.val)?.toLocaleString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </Card>
-                </div>
-            );
-        };
-
-        // VISTA 5: GERENCIA
-        const GerenciaView = ({ stats, facturasProv, onClose }) => {
-            const utilidad = stats.utilidadBruta || 0;
-            const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
-            return (
-                <div className="space-y-6 fade-in pb-12 text-left font-black italic italic">
-                    <ViewHeader title="Gerencia" sub="Análisis del Mes" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white text-left italic">
-                        <Card className="bg-slate-900 border-none shadow-2xl">
-                            <p className="text-[10px] uppercase opacity-50 tracking-widest mb-4 italic">Inversión Fija</p>
-                            <p className="text-4xl tracking-tighter font-black italic">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
-                        </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic">Utilidad Neta Real</p>
-                            <p className="text-4xl tracking-tighter font-black italic">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
-                        </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl">
-                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic">Deuda Proveedores</p>
-                            <p className="text-4xl tracking-tighter font-black italic">${saldoPagar.toLocaleString()}</p>
-                        </Card>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- APLICACIÓN PRINCIPAL (REACT ENTRY POINT) ---
-        function App() {
-            const [user, setUser] = useState(null);
-            const [activeTab, setActiveTab] = useState('facturacion'); 
-            const [loading, setLoading] = useState(true);
-            const [data, setData] = useState({ cargas: [], cartera: [], gastos: [], facturas: [] });
-
-            // REGLA 3: Iniciar autenticación primero
-            useEffect(() => {
-                const initializeAppConnection = async () => {
-                    if (!auth) { setLoading(false); return; }
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await auth.signInWithCustomToken(__initial_auth_token);
-                        } else {
-                            await auth.signInAnonymously();
-                        }
-                    } catch (e) { console.error("Auth Failure:", e); }
-                };
-                
-                initializeAppConnection();
-                
-                const unsubAuth = auth ? auth.onAuthStateChanged(u => { 
-                    setUser(u); 
-                    setLoading(false); 
-                }) : null;
-
-                const timer = setTimeout(() => setLoading(false), 6000);
-                return () => { 
-                    if(unsubAuth) unsubAuth(); 
-                    clearTimeout(timer); 
-                };
-            }, []);
-
-            // REGLA 1: Cargar datos desde rutas estrictas
-            useEffect(() => {
-                if (!user || !db) return;
-                const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
-                const unsubs = collections.map(col => {
-                    const ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
-                    return ref.onSnapshot(snap => {
-                        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        setData(prev => ({ ...prev, [col === 'facturasProveedor' ? 'facturas' : col]: items }));
-                    }, err => console.error(`Error snapshot ${col}:`, err));
-                });
-                return () => unsubs.forEach(fn => fn());
-            }, [user]);
-
-            const stats = useMemo(() => {
-                const utilidadBruta = data.cargas.reduce((total, c) => {
-                    const itemsUtil = (c.items || []).reduce((acc, it) => acc + (it.q * (it.pvd - it.costo)), 0);
-                    return total + itemsUtil;
-                }, 0);
-                return { utilidadBruta };
-            }, [data.cargas]);
-
-            if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white border-none">
-                    <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px] italic italic">Versión 1.2 • Conectando Datos...</p>
-                </div>
-            );
-
-            const NavItem = ({ id, icon, label }) => (
-                <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-white hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest italic`}>
-                    <Icon name={icon} size={22}/>
-                    <span className="hidden md:inline italic">{label}</span>
-                </button>
-            );
-
-            return (
-                <div className="min-h-screen md:pl-72 flex text-left font-black italic italic">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-16">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
-                            <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none italic italic">Avena Pro <span className="text-[10px] block opacity-50 not-italic tracking-widest">VER 1.2</span></span>
-                        </div>
-                        <nav className="space-y-2 flex-1">
-                            <NavItem id="facturacion" icon="scan" label="1. Facturación 1.2" />
-                            <NavItem id="logistica" icon="truck" label="2. Logística" />
-                            <NavItem id="inventario" icon="archive" label="3. Inventario" />
-                            <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" />
-                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" />
-                        </nav>
-                        <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden text-center">
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Deuda Proveedores</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter italic italic italic">${data.facturas.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
-                        </div>
-                    </aside>
-                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-center md:text-left text-left">
-                        {activeTab === 'facturacion' && <FacturacionView facturas={data.facturas} user={user} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'logistica' && <LogisticaView cargas={data.cargas} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'inventario' && <InventarioView facturas={data.facturas} cargas={data.cargas} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'contabilidad' && <ContabilidadView cartera={data.cartera} gastos={data.gastos} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={data.facturas} onClose={() => setActiveTab('facturacion')} />}
-                    </main>
-                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
-                        {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
-                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
-                            </button>
-                        ))}
-                    </nav>
-                </div>
-            );
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    document.getElementById('user-indicator').innerText = user.uid.substring(0, 8);
+                    escucharFacturas();
+                }
+            });
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        function escucharFacturas() {
+            const path = `artifacts/${appId}/public/data/facturas`;
+            db.collection(path).onSnapshot(snapshot => {
+                const data = snapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data(),
+                    // Asegurar que exista timestamp para ordenar
+                    sortTime: doc.data().timestamp?.seconds || new Date(doc.data().fechaEmision).getTime() / 1000 || 0
+                }));
+                
+                // ORDENAR: Del más reciente al más antiguo
+                facturas = data.sort((a, b) => b.sortTime - a.sortTime);
+                render();
+            }, (error) => {
+                console.error("Error Firestore:", error);
+            });
+        }
+
+        // --- NAVEGACIÓN ---
+        function switchTab(tab) {
+            activeTab = tab;
+            render();
+        }
+
+        // --- LÓGICA DE FORMULARIO ---
+        function updateTotals() {
+            let subtotal = 0;
+            PRODUCTOS.forEach((p, i) => {
+                const cant = parseFloat(document.getElementById(`cant-${i}`).value) || 0;
+                subtotal += cant * p.precio;
+            });
+            const iva = subtotal * 0.15;
+            const total = subtotal + iva;
+
+            document.getElementById('res-subtotal').innerText = `$${subtotal.toFixed(2)}`;
+            document.getElementById('res-iva').innerText = `$${iva.toFixed(2)}`;
+            document.getElementById('res-total').innerText = `$${total.toFixed(2)}`;
+        }
+
+        async function guardarFactura() {
+            const btn = document.getElementById('btn-save');
+            const numFact = document.getElementById('f-num').value;
+            if (!numFact) return alert("Ingrese número de factura");
+
+            btn.disabled = true;
+            btn.innerText = "Guardando...";
+
+            const facturaData = {
+                cliente: document.getElementById('f-cliente').value,
+                ruc: document.getElementById('f-ruc').value,
+                numFactura: numFact,
+                fechaEmision: document.getElementById('f-fecha').value,
+                estado: document.getElementById('f-estado').value,
+                productos: PRODUCTOS.map((p, i) => ({
+                    ...p,
+                    cantidad: parseFloat(document.getElementById(`cant-${i}`).value) || 0
+                })),
+                total: parseFloat(document.getElementById('res-total').innerText.replace('$', '')),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                const path = `artifacts/${appId}/public/data/facturas`;
+                await db.collection(path).add(facturaData);
+                switchTab('dashboard');
+            } catch (e) {
+                alert("Error al guardar");
+                btn.disabled = false;
+                btn.innerText = "REGISTRAR CARGA";
+            }
+        }
+
+        async function actualizarEstado(id, nuevoEstado) {
+            try {
+                const path = `artifacts/${appId}/public/data/facturas`;
+                await db.collection(path).doc(id).update({ estado: nuevoEstado });
+            } catch (e) {
+                alert("Error al actualizar estado");
+            }
+        }
+
+        // --- RENDERIZADO ---
+        function render() {
+            const container = document.getElementById('main-content');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('tab-active'));
+            document.getElementById(`btn-${activeTab}`).classList.add('tab-active');
+
+            if (activeTab === 'dashboard') {
+                const total = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
+                container.innerHTML = `
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border">
+                                <p class="text-[10px] text-gray-400 font-bold uppercase">Total Sistema</p>
+                                <p class="text-xl font-bold text-gray-800">$${total.toFixed(2)}</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-2xl shadow-sm border">
+                                <p class="text-[10px] text-gray-400 font-bold uppercase">Facturas</p>
+                                <p class="text-xl font-bold text-gray-800">${facturas.length}</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-tighter">Cargas Recientes (Último al Primero)</h3>
+                            </div>
+                            ${facturas.length === 0 ? '<p class="text-center py-10 text-gray-400 text-sm">No hay facturas registradas</p>' : ''}
+                            ${facturas.slice(0, 10).map(f => `
+                                <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 ${f.estado === 'cancelado' ? 'border-green-500' : f.estado === 'abonado' ? 'border-blue-500' : 'border-yellow-500'}">
+                                    <div class="text-sm">
+                                        <p class="font-bold text-gray-800">${f.cliente.length > 20 ? f.cliente.substring(0, 20) + '...' : f.cliente}</p>
+                                        <div class="flex gap-2 items-center mt-1">
+                                            <span class="text-[9px] text-gray-400 font-mono">${f.numFactura}</span>
+                                            <span class="status-badge status-${f.estado || 'pendiente'}">${f.estado || 'pendiente'}</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="font-bold text-blue-600">$${f.total.toFixed(2)}</p>
+                                        <p class="text-[9px] text-gray-400">${f.fechaEmision}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (activeTab === 'logistica') {
+                const hoy = new Date().toISOString().split('T')[0];
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        <h2 class="text-lg font-bold text-gray-800">Nueva Carga Espejo</h2>
+                        
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-4">
+                             <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Información de Factura</p>
+                             
+                             <div>
+                                <label class="text-[9px] text-gray-400 font-bold uppercase">Cliente</label>
+                                <input id="f-cliente" value="DISTRIBUIDORA AUSTROECUATORIANA S.A.S." class="w-full text-sm font-bold border-b pb-1 outline-none focus:border-blue-500">
+                             </div>
+
+                             <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">RUC</label>
+                                    <input id="f-ruc" value="0195174555001" class="w-full text-xs border-b outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">N° Factura</label>
+                                    <input id="f-num" placeholder="003-102-..." class="w-full text-xs border-b outline-none font-bold text-blue-600">
+                                </div>
+                             </div>
+
+                             <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Fecha Emisión</label>
+                                    <input type="date" id="f-fecha" value="${hoy}" class="w-full text-xs border-b outline-none">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Estado Inicial</label>
+                                    <select id="f-estado" class="w-full text-xs border-b outline-none bg-transparent font-bold">
+                                        <option value="pendiente">PENDIENTE</option>
+                                        <option value="abonado">ABONADO</option>
+                                        <option value="cancelado">CANCELADO</option>
+                                    </select>
+                                </div>
+                             </div>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-4">
+                            <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Desglose de Productos</p>
+                            ${PRODUCTOS.map((p, i) => `
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1">
+                                        <p class="text-xs font-bold text-gray-700 leading-tight">${p.nombre}</p>
+                                        <p class="text-[9px] text-gray-400">Unit: $${p.precio.toFixed(4)}</p>
+                                    </div>
+                                    <input type="number" id="cant-${i}" oninput="updateTotals()" placeholder="0" class="w-20 bg-gray-50 border rounded-lg p-2 text-center text-sm font-bold focus:ring-1 focus:ring-blue-500 outline-none">
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="bg-gray-800 p-5 rounded-2xl text-white shadow-xl space-y-2">
+                            <div class="flex justify-between text-xs opacity-60"><span>Subtotal</span> <span id="res-subtotal">$0.00</span></div>
+                            <div class="flex justify-between text-xs opacity-60 border-b border-white/10 pb-2"><span>IVA (15%)</span> <span id="res-iva">$0.00</span></div>
+                            <div class="flex justify-between text-xl font-bold pt-1"><span>TOTAL</span> <span id="res-total" class="text-green-400">$0.00</span></div>
+                        </div>
+
+                        <button id="btn-save" onclick="guardarFactura()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR CARGA</button>
+                    </div>
+                `;
+            } else if (activeTab === 'rutas') {
+                container.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-lg font-bold text-gray-800">Control de Facturas</h2>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">${facturas.length} registros</span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            ${facturas.map(f => `
+                                <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-800">${f.cliente}</p>
+                                            <p class="text-[10px] text-gray-400 font-mono">${f.numFactura} • ${f.fechaEmision}</p>
+                                        </div>
+                                        <p class="font-bold text-blue-600">$${f.total.toFixed(2)}</p>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-2 pt-2 border-t border-gray-50">
+                                        <span class="text-[10px] font-bold text-gray-400 uppercase flex-1">Cambiar Estado:</span>
+                                        <select 
+                                            onchange="actualizarEstado('${f.id}', this.value)" 
+                                            class="text-[10px] font-bold border rounded px-2 py-1 outline-none ${f.estado === 'cancelado' ? 'text-green-600' : f.estado === 'abonado' ? 'text-blue-600' : 'text-yellow-600'}"
+                                        >
+                                            <option value="pendiente" ${f.estado === 'pendiente' ? 'selected' : ''}>PENDIENTE</option>
+                                            <option value="abonado" ${f.estado === 'abonado' ? 'selected' : ''}>ABONADO</option>
+                                            <option value="cancelado" ${f.estado === 'cancelado' ? 'selected' : ''}>CANCELADO</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            `).join('')}
+                            ${facturas.length === 0 ? '<div class="text-center py-20 opacity-30 font-bold">Sin datos</div>' : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = initApp;
     </script>
 </body>
 </html>
