@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avena Control Pro - Gestión Integral ✨</title>
+    <title>Avena Control Pro - Gestión Integral</title>
     <!-- Dependencias estables -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -12,365 +12,331 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b; }
-        .invoice-paper { background: white; box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #e2e8f0; }
-        .invoice-table th, .invoice-table td { border: 1px solid #cbd5e1; padding: 12px 8px; font-size: 0.75rem; }
-        .invoice-table th { background-color: #f8fafc; font-weight: 800; text-transform: uppercase; color: #64748b; }
-        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; background-color: #f8fafc; color: #1e293b; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
         .progress-bar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Fix scrollbar for the modal */
-        .hide-scrollbar::-webkit-scrollbar { width: 6px; }
-        .hide-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .hide-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
         const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
-        // --- CONFIGURACIÓN DE PRODUCTOS (VALORES EXACTOS FACTURA 5913) ---
+        // --- CONFIGURACIÓN GLOBAL ---
+        const apiKey = ""; 
+        const today = new Date().toISOString().split('T')[0];
+        
         const PRODUCTOS_DATA = [
-            { id: 'p1', codigo: 'P000000256', nombre: '01 EMPACADO AVENA POLACA 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
-            { id: 'p2', codigo: 'P000000247', nombre: '02 EMPACADO AVENA POLACA 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
-            { id: 'p3', codigo: 'P000000005', nombre: '03 EMPACADO AVENA POLACA 500G', costo: 0.777042, pvd: 0.8869, color: '#ea580c' },
-            { id: 'p4', codigo: 'P000000006', nombre: '04 EMPACADO AVENA POLACA 1000G', costo: 1.597390, pvd: 1.8260, color: '#c2410c' },
+            { id: 'p1', nombre: 'VASO 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
+            { id: 'p2', nombre: 'VASO 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
+            { id: 'p3', nombre: 'EMP. 500G', costo: 0.777042, pvd: 0.8869, color: '#ea580c' },
+            { id: 'p4', nombre: 'EMP. 1000G', costo: 1.597390, pvd: 1.8260, color: '#c2410c' },
         ];
+
+        const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
+        
+        const GASTOS_MENSUALES_FIJOS = {
+            ventas: [
+                { label: 'Sueldos empleados', monto: 964.00 },
+                { label: 'Combustible', monto: 350.00 },
+                { label: 'Comisiones', monto: 600.00 },
+                { label: 'Viáticos Local', monto: 60.00 },
+                { label: 'Viáticos Foráneo', monto: 180.00 },
+                { label: 'Depreciación Vehículos', monto: 200.00 },
+                { label: 'Intereses Préstamo', monto: 172.73 },
+                { label: 'Pago Capital Vehículos', monto: 683.06 },
+                { label: 'Mantenimiento y Rep.', monto: 100.00 },
+                { label: 'Telefonía Celular', monto: 30.00 }
+            ],
+            admin: [
+                { label: 'Honorarios Prof.', monto: 200.00 },
+                { label: 'Suministros y Mat.', monto: 10.00 },
+                { label: 'Gastos Varios', monto: 30.00 }
+            ]
+        };
 
         const TOTAL_GASTOS_FIJOS = 3579.80;
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
-        const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+        // --- INICIALIZACIÓN DE FIREBASE ---
+        let db, auth, appId;
+        try {
+            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (configStr) {
+                const firebaseConfig = JSON.parse(configStr);
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+            }
+        } catch (e) { console.error("Firebase Error:", e); }
 
-        // --- COMPONENTES UI GLOBALES ---
+        // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
         const Card = ({ children, className = "" }) => (
-            <div className={`bg-white p-6 rounded-[32px] border border-gray-200 shadow-sm ${className}`}>{children}</div>
+            <div className={`bg-white p-6 rounded-[32px] border border-gray-100 shadow-sm ${className}`}>{children}</div>
         );
 
         const ViewHeader = ({ title, sub, onClose }) => (
-            <div className="flex justify-between items-center border-b pb-6 mb-6 text-left">
+            <div className="flex justify-between items-center border-b pb-6 mb-6">
                 <div>
                     <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{title}</h2>
                     {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{sub}</p>}
                 </div>
-                <button onClick={onClose} title="Volver" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
+                <button onClick={onClose} title="Cerrar" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
                     <Icon name="x" size={24}/>
                 </button>
             </div>
         );
 
-        // --- VISTAS ---
-
-        // VISTA 1: FACTURACIÓN MANUAL
-        const FacturacionView = ({ facturas, onClose }) => {
-            const [modalNueva, setModalNueva] = useState(false);
-            const [modalAbono, setModalAbono] = useState(null);
-            const [form, setForm] = useState({
-                numFactura: '',
-                fecha: new Date().toISOString().split('T')[0],
-                items: PRODUCTOS_DATA.map(p => ({ ...p, cantidad: 0 })),
-                respaldo: null
+        // --- UTILIDADES IA ---
+        const llamarIA = async (prompt, base64, mimeType = "image/png") => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: mimeType, data: base64.split(',')[1] } }
+                    ]
+                }]
+            };
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-            const [abonoForm, setAbonoForm] = useState({ monto: '', fecha: new Date().toISOString().split('T')[0], comprobante: null });
+            const result = await response.json();
+            return result.candidates?.[0]?.content?.parts?.[0]?.text;
+        };
 
-            const calcularTotales = useMemo(() => {
-                const subtotal = form.items.reduce((acc, it) => acc + (it.cantidad * it.costo), 0);
-                const iva = subtotal * 0.15;
-                const total = subtotal + iva;
-                return { subtotal, iva, total };
-            }, [form.items]);
+        // --- VISTAS DEL SISTEMA ---
 
-            const guardarFactura = async (e) => {
-                e.preventDefault();
-                const totalFinal = calcularTotales.total;
-                const data = {
-                    numFactura: form.numFactura,
-                    fecha: form.fecha,
-                    items: form.items.map(it => ({ id: it.id, nombre: it.nombre, cantidad: it.cantidad, costo: it.costo, total: it.cantidad * it.costo })),
-                    total: totalFinal,
-                    saldoPendiente: totalFinal,
-                    estado: 'Pendiente',
-                    respaldo: form.respaldo,
-                    createdAt: new Date().toISOString()
+        // 1. FACTURACIÓN IA
+        const FacturacionView = ({ facturas, onClose }) => {
+            const [isScanning, setIsScanning] = useState(false);
+            const [modalScan, setModalScan] = useState(false);
+            const [modalAbono, setModalAbono] = useState(null);
+            const [tempAbono, setTempAbono] = useState({ monto: '', fecha: today, comprobante: '' });
+
+            const procesarIA = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setIsScanning(true);
+                const r = new FileReader();
+                r.onloadend = async () => {
+                    try {
+                        const prompt = `Analiza esta factura. Devuelve EXCLUSIVAMENTE un JSON: { "numFactura": "string", "fecha": "YYYY-MM-DD", "total": number, "items": [{ "id": "p1/p2/p3/p4", "nombre": "string", "cantidad": number }] }. p1=165g, p2=340g, p3=500g, p4=1000g.`;
+                        const res = await llamarIA(prompt, r.result, file.type);
+                        const data = JSON.parse(res.replace(/```json|```/g, "").trim());
+                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add({
+                            ...data, estado: 'Pendiente', saldoPendiente: data.total, createdAt: new Date().toISOString()
+                        });
+                        setModalScan(false);
+                    } catch (err) { alert("Error de lectura IA."); } finally { setIsScanning(false); }
                 };
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
-                setModalNueva(false);
-                resetForm();
+                r.readAsDataURL(file);
             };
 
-            const resetForm = () => {
-                setForm({ numFactura: '', fecha: new Date().toISOString().split('T')[0], items: PRODUCTOS_DATA.map(p => ({ ...p, cantidad: 0 })), respaldo: null });
+            const registrarAbono = async (f) => {
+                const monto = parseFloat(tempAbono.monto);
+                const nuevoSaldo = Math.max(0, f.saldoPendiente - monto);
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).update({
+                    saldoPendiente: nuevoSaldo, estado: nuevoSaldo <= 0.1 ? 'Cancelado' : 'Abonado'
+                });
+                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
+                    fecha: today, monto, categoria: 'Pago Proveedor', detalle: `Abono Fact #${f.numFactura}`, comprobante: tempAbono.comprobante
+                });
+                setModalAbono(null);
+                setTempAbono({ monto: '', fecha: today, comprobante: '' });
             };
-
-            const facturasOrdenadas = useMemo(() => {
-                return [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-            }, [facturas]);
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="1. Registro e Ingresos" onClose={onClose} />
-                    
+                    <ViewHeader title="Facturación" sub="Registro de Ingresos (Pestaña 1)" onClose={onClose} />
                     <div className="flex justify-end mb-4">
-                        <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
-                            <Icon name="file-plus" size={20}/> Nueva Factura Manual
+                        <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs">
+                            <Icon name="upload-cloud" size={20}/> Escanear Factura
                         </button>
                     </div>
-
-                    <div className="space-y-4">
-                        {facturasOrdenadas.map(f => (
-                            <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
-                                <div className="text-left flex-1">
-                                    <h4 className="font-black text-slate-800 uppercase tracking-tighter text-lg leading-tight">Factura #{f.numFactura}</h4>
-                                    <div className="flex gap-4 mt-1">
-                                        <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-1"><Icon name="calendar" size={12}/> {f.fecha}</span>
-                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${f.estado === 'Cancelado' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{f.estado}</span>
-                                    </div>
+                    <div className="space-y-3">
+                        {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
+                            <Card key={f.id} className="flex flex-col md:flex-row justify-between items-center border-l-8 border-l-blue-500 gap-4">
+                                <div className="text-left flex-1"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
+                                <div className="grid grid-cols-2 gap-8 text-center px-4">
+                                    <div><p className="text-[8px] font-black uppercase opacity-40">Monto</p><p className="font-black text-slate-800">${f.total?.toLocaleString()}</p></div>
+                                    <div><p className="text-[8px] font-black uppercase opacity-40">Saldo</p><p className={`font-black ${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toLocaleString()}</p></div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l md:border-r border-slate-100 w-full md:w-auto font-black">
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
-                                </div>
-                                <div className="flex gap-2 w-full md:w-auto justify-end">
-                                    <button onClick={() => { if(confirm('¿Desea eliminar este registro?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
-                                        <Icon name="trash-2" size={24}/>
-                                    </button>
+                                <div className="flex gap-2">
+                                    {f.estado !== 'Cancelado' && <button onClick={() => setModalAbono(f)} className="p-3 bg-green-50 text-green-600 rounded-xl"><Icon name="banknote" size={20}/></button>}
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-3 text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={20}/></button>
                                 </div>
                             </Card>
                         ))}
                     </div>
 
-                    {/* MODAL NUEVA FACTURA - DISEÑO MEJORADO */}
-                    {modalNueva && (
-                        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 sm:p-10 backdrop-blur-sm">
-                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden relative shadow-2xl">
-                                {/* Botón X superior */}
-                                <button 
-                                    onClick={() => setModalNueva(false)} 
-                                    className="absolute top-4 right-4 z-10 p-3 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-all"
-                                >
-                                    <Icon name="x" size={24}/>
-                                </button>
-
-                                <div className="flex-1 overflow-y-auto p-6 sm:p-12 hide-scrollbar">
-                                    <div className="invoice-paper p-8 sm:p-12 border rounded-sm">
-                                        {/* ENCABEZADO FACTURA */}
-                                        <div className="flex flex-col md:flex-row justify-between items-start mb-12 pb-10 border-b-2 border-slate-200">
-                                            <div className="text-left space-y-2 mb-6 md:mb-0">
-                                                <h3 className="text-2xl font-black text-slate-900 uppercase italic leading-none mb-4">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
-                                                <div className="space-y-1 text-slate-500 font-bold uppercase text-[10px]">
-                                                    <p>Dir. Matriz: VIA QUININDE MARGEN DERECHO KM13</p>
-                                                    <p>RUC: 1792039754001</p>
-                                                    <p>Teléfonos: 022765404 | 0986192823</p>
-                                                    <p>Obligado a llevar Contabilidad: SI</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full md:w-72 space-y-4">
-                                                <div className="bg-slate-50 border p-4 rounded-lg">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Factura Nº</p>
-                                                    <input 
-                                                        required 
-                                                        placeholder="003-102-0000XXXXX" 
-                                                        className="w-full bg-white border border-slate-200 p-3 rounded font-black text-lg focus:ring-2 focus:ring-orange-400 outline-none" 
-                                                        onChange={e => setForm({...form, numFactura: e.target.value})} 
-                                                    />
-                                                </div>
-                                                <div className="bg-slate-50 border p-4 rounded-lg">
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Fecha Emisión</p>
-                                                    <input 
-                                                        type="date" 
-                                                        required 
-                                                        className="w-full bg-white border border-slate-200 p-3 rounded font-black focus:ring-2 focus:ring-orange-400 outline-none" 
-                                                        value={form.fecha} 
-                                                        onChange={e => setForm({...form, fecha: e.target.value})} 
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* DATOS DEL COMPRADOR */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 text-left bg-slate-50 p-6 rounded-xl border border-slate-100">
-                                            <div className="space-y-1">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Razón Social / Comprador:</p>
-                                                <p className="text-slate-900 font-black text-sm uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
-                                                <p className="text-xs font-bold text-slate-600 uppercase mt-1">RUC: 0195174555001</p>
-                                                <p className="text-xs font-bold text-slate-500 uppercase">Ciudad: CUENCA</p>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase">Adjuntar Respaldo Digital:</p>
-                                                <label className="flex items-center gap-2 bg-white p-3 rounded-lg border border-dashed border-slate-300 cursor-pointer hover:bg-slate-50 transition-all">
-                                                    <Icon name="upload" size={16} className="text-slate-400"/>
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase">{form.respaldo ? "✓ Archivo Cargado" : "Seleccionar Imagen/PDF"}</span>
-                                                    <input type="file" className="hidden" onChange={e => {
-                                                        const r = new FileReader(); r.onload = () => setForm({...form, respaldo: r.result});
-                                                        if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
-                                                    }} />
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        {/* TABLA DE PRODUCTOS */}
-                                        <div className="overflow-x-auto mb-10">
-                                            <table className="w-full invoice-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th className="w-24">Cod. Principal</th>
-                                                        <th>Descripción</th>
-                                                        <th className="w-28 text-center">Cantidad</th>
-                                                        <th className="w-32 text-right">Precio Uni.</th>
-                                                        <th className="w-32 text-right">Precio Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {form.items.map((it, idx) => (
-                                                        <tr key={it.id}>
-                                                            <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
-                                                            <td className="text-left font-black text-slate-700 text-xs">{it.nombre}</td>
-                                                            <td className="p-0">
-                                                                <input 
-                                                                    type="number" 
-                                                                    min="0" 
-                                                                    className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" 
-                                                                    value={it.cantidad} 
-                                                                    onChange={e => {
-                                                                        const newItems = [...form.items];
-                                                                        newItems[idx].cantidad = parseInt(e.target.value) || 0;
-                                                                        setForm({...form, items: newItems});
-                                                                    }} 
-                                                                />
-                                                            </td>
-                                                            <td className="text-right font-mono text-slate-500">${it.costo.toFixed(4)}</td>
-                                                            <td className="text-right font-black text-slate-900">${(it.cantidad * it.costo).toFixed(2)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        {/* DESGLOSE TOTALES */}
-                                        <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-                                            <div className="flex-1 bg-slate-50 p-6 rounded-xl border w-full text-left italic">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Información Adicional:</p>
-                                                <p className="text-[10px] font-bold text-slate-600">VENDEDOR: ARIAS JAIME</p>
-                                                <p className="text-[10px] font-bold text-slate-600 uppercase">OBSERVACIÓN: CUENCA</p>
-                                            </div>
-                                            <div className="w-full md:w-80 space-y-1">
-                                                <div className="flex justify-between p-3 border-b border-slate-100">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase">SUBTOTAL 15%</span>
-                                                    <span className="text-sm font-black text-slate-700">${calcularTotales.subtotal.toFixed(2)}</span>
-                                                </div>
-                                                <div className="flex justify-between p-3 border-b border-slate-100">
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase">IVA 15%</span>
-                                                    <span className="text-sm font-black text-slate-700">${calcularTotales.iva.toFixed(2)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded-lg mt-4 shadow-xl">
-                                                    <span className="text-xs font-black uppercase tracking-tighter">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black tracking-tighter">${calcularTotales.total.toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                    {modalScan && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative text-left">
+                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <Icon name="scan" size={48} className="mx-auto text-orange-600 mb-6 animate-pulse"/>
+                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 text-center italic">Escaneo de Compras</h3>
+                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase text-center">Analizando factura...</p> : (
+                                    <div className="space-y-4">
+                                        <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all text-center">
+                                            Subir PDF o Foto
+                                            <input type="file" className="hidden" accept="image/*,application/pdf" onChange={procesarIA} />
+                                        </label>
+                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-all text-center">← Cancelar y Salir</button>
                                     </div>
-                                </div>
+                                )}
+                            </Card>
+                        </div>
+                    )}
 
-                                {/* FOOTER DE ACCIÓN */}
-                                <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => { resetForm(); setModalNueva(false); }} 
-                                        className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all"
-                                    >
-                                        Cancelar y Salir
-                                    </button>
-                                    <button 
-                                        onClick={guardarFactura} 
-                                        className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all transform hover:scale-105"
-                                    >
-                                        Grabar Factura ✨
-                                    </button>
+                    {modalAbono && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left">
+                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter italic">Registrar Pago: #{modalAbono.numFactura}</h3>
+                                <div className="space-y-4">
+                                    <input type="number" step="0.01" placeholder="Monto del Abono $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
+                                    <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
+                                        {tempAbono.comprobante ? <img src={tempAbono.comprobante} className="h-20 mx-auto rounded-xl shadow-md mb-2"/> : <Icon name="upload-cloud" size={32} className="text-slate-300 mb-2"/>}
+                                        <span className="text-[9px] font-black uppercase text-slate-400">Captura Comprobante</span>
+                                        <input type="file" className="hidden" accept="image/*" onChange={e => {
+                                            const r = new FileReader(); r.onloadend = () => setTempAbono({...tempAbono, comprobante: r.result}); r.readAsDataURL(e.target.files[0]);
+                                        }} />
+                                    </label>
+                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Pago</button>
+                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar</button>
                                 </div>
-                            </div>
+                            </Card>
                         </div>
                     )}
                 </div>
             );
         };
 
-        // VISTA 2: LOGÍSTICA
+        // 2. LOGÍSTICA
         const LogisticaView = ({ cargas, onClose }) => {
             const [modal, setModal] = useState(false);
+            const [retModal, setRetModal] = useState(false);
+            const [active, setActive] = useState(null);
             const [form, setForm] = useState({ vendedor: '', items: PRODUCTOS_DATA.map(p => ({ ...p, q: 0 })) });
+            const [rets, setRets] = useState({});
+            const [fotoDeposito, setFotoDeposito] = useState("");
+
             const totalCarga = useMemo(() => form.items.reduce((a, b) => a + (b.q * b.pvd), 0), [form.items]);
 
             return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Logística" sub="2. Despachos Diarios" onClose={onClose} />
+                <div className="space-y-6 fade-in">
+                    <ViewHeader title="Logística" sub="Pestaña 2 - Despachos a Ruta" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {cargas.map(c => (
-                            <Card key={c.id} className="border-l-8 border-l-orange-400">
+                            <Card key={c.id} className={`border-l-8 ${c.estado === 'Liquidado' ? 'border-l-green-500' : 'border-l-orange-400'}`}>
                                 <div className="flex justify-between items-start">
-                                    <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tighter">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40">Valor Cargado</p><p className="text-slate-800 text-xl">${(c.totalCargado || 0).toLocaleString()}</p></div>
+                                    <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tight">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
+                                    <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recaudado</p><p className="font-black text-green-600">${(c.ventaNeta || 0).toLocaleString()}</p></div>
                                 </div>
-                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end">
-                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                <div className="mt-6 flex justify-between border-t pt-4">
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-red-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Cerrar Ruta</button>}
                                 </div>
                             </Card>
                         ))}
                     </div>
+
                     {modal && (
-                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-md overflow-y-auto">
-                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-8 uppercase text-slate-800 italic">Nueva Salida de Ruta</h3>
+                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter text-slate-800 italic">Nueva Carga de Ruta</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
                                         responsable: form.vendedor, fecha: today, estado: 'En Tránsito',
-                                        totalCargado: totalCarga,
                                         items: form.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, costo: it.costo }))
                                     });
                                     setModal(false);
                                 }} className="space-y-4">
-                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none outline-none shadow-inner" onChange={e => setForm({...form, vendedor: e.target.value})} required>
+                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, vendedor: e.target.value})} required>
                                         <option value="">Seleccionar Vendedor...</option>{VENDEDORES.map(v => <option key={v}>{v}</option>)}
                                     </select>
                                     {form.items.map((it, idx) => (
-                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm">
-                                            <span className="flex-1 text-[10px] font-black uppercase text-slate-600 text-left">{it.nombre}</span>
-                                            <input type="number" min="0" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner outline-none focus:ring-1 focus:ring-orange-400" placeholder="0" onChange={e => {
+                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                                            <span className="flex-1 text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
+                                            <input type="number" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner" placeholder="Cant" onChange={e => {
                                                 const ni = [...form.items]; ni[idx].q = parseInt(e.target.value) || 0; setForm({...form, items: ni});
                                             }} />
                                         </div>
                                     ))}
-                                    <div className="bg-slate-900 p-8 rounded-[35px] text-white flex justify-between items-center mt-6 shadow-2xl">
-                                        <div><p className="text-[9px] opacity-40 uppercase font-black mb-1 text-left">Total Carga</p><p className="text-2xl font-black">${totalCarga.toLocaleString()}</p></div>
-                                        <button className="bg-orange-600 px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-500 transition-all">Confirmar</button>
+                                    <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4">
+                                        <div><p className="text-[9px] opacity-50 uppercase font-black tracking-widest">Valor Carga</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
+                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Despachar</button>
                                     </div>
-                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] text-center hover:text-red-500 transition-colors">Cancelar</button>
+                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar y Volver</button>
                                 </form>
+                            </Card>
+                        </div>
+                    )}
+
+                    {retModal && active && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+                            <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative text-left">
+                                <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-6 uppercase tracking-tighter text-slate-800">Liquidación: {active.responsable}</h3>
+                                {active.items.map(it => (
+                                    <div key={it.pId} className="flex justify-between items-center mb-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <span className="text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
+                                        <input type="number" placeholder="Retorna" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner" onChange={e => setRets({...rets, [it.pId]: parseInt(e.target.value) || 0})}/>
+                                    </div>
+                                ))}
+                                <div className="mt-8 border-t pt-6 text-center space-y-4">
+                                    <label className="block p-8 bg-blue-50 text-blue-600 rounded-[40px] border-2 border-dashed border-blue-200 cursor-pointer hover:bg-blue-100 transition-all shadow-sm">
+                                        {fotoDeposito ? <img src={fotoDeposito} className="h-24 mx-auto rounded-2xl shadow-lg mb-2"/> : <Icon name="camera" size={36} className="mx-auto mb-2"/>}
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Comprobante de Depósito</span>
+                                        <input type="file" className="hidden" accept="image/*" onChange={e => {
+                                            const r = new FileReader(); r.onloadend = () => setFotoDeposito(r.result); r.readAsDataURL(e.target.files[0]);
+                                        }}/>
+                                    </label>
+                                    <button onClick={async () => {
+                                        const liqItems = active.items.map(it => {
+                                            const r = rets[it.pId] || 0; const v = Math.max(0, it.q - r);
+                                            return { ...it, dev: r, vUnid: v, vVal: v * it.pvd, cVal: v * it.costo };
+                                        });
+                                        const totalVendido = liqItems.reduce((a, b) => a + b.vVal, 0);
+                                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(active.id).update({
+                                            items: liqItems, estado: 'Liquidado', ventaNeta: totalVendido, fotoDeposito
+                                        });
+                                        await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cartera').add({
+                                            cliente: active.responsable, monto: totalVendido, tipo: 'Recaudación Ruta', fecha: today
+                                        });
+                                        setRetModal(false);
+                                        setFotoDeposito("");
+                                        setRets({});
+                                    }} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Finalizar Ruta</button>
+                                    <button type="button" onClick={() => setRetModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
+                                </div>
                             </Card>
                         </div>
                     )}
@@ -378,31 +344,26 @@
             );
         };
 
-        // VISTA 3: INVENTARIO
+        // 3. INVENTARIO
         const InventarioView = ({ facturas, cargas, onClose }) => {
             const inventario = useMemo(() => {
                 const stock = {};
                 PRODUCTOS_DATA.forEach(p => stock[p.id] = { ...p, ingresado: 0, despachado: 0 });
-                facturas.forEach(f => {
-                    if(f.items) f.items.forEach(it => { if (stock[it.id]) stock[it.id].ingresado += (it.cantidad || 0); });
-                });
-                cargas.forEach(c => {
-                    if(c.items) c.items.forEach(it => { if (stock[it.pId]) stock[it.pId].despachado += (it.q || 0); });
-                });
+                facturas.forEach(f => f.items?.forEach(it => { if (stock[it.id]) stock[it.id].ingresado += (it.cantidad || 0); }));
+                cargas.forEach(c => c.items?.forEach(it => { if (stock[it.pId]) stock[it.pId].despachado += (it.q || 0); }));
                 return Object.values(stock).map(p => ({ ...p, actual: p.ingresado - p.despachado }));
             }, [facturas, cargas]);
 
             return (
-                <div className="space-y-6 fade-in text-center">
-                    <ViewHeader title="Inventario" sub="3. Control de Stock Central" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-6 fade-in">
+                    <ViewHeader title="Inventario" sub="Control Kardex Real (Pestaña 3)" onClose={onClose} />
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                         {inventario.map(p => (
-                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1" style={{ backgroundColor: p.color }}></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">{p.nombre}</p>
-                                <p className={`text-5xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase italic tracking-widest">Unidades en Bodega</p>
-                                <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between text-[9px] font-black uppercase opacity-60 italic">
+                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default">
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">{p.nombre}</p>
+                                <p className={`text-4xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
+                                <p className="text-[8px] font-bold text-orange-500 uppercase mt-2">Disponibles</p>
+                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between text-[8px] font-black uppercase opacity-60">
                                     <div className="text-left"><p>Entradas</p><p className="text-green-600">+{p.ingresado}</p></div>
                                     <div className="text-right"><p>Salidas</p><p className="text-red-500">-{p.despachado}</p></div>
                                 </div>
@@ -413,105 +374,199 @@
             );
         };
 
-        // VISTA 4: CONTABILIDAD
-        const ContabilidadView = ({ cartera, gastos, onClose }) => {
+        // 4. CONTABILIDAD
+        const ContabilidadView = ({ cartera, gastos, facturasProveedor, onClose }) => {
+            const [modal, setModal] = useState(false);
+            const [form, setForm] = useState({ tipo: 'Ingreso', concepto: '', monto: '', metodo: 'Efectivo', fecha: today });
+
             const movimientos = useMemo(() => {
                 const items = [
-                    ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto, ref: i.cliente || 'Venta' })),
-                    ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto, ref: e.detalle || 'Gasto' })),
+                    ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto })),
+                    ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto })),
+                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Compra Fact: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
                 ];
                 items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                 let balance = 0;
                 return items.map(it => {
-                    balance += (it.val || 0);
+                    balance += it.val;
                     return { ...it, balanceAcumulado: balance };
                 }).reverse();
-            }, [cartera, gastos]);
+            }, [cartera, gastos, facturasProveedor]);
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Contabilidad" sub="4. Movimientos de Caja" onClose={onClose} />
+                    <ViewHeader title="Contabilidad" sub="Historial Libro Diario (Pestaña 4)" onClose={onClose} />
+                    <div className="flex justify-end mb-4">
+                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Nuevo Asiento</button>
+                    </div>
                     <Card className="p-0 overflow-hidden shadow-xl border-none">
                         <div className="overflow-x-auto text-left">
                             <table className="w-full">
                                 <thead className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                    <tr><th className="p-6">Fecha</th><th className="p-6">Referencia</th><th className="p-6">Ingreso</th><th className="p-6">Egreso</th><th className="p-6 text-right">Balance</th></tr>
+                                    <tr><th className="p-5">Fecha</th><th className="p-5">Concepto</th><th className="p-5">Ingreso</th><th className="p-5">Egreso</th><th className="p-5 text-right">Balance</th></tr>
                                 </thead>
                                 <tbody className="text-xs font-bold text-slate-700">
                                     {movimientos.map((m, idx) => (
                                         <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                            <td className="p-6 text-slate-400">{m.fecha || today}</td>
-                                            <td className="p-6 uppercase tracking-tight italic font-black">{m.ref}</td>
-                                            <td className="p-6 text-green-600">{m.category === 'Ingreso' ? `+$${(m.val || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="p-6 text-red-500">{m.category === 'Egreso' ? `-$${Math.abs(m.val || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="p-6 text-right font-black text-slate-900 tracking-tighter">${(m.balanceAcumulado || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                            <td className="p-5 text-slate-400">{m.fecha}</td>
+                                            <td className="p-5 uppercase">{m.cliente || m.detalle || m.categoria}</td>
+                                            <td className="p-5 text-green-600">{m.category === 'Ingreso' ? `+$${m.monto.toLocaleString()}` : '-'}</td>
+                                            <td className="p-5 text-red-500">{m.category === 'Egreso' ? `-$${m.monto.toLocaleString()}` : '-'}</td>
+                                            <td className="p-5 text-right font-black text-slate-900">${m.balanceAcumulado.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </Card>
+                    {modal && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
+                            <Card className="w-full max-w-md animate-in zoom-in-95 relative">
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase text-slate-800 italic">Registrar Movimiento</h3>
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const col = form.tipo === 'Ingreso' ? 'cartera' : 'gastos';
+                                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col).add({
+                                        fecha: today, monto: parseFloat(form.monto), metodo: form.metodo,
+                                        [form.tipo === 'Ingreso' ? 'cliente' : 'categoria']: form.concepto,
+                                        detalle: form.concepto
+                                    });
+                                    setModal(false);
+                                }} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}>
+                                            <option>Ingreso</option><option>Egreso</option>
+                                        </select>
+                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.metodo} onChange={e => setForm({...form, metodo: e.target.value})}>
+                                            <option>Efectivo</option><option>Transferencia</option>
+                                        </select>
+                                    </div>
+                                    <input placeholder="Detalle / Concepto" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, concepto: e.target.value})} required />
+                                    <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" onChange={e => setForm({...form, monto: e.target.value})} required />
+                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white hover:bg-orange-700 transition-all">Guardar Asiento</button>
+                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
+                                </form>
+                            </Card>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        // VISTA 5: GERENCIA
+        // 5. GERENCIA (REDISEÑADA CON TODOS LOS DATOS)
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
-            const ventaMetaBruta = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
+            const ventaBrutaReq = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
             const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
 
             return (
-                <div className="space-y-6 fade-in pb-12 text-left text-slate-800 font-bold">
-                    <ViewHeader title="Gerencia" sub="5. Resumen de Inversión y Ganancias" onClose={onClose} />
+                <div className="space-y-6 fade-in pb-12">
+                    <ViewHeader title="Gerencia" sub="Análisis Estratégico (Pestaña 5)" onClose={onClose} />
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-white">
                         <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10 text-left">
-                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Mensual Fija</p>
-                                <p className="text-4xl font-black tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4">Inversión Mensual Fija</p>
+                                <p className="text-4xl font-black">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
+                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic">Costo operativo para operar 30 días</p>
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl text-left">
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto Equilibrio)</p>
-                            <p className="text-4xl font-black tracking-tighter">${Math.round(ventaMetaBruta).toLocaleString()}</p>
+                        <Card className="bg-orange-600 border-none shadow-2xl">
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Venta Meta (Punto Equilibrio)</p>
+                            <p className="text-4xl font-black">${Math.round(ventaBrutaReq).toLocaleString()}</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta bruta para margen del 14%</p>
                         </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl text-left`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Utilidad Neta del Mes</p>
-                            <p className="text-4xl font-black tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
+                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Saldo Utilidad Neta</p>
+                            <p className="text-4xl font-black">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Logrado' : 'Déficit por Cubrir'}</p>
                         </Card>
                     </div>
 
                     <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
                             <div>
-                                <h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic underline decoration-orange-600 decoration-4 underline-offset-8">Utilidad real hoy vs Gasto mensual fijo.</p>
+                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1 italic underline decoration-orange-600 decoration-4 underline-offset-8">Reporte de Punto de Equilibrio</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-4 italic">Relación de Utilidad real acumulada frente a la inversión fija mensual.</p>
                             </div>
                             <div className="text-center md:text-right">
-                                <span className="text-7xl font-black text-slate-800">{perc}%</span>
-                                <p className="text-[9px] font-black text-orange-600 uppercase mt-2 tracking-widest font-black">Meta Alcanzada</p>
+                                <span className="text-6xl font-black text-slate-800">{perc}%</span>
+                                <p className="text-[9px] font-black text-orange-600 uppercase mt-2 tracking-widest">Progreso del Mes</p>
                             </div>
                         </div>
-                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
-                            <div 
-                                className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`}
-                                style={{ width: `${perc}%` }}
-                            >
+                        <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 shadow-inner border border-slate-200">
+                            <div className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
                                 {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
 
-                    <Card className="border-t-8 border-red-500 shadow-md bg-red-50/30 text-left">
-                        <div className="flex items-center gap-3 mb-6 font-black"><div className="bg-red-50 p-2 rounded-xl text-red-600"><Icon name="alert-circle" size={24}/></div><h3 className="font-black text-lg uppercase tracking-tighter text-red-800 italic">Cuentas por Pagar Proveedores</h3></div>
-                        <div className="text-center py-12">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">Deuda Total Pendiente a Proveedores</p>
-                            <p className="text-7xl font-black text-red-600 tracking-tighter">${saldoPagar.toLocaleString()}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                        <Card className="border-t-8 border-orange-500 shadow-md">
+                            <div className="flex items-center gap-3 mb-6"><div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Icon name="truck" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800 italic">Desglose Inversión Ventas</h3></div>
+                            <div className="space-y-3">
+                                {GASTOS_MENSUALES_FIJOS.ventas.map((g, i) => (
+                                    <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
+                                        <span>{g.label}</span>
+                                        <span className="text-slate-800 font-black">${g.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                        <Card className="border-t-8 border-blue-500 shadow-md">
+                            <div className="flex items-center gap-3 mb-6"><div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Icon name="settings" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800 italic">Gastos Administrativos</h3></div>
+                            <div className="space-y-3">
+                                {GASTOS_MENSUALES_FIJOS.admin.map((g, i) => (
+                                    <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
+                                        <span>{g.label}</span>
+                                        <span className="text-slate-800 font-black">${g.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-8 pt-6 border-t border-slate-100">
+                                <div className="bg-red-50 p-6 rounded-3xl flex justify-between items-center border border-red-100 shadow-sm transition-transform hover:scale-[1.02] cursor-default">
+                                    <div><p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Cuentas por Pagar Proveedores</p><p className="text-2xl font-black text-red-600">${saldoPagar.toLocaleString()}</p></div>
+                                    <Icon name="alert-circle" className="text-red-300 animate-pulse" size={36}/>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+
+        const NominaView = ({ personal, onClose }) => {
+            const [modal, setModal] = useState(false);
+            const [form, setForm] = useState({ nombre: '', sueldo: 964 });
+            return (
+                <div className="space-y-6 fade-in">
+                    <ViewHeader title="Personal" sub="Staff Activo" onClose={onClose} />
+                    <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg tracking-widest hover:bg-black transition-all">Nuevo Staff</button></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                        {personal.map(p => (
+                            <Card key={p.id} className="flex justify-between items-center border-l-4 border-l-blue-400 group hover:border-l-orange-500 transition-all transition-colors">
+                                <div><h4 className="font-black text-slate-800 text-xs uppercase tracking-tight">{p.nombre}</h4><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sueldo Base: ${p.sueldo}</p></div>
+                                <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').doc(p.id).delete()} className="text-slate-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={18}/></button>
+                            </Card>
+                        ))}
+                    </div>
+                    {modal && (
+                        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
+                            <Card className="w-full max-w-sm p-8 bg-white rounded-3xl animate-in zoom-in-95 relative">
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic text-center underline decoration-blue-500 underline-offset-4">Nuevo Colaborador</h3>
+                                <form onSubmit={async (e) => { e.preventDefault(); await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').add(form); setModal(false); setForm({ nombre: '', sueldo: 964 }); }} className="space-y-4">
+                                    <input placeholder="Nombre Completo" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                                    <input type="number" placeholder="Sueldo Base" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
+                                    <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Guardar en Nómina</button>
+                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
+                                </form>
+                            </Card>
                         </div>
-                    </Card>
+                    )}
                 </div>
             );
         };
@@ -525,94 +580,107 @@
             const [cargas, setCargas] = useState([]);
             const [cartera, setCartera] = useState([]);
             const [gastos, setGastos] = useState([]);
+            const [personal, setPersonal] = useState([]);
             const [facturasProv, setFacturasProv] = useState([]);
 
             useEffect(() => {
                 const initAuth = async () => {
+                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Auth Error:", e); }
+                    } catch (e) { 
+                        console.error("Auth Error:", e); 
+                        setLoading(false); 
+                    }
                 };
+
                 initAuth();
-                const unsubAuth = auth.onAuthStateChanged(u => { 
-                    if (u) setUser(u); 
+
+                const unsub = auth?.onAuthStateChanged(u => { 
+                    setUser(u); 
                     setLoading(false); 
+                }, (error) => {
+                    console.error("Auth State Error:", error);
+                    setLoading(false);
                 });
-                return () => unsubAuth();
+
+                // SEGURO DE CARGA: Forzar salida de la pantalla de carga tras 3 segundos
+                const timeout = setTimeout(() => setLoading(false), 3000);
+
+                return () => {
+                    if (unsub) unsub();
+                    clearTimeout(timeout);
+                };
             }, []);
 
             useEffect(() => {
-                if (!user) return;
-                const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
-                const unsubs = collections.map(col => {
-                    const ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
-                    return ref.onSnapshot(snap => {
-                        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                        if (col === 'cargas') setCargas(data);
-                        if (col === 'cartera') setCartera(data);
-                        if (col === 'gastos') setGastos(data);
-                        if (col === 'facturasProveedor') setFacturasProv(data);
-                    }, err => console.error(`Error en snapshot ${col}:`, err));
+                if (!user || !db) return;
+                const cols = ['cargas', 'cartera', 'gastos', 'personal', 'facturasProveedor'];
+                const unsubs = cols.map(col => {
+                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
+                        .onSnapshot(snap => {
+                            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                            if (col === 'cargas') setCargas(data);
+                            if (col === 'cartera') setCartera(data);
+                            if (col === 'gastos') setGastos(data);
+                            if (col === 'personal') setPersonal(data);
+                            if (col === 'facturasProveedor') setFacturasProv(data);
+                        }, err => console.error(`Snap Error en ${col}:`, err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
 
             const stats = useMemo(() => {
-                const utilidadBruta = cargas.reduce((total, c) => {
-                    const itemsUtilidad = (c.items || []).reduce((acc, it) => acc + (it.q * (it.pvd - it.costo)), 0);
-                    return total + itemsUtilidad;
-                }, 0);
-                return { utilidadBruta };
-            }, [cargas]);
+                const utilidadBruta = cargas.reduce((total, c) => 
+                    total + (c.estado === 'Liquidado' ? (c.items || []).reduce((acc, it) => acc + (it.vUnid * (it.pvd - it.costo)), 0) : 0), 0);
+                const vtot = cartera.reduce((a, b) => a + (b.monto || 0), 0);
+                return { vtot, utilidadBruta };
+            }, [cargas, cartera]);
 
-            if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white">
-                    <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 text-[10px] tracking-[0.4em] uppercase animate-pulse">Sincronizando Sistema...</p>
-                </div>
-            );
+            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Iniciando Kardex Inteligente...</div>;
 
             const NavItem = ({ id, icon, label, primary = false }) => (
-                <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-sm'} ${primary ? 'font-black' : ''}`}>
-                    <Icon name={icon} size={22}/>
-                    <span className="text-[11px] font-black uppercase tracking-widest hidden md:inline">{label}</span>
+                <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-4 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'} ${primary ? 'font-black' : ''}`}>
+                    <Icon name={icon} size={20}/>
+                    <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">{label}</span>
                 </button>
             );
 
             return (
-                <div className="min-h-screen md:pl-72 flex">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-16">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={28}/></div>
+                <div className="min-h-screen md:pl-72 bg-slate-50 flex">
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm">
+                        <div className="flex items-center gap-3 mb-12">
+                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={24}/></div>
                             <span className="font-black text-2xl tracking-tighter uppercase italic text-orange-600">Avena Pro</span>
                         </div>
-                        <nav className="space-y-2 flex-1 overflow-y-auto hide-scrollbar">
-                            <NavItem id="facturacion" icon="scan" label="1. Facturación" primary />
-                            <NavItem id="logistica" icon="truck" label="2. Logística" />
-                            <NavItem id="inventario" icon="archive" label="3. Inventario" />
-                            <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" />
-                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" />
+                        <nav className="space-y-1 flex-1 overflow-y-auto hide-scrollbar">
+                            <NavItem id="facturacion" icon="scan" label="1. Facturación IA" primary />
+                            <NavItem id="logistica" icon="truck" label="2. Logística" primary />
+                            <NavItem id="inventario" icon="archive" label="3. Inventario" primary />
+                            <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" primary />
+                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia" primary />
+                            <div className="my-6 border-t border-slate-100 pt-6"><NavItem id="nomina" icon="users" label="Personal / Nómina" /></div>
                         </nav>
-                        <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden">
-                            <div className="absolute -right-4 -bottom-4 opacity-10 rotate-12"><Icon name="alert-circle" size={80}/></div>
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Cuentas por Pagar</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
+                        <div className="mt-auto p-5 bg-slate-900 rounded-[35px] text-white text-center shadow-xl">
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Cuentas por Pagar</p>
+                            <p className="text-xl font-black text-orange-400">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
                         </div>
                     </aside>
 
-                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-center md:text-left">
+                    <main className="p-4 md:p-10 max-w-6xl mx-auto w-full pb-24 md:pb-10 text-center md:text-left">
                         {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'logistica' && <LogisticaView cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'inventario' && <InventarioView facturas={facturasProv} cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} onClose={() => setActiveTab('gerencia')} />}
+                        {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} facturasProveedor={facturasProv} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={facturasProv} onClose={() => setActiveTab('facturacion')} />}
+                        {activeTab === 'nomina' && <NominaView personal={personal} onClose={() => setActiveTab('gerencia')} />}
                     </main>
 
-                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
+                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-4 z-40 border border-white/10 shadow-2xl">
                         {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
                                 <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
