@@ -80,11 +80,13 @@
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
         
         if (configStr) {
-            const firebaseConfig = JSON.parse(configStr);
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+            try {
+                const firebaseConfig = JSON.parse(configStr);
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+            } catch (e) { console.error("Firebase Init Error:", e); }
         }
 
         // --- COMPONENTES UI ---
@@ -164,7 +166,7 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="Registro de Compras" onClose={onClose} />
+                    <ViewHeader title="Facturación" sub="Pestaña 1 - Registro de Compras" onClose={onClose} />
                     <div className="flex justify-end mb-4">
                         <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs">
                             <Icon name="upload-cloud" size={20}/> Escanear Factura
@@ -209,7 +211,7 @@
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                             <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5">
                                 <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
-                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter">Registrar Pago: #{modalAbono.numFactura}</h3>
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter text-left">Registrar Pago: #{modalAbono.numFactura}</h3>
                                 <div className="space-y-4 text-left">
                                     <input type="number" step="0.01" placeholder="Monto del Abono $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
                                     <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
@@ -262,8 +264,8 @@
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
                             <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
-                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter text-slate-800">Nueva Carga de Ruta</h3>
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter text-slate-800 italic">Nueva Carga de Ruta</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
@@ -296,7 +298,7 @@
                     {retModal && active && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
                             <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative text-left">
-                                <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <h3 className="font-black text-xl mb-6 uppercase tracking-tighter text-slate-800">Cierre: {active.responsable}</h3>
                                 {active.items.map(it => (
                                     <div key={it.pId} className="flex justify-between items-center mb-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
@@ -348,9 +350,9 @@
             return (
                 <div className="space-y-6 fade-in">
                     <ViewHeader title="Inventario" sub="Control Kardex Real" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                         {inventario.map(p => (
-                            <Card key={p.id} className="text-center group hover:scale-105 transition-all">
+                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default">
                                 <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">{p.nombre}</p>
                                 <p className={`text-4xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
                                 <p className="text-[8px] font-bold text-orange-500 uppercase mt-2">Disponibles</p>
@@ -374,7 +376,7 @@
                 const items = [
                     ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto })),
                     ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto })),
-                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Fact. Prov: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
+                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Compra Fact: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
                 ];
                 items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                 let balance = 0;
@@ -410,7 +412,6 @@
                             </table>
                         </div>
                     </Card>
-
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-md animate-in zoom-in-95 relative">
@@ -434,9 +435,9 @@
                                             <option>Efectivo</option><option>Transferencia</option>
                                         </select>
                                     </div>
-                                    <input placeholder="Detalle Movimiento" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, concepto: e.target.value})} required />
+                                    <input placeholder="Concepto" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, concepto: e.target.value})} required />
                                     <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" onChange={e => setForm({...form, monto: e.target.value})} required />
-                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white">Guardar</button>
+                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white transition-all hover:bg-orange-700">Guardar</button>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </form>
                             </Card>
@@ -455,26 +456,24 @@
 
             return (
                 <div className="space-y-6 fade-in pb-12">
-                    <ViewHeader title="Gerencia" sub="Análisis Estratégico y Pto. Equilibrio" onClose={onClose} />
+                    <ViewHeader title="Gerencia" sub="Análisis Estratégico" onClose={onClose} />
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-white">
                         <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4">Inversión Fija Mensual</p>
+                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4">Inversión Mensual</p>
                                 <p className="text-4xl font-black">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest leading-relaxed italic">Costo total operativo estimado</p>
+                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic">Costo operativo para funcionar 30 días</p>
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
-
                         <Card className="bg-orange-600 border-none shadow-2xl">
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Meta Venta Punto Equilibrio</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Venta Punto 0</p>
                             <p className="text-4xl font-black">${Math.round(ventaBrutaReq).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta bruta para margen 14%</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta para margen del 14%</p>
                         </Card>
-
                         <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Balance Utilidad Neta</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Balance Neto</p>
                             <p className="text-4xl font-black">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                             <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Real' : 'Déficit por Cubrir'}</p>
                         </Card>
@@ -483,27 +482,21 @@
                     <Card className="p-10 border-none shadow-xl text-left">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                             <div>
-                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1">Punto de Equilibrio</h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Relación de Utilidad real vs Inversión fija</p>
+                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1">Estado de Punto de Equilibrio</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Relación Utilidad real vs Inversión fija</p>
                             </div>
-                            <div className="text-center md:text-right">
-                                <span className="text-5xl font-black text-slate-800">{perc}%</span>
-                                <p className="text-[9px] font-black text-orange-600 uppercase mt-2 tracking-widest">Progreso del Mes</p>
-                            </div>
+                            <span className="text-5xl font-black text-slate-800">{perc}%</span>
                         </div>
                         <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 shadow-inner border border-slate-200">
                             <div className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
-                                {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
+                                {perc > 15 ? `$${utilidad.toLocaleString()} USD LOGRADOS` : ''}
                             </div>
                         </div>
                     </Card>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                         <Card className="border-t-8 border-orange-500 shadow-md">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Icon name="truck" size={18}/></div>
-                                <h3 className="font-black text-xs uppercase tracking-widest text-slate-800">Inversión en Ventas</h3>
-                            </div>
+                            <div className="flex items-center gap-3 mb-6"><div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Icon name="truck" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800">Inversión Ventas</h3></div>
                             <div className="space-y-3">
                                 {GASTOS_MENSUALES_FIJOS.ventas.map((g, i) => (
                                     <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
@@ -514,10 +507,7 @@
                             </div>
                         </Card>
                         <Card className="border-t-8 border-blue-500 shadow-md">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Icon name="settings" size={18}/></div>
-                                <h3 className="font-black text-xs uppercase tracking-widest text-slate-800">Gastos Administrativos</h3>
-                            </div>
+                            <div className="flex items-center gap-3 mb-6"><div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Icon name="settings" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800">Gastos Admin</h3></div>
                             <div className="space-y-3">
                                 {GASTOS_MENSUALES_FIJOS.admin.map((g, i) => (
                                     <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
@@ -526,12 +516,7 @@
                                     </div>
                                 ))}
                             </div>
-                            <div className="mt-8 pt-6 border-t border-slate-100">
-                                <div className="bg-red-50 p-6 rounded-3xl flex justify-between items-center border border-red-100 shadow-sm">
-                                    <div><p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Pendiente Proveedores</p><p className="text-2xl font-black text-red-600">${saldoPagar.toLocaleString()}</p></div>
-                                    <Icon name="alert-circle" className="text-red-300" size={36}/>
-                                </div>
-                            </div>
+                            <div className="mt-8 pt-6 border-t border-slate-100"><div className="bg-red-50 p-6 rounded-3xl flex justify-between items-center border border-red-100 shadow-sm"><div><p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Cuentas por Pagar</p><p className="text-2xl font-black text-red-600">${saldoPagar.toLocaleString()}</p></div><Icon name="alert-circle" className="text-red-300" size={36}/></div></div>
                         </Card>
                     </div>
                 </div>
@@ -547,8 +532,8 @@
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg tracking-widest hover:bg-black transition-all">Nuevo Staff</button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {personal.map(p => (
-                            <Card key={p.id} className="flex justify-between items-center border-l-4 border-l-blue-400 group hover:border-l-orange-500 transition-all">
-                                <div><h4 className="font-black text-slate-800 text-xs uppercase tracking-tight">{p.nombre}</h4><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Salario: ${p.sueldo}</p></div>
+                            <Card key={p.id} className="flex justify-between items-center border-l-4 border-l-blue-400 group hover:border-l-orange-500 transition-all transition-colors">
+                                <div><h4 className="font-black text-slate-800 text-xs uppercase tracking-tight">{p.nombre}</h4><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sueldo: ${p.sueldo}</p></div>
                                 <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').doc(p.id).delete()} className="text-slate-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={18}/></button>
                             </Card>
                         ))}
@@ -557,10 +542,10 @@
                         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-sm p-8 bg-white rounded-3xl animate-in zoom-in-95 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic">Añadir Staff</h3>
+                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic">Nuevo Staff</h3>
                                 <form onSubmit={async (e) => { e.preventDefault(); await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').add(form); setModal(false); setForm({ nombre: '', sueldo: 964 }); }} className="space-y-4">
-                                    <input placeholder="Nombre Completo" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
-                                    <input type="number" placeholder="Sueldo Mensual $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
+                                    <input placeholder="Nombre" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                                    <input type="number" placeholder="Sueldo Mensual" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
                                     <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Guardar</button>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </form>
@@ -585,17 +570,20 @@
 
             useEffect(() => {
                 const initAuth = async () => {
+                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Auth Error:", e); }
+                    } catch (e) { console.error("Auth Error:", e); setLoading(false); }
                 };
                 initAuth();
-                const unsub = auth?.onAuthStateChanged(u => { setUser(u); setLoading(false); });
-                return () => unsub && unsub();
+                if (auth) {
+                    const unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+                    return () => unsub();
+                }
             }, []);
 
             useEffect(() => {
@@ -622,7 +610,20 @@
                 return { vtot, utilidadBruta };
             }, [cargas, cartera]);
 
-            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Iniciando...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Conectando...</div>;
+
+            if (!db) {
+                return (
+                    <div className="h-screen flex flex-col items-center justify-center p-10 bg-white text-center">
+                        <Icon name="alert-triangle" size={64} className="text-red-500 mb-6"/>
+                        <h1 className="text-2xl font-black uppercase mb-4 tracking-tighter">Entorno Local / GitHub</h1>
+                        <p className="max-w-md text-slate-500 text-sm font-bold uppercase leading-relaxed mb-8">
+                            Este código utiliza la base de datos de Canvas. Si deseas usarlo en tu propio sitio, debes configurar tus llaves de Firebase en el código.
+                        </p>
+                        <button onClick={() => window.location.reload()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs">Reintentar</button>
+                    </div>
+                );
+            }
 
             const NavItem = ({ id, icon, label, primary = false }) => (
                 <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-4 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'} ${primary ? 'font-black' : ''}`}>
@@ -634,8 +635,8 @@
             return (
                 <div className="min-h-screen md:pl-72 bg-slate-50 flex">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-12">
-                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={24}/></div>
+                        <div className="flex items-center gap-3 mb-10">
+                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3"><Icon name="package" size={24}/></div>
                             <span className="font-black text-2xl tracking-tighter uppercase italic text-orange-600">Avena Pro</span>
                         </div>
                         <nav className="space-y-1 flex-1 overflow-y-auto hide-scrollbar">
@@ -644,10 +645,7 @@
                             <NavItem id="inventario" icon="archive" label="3. Inventario" primary />
                             <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" primary />
                             <NavItem id="gerencia" icon="line-chart" label="5. Gerencia" primary />
-                            
-                            <div className="my-6 border-t border-slate-100 pt-6">
-                                <NavItem id="nomina" icon="users" label="Personal / Staff" />
-                            </div>
+                            <div className="my-6 border-t border-slate-100 pt-6"><NavItem id="nomina" icon="users" label="Staff / Nómina" /></div>
                         </nav>
                         <div className="mt-auto p-5 bg-slate-900 rounded-[35px] text-white text-center shadow-xl">
                             <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Cuentas por Pagar</p>
