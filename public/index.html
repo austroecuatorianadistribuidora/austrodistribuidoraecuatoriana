@@ -73,8 +73,11 @@
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION ---
-        let db, auth, appId;
+        // --- FIREBASE INITIALIZATION (GLOBAL) ---
+        let db = null;
+        let auth = null;
+        let appId = 'distribuidora-avena-v3';
+
         try {
             const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
             if (configStr) {
@@ -83,9 +86,9 @@
                 db = firebase.firestore();
                 auth = firebase.auth();
             }
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
+            if (typeof __app_id !== 'undefined') appId = __app_id;
         } catch (e) {
-            console.error("Fallo configuración Firebase:", e);
+            console.error("Fallo inicialización Firebase:", e);
         }
 
         // --- COMPONENTES UI GLOBALES ---
@@ -112,8 +115,8 @@
 
         // --- VISTAS ---
 
-        // VISTA 1: FACTURACIÓN MANUAL
-        const FacturacionView = ({ facturas, onClose }) => {
+        // VISTA 1: FACTURACIÓN MANUAL (DISEÑO ESPEJO)
+        const FacturacionView = ({ facturas, db, appId, onClose }) => {
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
             const [form, setForm] = useState({
@@ -135,6 +138,7 @@
             const guardarFactura = async (e) => {
                 if (e) e.preventDefault();
                 if(!form.numFactura) return alert("Ingrese el número de factura");
+                if(!db) return alert("Error de conexión a la base de datos");
                 
                 try {
                     const data = {
@@ -153,17 +157,14 @@
                     setModalNueva(false);
                     resetForm();
                 } catch (err) {
-                    console.error("Error al guardar:", err);
+                    console.error("Error al guardar factura:", err);
                 }
             };
-
-            const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
-
-            const facturasOrdenadas = useMemo(() => [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)), [facturas]);
 
             const registrarAbono = async (factura) => {
                 const monto = parseFloat(pagoForm.monto);
                 if (isNaN(monto) || monto <= 0) return;
+                if (!db) return;
                 try {
                     const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
                     const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
@@ -179,6 +180,10 @@
                     console.error("Error al abonar:", err);
                 }
             };
+
+            const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
+
+            const facturasOrdenadas = useMemo(() => [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)), [facturas]);
 
             return (
                 <div className="space-y-6 fade-in">
@@ -200,8 +205,8 @@
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l md:border-r border-slate-100 w-full md:w-auto font-black">
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
+                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1 text-slate-400">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
+                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1 text-slate-400">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
                                 </div>
                                 <div className="flex gap-2 w-full md:w-auto justify-end">
                                     {f.estado !== 'Cancelado' && (
@@ -234,12 +239,12 @@
                                                     <p>TELÉFONO: 022765404</p>
                                                 </div>
                                             </div>
-                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3">
+                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3 text-left">
                                                 <div className="bg-slate-900 text-white p-3 rounded">
                                                     <p className="text-[8px] font-black uppercase opacity-60">FACTURA Nº</p>
-                                                    <input required placeholder="003-102-0000XXXXX" className="bg-transparent text-lg font-black border-none outline-none w-full" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
+                                                    <input required placeholder="003-102-0000XXXXX" className="bg-transparent text-lg font-black border-none outline-none w-full placeholder:text-slate-700" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
                                                 </div>
-                                                <div className="bg-slate-50 border p-3 rounded text-left">
+                                                <div className="bg-slate-50 border p-3 rounded">
                                                     <p className="text-[8px] font-black text-slate-400 uppercase">FECHA EMISIÓN</p>
                                                     <input type="date" required className="bg-transparent font-black border-none outline-none w-full" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
                                                 </div>
@@ -249,12 +254,12 @@
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
                                             <div className="space-y-1 border-r pr-8 border-slate-100">
                                                 <p className="text-slate-400 mb-2 font-black italic">Adquiriente:</p>
-                                                <p className="text-slate-900 font-black text-xs tracking-tight">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
+                                                <p className="text-slate-900 font-black text-xs tracking-tight uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
                                                 <p>RUC: 0195174555001</p>
                                                 <p>CIUDAD: CUENCA</p>
                                             </div>
                                             <div>
-                                                <p className="text-slate-400 mb-2 font-black italic">Cargar Respaldo:</p>
+                                                <p className="text-slate-400 mb-2 font-black italic text-left">Cargar Respaldo:</p>
                                                 <input type="file" className="text-[9px] w-full" onChange={e => {
                                                     const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
                                                     if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -266,9 +271,9 @@
                                             <table className="w-full invoice-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Cod.</th>
+                                                        <th>Cod. Principal</th>
                                                         <th>Descripción</th>
-                                                        <th className="w-24 text-center">Cant.</th>
+                                                        <th className="w-24 text-center">Cantidad</th>
                                                         <th className="w-32 text-right">Precio Uni.</th>
                                                         <th className="w-32 text-right">Total</th>
                                                     </tr>
@@ -277,9 +282,9 @@
                                                     {form.items.map((it, idx) => (
                                                         <tr key={it.id}>
                                                             <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
-                                                            <td className="text-left font-black text-slate-800 text-xs">{it.nombre}</td>
+                                                            <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
                                                             <td className="p-0">
-                                                                <input type="number" min="0" className="w-full text-center py-3 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
+                                                                <input type="number" min="0" className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
                                                                     const ni = [...form.items];
                                                                     ni[idx].cantidad = parseInt(e.target.value) || 0;
                                                                     setForm({...form, items: ni});
@@ -299,7 +304,6 @@
                                                     <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Vendedor:</p>
                                                     <p className="text-[10px] font-bold text-slate-600">ARIAS JAIME</p>
                                                 </div>
-                                                
                                                 <div className="bg-green-50 p-6 rounded-xl border border-green-200 text-left">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Icon name="trending-up" className="text-green-600" size={18}/>
@@ -309,19 +313,18 @@
                                                     <p className="text-[9px] font-bold text-green-600 uppercase mt-2">Margen bruto estimado sobre PVD</p>
                                                 </div>
                                             </div>
-                                            
                                             <div className="w-full md:w-80 space-y-2">
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">SUBTOTAL 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
-                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
-                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4">
-                                                    <span className="text-xs font-black">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black">${calc.total.toFixed(2)}</span>
+                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase text-left">Subtotal 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
+                                                <div className="flex justify-between text-[10px] font-bold border-b pb-2"><span className="text-slate-400 uppercase text-left">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
+                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
+                                                    <span className="text-xs font-black uppercase tracking-tighter">VALOR TOTAL</span>
+                                                    <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-6 bg-slate-50 border-t flex justify-end gap-4">
+                                <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
                                     <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all">Cancelar y Salir</button>
                                     <button onClick={guardarFactura} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all">Grabar Factura ✨</button>
                                 </div>
@@ -342,10 +345,10 @@
                                 <div className="space-y-4">
                                     <div className="space-y-1">
                                         <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Monto del Pago $</label>
-                                        <input type="number" step="0.01" className="w-full bg-white border border-slate-200 p-5 rounded-[20px] font-black outline-none focus:ring-2 focus:ring-green-400" value={pagoForm.monto} onChange={e => setPagoForm({...pagoForm, monto: e.target.value})} placeholder="0.00" />
+                                        <input type="number" step="0.01" className="w-full bg-white border border-slate-200 p-5 rounded-[20px] font-black outline-none focus:ring-2 focus:ring-green-400 shadow-inner" value={pagoForm.monto} onChange={e => setPagoForm({...pagoForm, monto: e.target.value})} placeholder="0.00" />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2">Captura de Comprobante</label>
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 italic">Captura de Comprobante</label>
                                         <input type="file" accept="image/*" className="text-xs w-full" onChange={e => {
                                             const r = new FileReader(); r.onload = () => setPagoForm({...pagoForm, comprobante: r.result});
                                             if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -361,7 +364,7 @@
         };
 
         // VISTA 2: LOGÍSTICA
-        const LogisticaView = ({ cargas, onClose }) => {
+        const LogisticaView = ({ cargas, db, appId, onClose }) => {
             const [modal, setModal] = useState(false);
             const [form, setForm] = useState({ vendedor: '', items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 })) });
             const totalCarga = useMemo(() => form.items.reduce((a, b) => a + (b.q * b.pvd), 0), [form.items]);
@@ -370,26 +373,27 @@
                 <div className="space-y-6 fade-in text-left">
                     <ViewHeader title="Logística" sub="2. Despachos y Jornada" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {cargas.map(c => (
                             <Card key={c.id} className="border-l-8 border-l-orange-400">
                                 <div className="flex justify-between items-start">
                                     <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tighter">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right font-black font-black"><p className="text-[8px] uppercase opacity-40">Valor Cargado</p><p className="text-slate-800 text-xl">${(c.totalCargado || 0).toLocaleString()}</p></div>
+                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40 text-slate-400">Valor Cargado</p><p className="text-slate-800 text-xl font-black tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
                                 </div>
                                 <div className="mt-4 pt-4 border-t border-slate-50 flex justify-end">
-                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                    <button onClick={() => { if(confirm('¿Eliminar despacho?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete() }} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
                                 </div>
                             </Card>
                         ))}
                     </div>
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-md overflow-y-auto">
-                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
+                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <h3 className="font-black text-xl mb-8 uppercase text-slate-800 italic">Nueva Carga de Ruta</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
+                                    if(!db) return;
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
                                         responsable: form.vendedor, fecha: today, estado: 'En Tránsito', totalCargado: totalCarga,
                                         items: form.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, costo: it.costo }))
@@ -397,19 +401,19 @@
                                     setModal(false);
                                 }} className="space-y-4">
                                     <select className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none outline-none shadow-inner italic" onChange={e => setForm({...form, vendedor: e.target.value})} required>
-                                        <option value="">Seleccionar Vendedor...</option>{VENDEDORES.map(v => <option key={v}>{v}</option>)}
+                                        <option value="">Seleccionar Vendedor...</option>{VENDEDORES.map(v => <option key={v} value={v}>{v}</option>)}
                                     </select>
                                     {form.items.map((it, idx) => (
-                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm">
-                                            <span className="flex-1 text-[10px] font-black uppercase text-slate-600 text-left">{it.nombre}</span>
+                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm text-left">
+                                            <span className="flex-1 text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
                                             <input type="number" min="0" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner outline-none focus:ring-1 focus:ring-orange-400" placeholder="0" onChange={e => {
                                                 const ni = [...form.items]; ni[idx].q = parseInt(e.target.value) || 0; setForm({...form, items: ni});
                                             }} />
                                         </div>
                                     ))}
                                     <div className="bg-slate-900 p-8 rounded-[35px] text-white flex justify-between items-center mt-6 shadow-2xl">
-                                        <div className="text-left"><p className="text-[9px] opacity-40 uppercase font-black mb-1">Total Carga</p><p className="text-2xl font-black">${totalCarga.toLocaleString()}</p></div>
-                                        <button className="bg-orange-600 px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Confirmar</button>
+                                        <div className="text-left"><p className="text-[9px] opacity-40 uppercase font-black mb-1">Total Carga</p><p className="text-2xl font-black tracking-tighter">${totalCarga.toLocaleString()}</p></div>
+                                        <button className="bg-orange-600 px-10 py-4 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-500 transition-all">Confirmar</button>
                                     </div>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] text-center hover:text-red-500 transition-colors">Cancelar</button>
                                 </form>
@@ -434,12 +438,12 @@
                     <ViewHeader title="Inventario" sub="3. Control de Stock Central" onClose={onClose} />
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {inventario.map(p => (
-                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default relative overflow-hidden">
+                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default relative overflow-hidden text-left">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest text-left">{p.nombre}</p>
-                                <p className={`text-5xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase italic tracking-widest">Unidades en Bodega</p>
-                                <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between text-[9px] font-black uppercase opacity-60 italic text-left">
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">{p.nombre}</p>
+                                <p className={`text-5xl font-black tracking-tighter text-center ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
+                                <p className="text-[9px] font-bold text-slate-400 mt-2 uppercase italic tracking-widest text-center">Unidades en Bodega</p>
+                                <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between text-[9px] font-black uppercase opacity-60 italic">
                                     <div><p>Entradas</p><p className="text-green-600">+{p.ingresado}</p></div>
                                     <div className="text-right"><p>Salidas</p><p className="text-red-500">-{p.despachado}</p></div>
                                 </div>
@@ -462,10 +466,10 @@
                 return items.map(it => { balance += (it.val || 0); return { ...it, balanceAcumulado: balance }; }).reverse();
             }, [cartera, gastos]);
             return (
-                <div className="space-y-6 fade-in">
+                <div className="space-y-6 fade-in text-left">
                     <ViewHeader title="Contabilidad" sub="4. Movimientos de Caja" onClose={onClose} />
                     <Card className="p-0 overflow-hidden shadow-xl border-none">
-                        <div className="overflow-x-auto text-left">
+                        <div className="overflow-x-auto">
                             <table className="w-full text-xs font-bold">
                                 <thead className="bg-slate-50 font-black text-slate-500 uppercase tracking-widest text-left">
                                     <tr><th className="p-6">Fecha</th><th className="p-6">Referencia</th><th className="p-6">Ingreso</th><th className="p-6">Egreso</th><th className="p-6 text-right">Balance</th></tr>
@@ -473,10 +477,10 @@
                                 <tbody className="text-slate-700">
                                     {movimientos.map((m, idx) => (
                                         <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                            <td className="p-6 text-slate-400 font-mono">{m.fecha || today}</td>
+                                            <td className="p-6 text-slate-400 font-mono tracking-tighter">{m.fecha || today}</td>
                                             <td className="p-6 uppercase italic font-black text-slate-900 tracking-tight">{m.ref}</td>
-                                            <td className="p-6 text-green-600">{m.category === 'Ingreso' ? `+$${(m.val || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="p-6 text-red-500">{m.category === 'Egreso' ? `-$${Math.abs(m.val || 0).toLocaleString()}` : '-'}</td>
+                                            <td className="p-6 text-green-600 font-black text-left">{m.category === 'Ingreso' ? `+$${(m.val || 0).toLocaleString()}` : '-'}</td>
+                                            <td className="p-6 text-red-500 font-black text-left">{m.category === 'Egreso' ? `-$${Math.abs(m.val || 0).toLocaleString()}` : '-'}</td>
                                             <td className="p-6 text-right font-black text-slate-900 tracking-tighter">${(m.balanceAcumulado || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                                         </tr>
                                     ))}
@@ -497,36 +501,36 @@
             return (
                 <div className="space-y-6 fade-in pb-12 text-left text-slate-800 font-bold">
                     <ViewHeader title="Gerencia" sub="5. Resumen Ejecutivo" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black text-left">
                         <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10 text-left">
+                            <div className="relative z-10">
                                 <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Mensual Fija</p>
                                 <p className="text-4xl font-black tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl text-left">
+                        <Card className="bg-orange-600 border-none shadow-2xl">
                             <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto Equilibrio)</p>
                             <p className="text-4xl font-black tracking-tighter">${Math.round(ventaMetaBruta).toLocaleString()}</p>
                         </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl text-left`}>
+                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
                             <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Utilidad Neta Real</p>
                             <p className="text-4xl font-black tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                         </Card>
                     </div>
                     <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                            <div><h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Utilidad real hoy vs Inversión mensual.</p></div>
-                            <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2 font-black">Meta Alcanzada</p></div>
+                            <div><h3 className="font-black text-3xl uppercase tracking-tighter text-slate-800 mb-2 italic">Avance Punto de Equilibrio</h3><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic leading-relaxed">Utilidad real hoy vs Inversión mensual fija.</p></div>
+                            <div className="text-center md:text-right"><span className="text-7xl font-black text-slate-800">{perc}%</span><p className="text-[9px] font-black text-orange-600 uppercase mt-2 font-black">Meta de Superación</p></div>
                         </div>
-                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200 text-left">
+                        <div className="mt-10 w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
                             <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
                                 {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
                     <Card className="border-t-8 border-red-500 shadow-md bg-red-50/30 text-left">
-                        <div className="flex items-center gap-3 mb-6 font-black"><Icon name="alert-circle" className="text-red-600" size={24}/><h3 className="font-black text-lg uppercase tracking-tighter text-red-800 italic">Cuentas por Pagar Proveedores</h3></div>
+                        <div className="flex items-center gap-3 mb-6 font-black"><Icon name="alert-circle" className="text-red-600" size={24}/><h3 className="font-black text-lg uppercase tracking-tighter text-red-800 italic text-left">Cuentas por Pagar Proveedores</h3></div>
                         <div className="text-center py-12"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 italic">Saldo total adeudado a Proveedores</p><p className="text-7xl font-black text-red-600 tracking-tighter">${saldoPagar.toLocaleString()}</p></div>
                     </Card>
                 </div>
@@ -544,6 +548,7 @@
             const [facturasProv, setFacturasProv] = useState([]);
 
             useEffect(() => {
+                if (!auth) { setLoading(false); return; }
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -555,11 +560,11 @@
                 };
                 initAuth();
                 const unsubAuth = auth.onAuthStateChanged(u => { if (u) setUser(u); setLoading(false); });
-                return () => unsubAuth();
+                return () => { if(unsubAuth) unsubAuth(); };
             }, []);
 
             useEffect(() => {
-                if (!user) return;
+                if (!user || !db) return;
                 const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
                 const unsubs = collections.map(col => {
                     return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
@@ -582,7 +587,12 @@
                 return { utilidadBruta };
             }, [cargas]);
 
-            if (loading) return <div className="h-screen flex flex-col items-center justify-center bg-white"><p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em]">Iniciando Avena Pro ✨...</p></div>;
+            if (loading) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-white border-none">
+                    <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Avena Pro • Conectando...</p>
+                </div>
+            );
 
             const NavItem = ({ id, icon, label }) => (
                 <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-white hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}>
@@ -594,7 +604,12 @@
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-16"><div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div><span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none">Avena Pro</span></div>
+                        <div className="flex items-center gap-3 mb-16 text-left">
+                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3">
+                                <Icon name="package" size={28}/>
+                            </div>
+                            <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none">Avena Pro</span>
+                        </div>
                         <nav className="space-y-2 flex-1">
                             <NavItem id="facturacion" icon="scan" label="1. Facturación" />
                             <NavItem id="logistica" icon="truck" label="2. Logística" />
@@ -608,15 +623,17 @@
                         </div>
                     </aside>
                     <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-center md:text-left">
-                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
+                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} db={db} appId={appId} onClose={() => setActiveTab('gerencia')} />}
+                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} db={db} appId={appId} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'inventario' && <InventarioView facturas={facturasProv} cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={facturasProv} onClose={() => setActiveTab('facturacion')} />}
                     </main>
                     <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
                         {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}><Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/></button>
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
+                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
+                            </button>
                         ))}
                     </nav>
                 </div>
