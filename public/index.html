@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Logística Polaca Pro v1.1</title>
+    <title>Logística Polaca Pro v1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="importmap">
     {
@@ -28,7 +28,7 @@
             background-color: var(--oneui-bg);
             color: #1a1a1a;
             -webkit-tap-highlight-color: transparent;
-            user-select: none;
+            /* Eliminado user-select: none para permitir interacción táctil correcta */
             overflow-x: hidden;
         }
 
@@ -59,24 +59,25 @@
         }
 
         .nav-bottom {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.98);
             backdrop-filter: blur(20px);
             border-top: 1px solid rgba(0,0,0,0.05);
         }
 
         .tab-active { color: var(--oneui-orange); }
 
-        .fade-in { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
         ::-webkit-scrollbar { width: 0px; }
 
         input, select {
             background: transparent;
             border-bottom: 2px solid #e5e7eb;
-            padding: 8px 0;
+            padding: 12px 0; /* Más espacio para touch */
             outline: none;
             transition: border-color 0.2s;
+            font-size: 16px !important; /* Evita zoom automático en iOS */
         }
 
         input:focus { border-color: var(--oneui-orange); }
@@ -85,11 +86,13 @@
         .tab-content.active { display: block; }
 
         .vendor-btn {
-            font-size: 9px;
-            line-height: 1.1;
-            padding: 12px 8px;
+            font-size: 10px;
+            line-height: 1.2;
+            padding: 14px 8px;
             text-align: center;
         }
+
+        button { cursor: pointer; }
     </style>
 </head>
 <body class="pb-32">
@@ -98,7 +101,7 @@
         <header class="oneui-header">
             <div class="flex justify-between items-start">
                 <div>
-                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Sincronización Activa</div>
+                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Sincronización v1.2</div>
                     <h1 id="view-title" class="text-3xl font-extrabold tracking-tight">Inicio</h1>
                 </div>
                 <div class="bg-orange-100 p-2 rounded-2xl">
@@ -109,16 +112,15 @@
 
         <main id="main-container" class="px-5 space-y-6">
             
-            <!-- PESTAÑA 1: INICIO (CON VERSIÓN) -->
+            <!-- PESTAÑA 1: INICIO -->
             <section id="tab-dashboard" class="tab-content active fade-in">
                 <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
                     <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Balance de Facturación</p>
                     <h2 id="dash-total" class="text-4xl font-black mt-1">$0.00</h2>
                     
                     <div class="mt-8 flex justify-between items-center">
-                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold">TIEMPO REAL</span>
-                        <!-- Indicador de Versión Solicitado -->
-                        <span class="text-[10px] font-mono font-bold opacity-40">v1.1</span>
+                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold">ACTUALIZADO</span>
+                        <span class="text-[10px] font-mono font-bold opacity-40 uppercase tracking-tighter">Versión 1.2</span>
                     </div>
                 </div>
                 
@@ -136,71 +138,78 @@
 
             <!-- PESTAÑA 2: FACTURAS -->
             <section id="tab-facturas" class="tab-content fade-in">
-                <button onclick="window.openModal('modal-factura')" class="w-full py-4 btn-orange text-[10px] font-black uppercase tracking-widest mb-4">+ Nueva Factura</button>
+                <button onclick="window.openModal('modal-factura')" class="w-full py-5 btn-orange text-[10px] font-black uppercase tracking-[0.2em] mb-4 shadow-lg shadow-orange-100">+ Nueva Factura</button>
                 <div id="facturas-list" class="space-y-4"></div>
             </section>
 
             <!-- PESTAÑA 3: LOGÍSTICA -->
             <section id="tab-logistica" class="tab-content fade-in">
                 <div class="flex gap-3 mb-6">
-                    <button onclick="window.setVendor('Diego Javier Ciabichay Arias')" id="v-diego" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all">
+                    <button onclick="window.setVendor('Diego Javier Ciabichay Arias')" id="v-diego" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all shadow-sm">
                         Diego Javier<br>Ciabichay Arias
                     </button>
-                    <button onclick="window.setVendor('Byron Armando Miranda Capa')" id="v-byron" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all">
+                    <button onclick="window.setVendor('Byron Armando Miranda Capa')" id="v-byron" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all shadow-sm">
                         Byron Armando<br>Miranda Capa
                     </button>
                 </div>
 
                 <div class="card-samsung p-6 border border-gray-100 space-y-6">
                     <div class="flex justify-between items-center">
-                        <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Carga de Inventario (Mañana)</h3>
-                        <span class="text-[9px] font-bold px-2 py-1 bg-orange-50 text-orange-600 rounded-lg">USD</span>
+                        <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Carga (Mañana)</h3>
+                        <span class="text-[9px] font-bold px-2 py-1 bg-orange-50 text-orange-600 rounded-lg">CÁLCULO USD</span>
                     </div>
-                    <div id="logistica-items" class="space-y-3"></div>
+                    <div id="logistica-items" class="space-y-4"></div>
                     <div class="pt-4 border-t flex justify-between items-center">
-                        <p class="text-[10px] font-black text-gray-400 uppercase">Total Valor Cargado</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase">Valor Cargado</p>
                         <p id="log-carga-total" class="text-xl font-black text-gray-900">$0.00</p>
                     </div>
-                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sincronizar Carga</button>
+                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-gray-200">Guardar Carga</button>
                 </div>
 
                 <div class="card-samsung p-6 border border-gray-100 mt-4 space-y-5">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Cuadre de Caja y Gastos (Noche)</h3>
-                    <div class="space-y-4">
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Cuadre (Noche)</h3>
+                    <div class="space-y-5">
                         <div>
-                            <label class="text-[9px] font-black text-blue-600 uppercase">Total Vendido ($)</label>
+                            <label class="text-[9px] font-black text-blue-600 uppercase tracking-widest">Venta Total del Día ($)</label>
                             <input id="log-venta" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-lg font-black py-2 border-b-2 border-blue-100">
                         </div>
-                        <p class="text-[8px] font-black text-gray-300 uppercase mt-2">Gastos Operativos</p>
+                        <p class="text-[8px] font-black text-gray-300 uppercase">Gastos Operativos</p>
                         <div class="grid grid-cols-2 gap-4">
-                            <input id="g-viaticos" type="number" oninput="window.calcNeto()" placeholder="Viáticos" class="w-full text-xs font-bold py-1 border-b">
-                            <input id="g-alimentacion" type="number" oninput="window.calcNeto()" placeholder="Comida" class="w-full text-xs font-bold py-1 border-b">
-                            <input id="g-combustible" type="number" oninput="window.calcNeto()" placeholder="Combust." class="w-full text-xs font-bold py-1 border-b">
-                            <input id="g-hospedaje" type="number" oninput="window.calcNeto()" placeholder="Hosped." class="w-full text-xs font-bold py-1 border-b">
+                            <input id="g-viaticos" type="number" oninput="window.calcNeto()" placeholder="Viáticos" class="w-full text-xs font-bold border-b-2 py-2">
+                            <input id="g-alimentacion" type="number" oninput="window.calcNeto()" placeholder="Alimentación" class="w-full text-xs font-bold border-b-2 py-2">
+                            <input id="g-combustible" type="number" oninput="window.calcNeto()" placeholder="Combustible" class="w-full text-xs font-bold border-b-2 py-2">
+                            <input id="g-hospedaje" type="number" oninput="window.calcNeto()" placeholder="Hospedaje" class="w-full text-xs font-bold border-b-2 py-2">
                         </div>
-                        <input id="g-otros" type="number" oninput="window.calcNeto()" placeholder="Otros Gastos" class="w-full text-xs font-bold py-1 border-b">
-                        <div class="bg-gray-900 p-5 rounded-2xl flex justify-between items-center shadow-lg">
+                        <input id="g-otros" type="number" oninput="window.calcNeto()" placeholder="Otros Gastos" class="w-full text-xs font-bold border-b-2 py-2">
+                        
+                        <div class="bg-gray-900 p-6 rounded-[28px] flex justify-between items-center shadow-xl">
                             <div>
-                                <p class="text-[9px] font-black text-orange-200 uppercase tracking-widest">Neto a Depositar</p>
-                                <p id="log-neto" class="text-3xl font-black text-orange-400">$0.00</p>
+                                <p class="text-[9px] font-black text-orange-200 uppercase tracking-widest">A Depositar</p>
+                                <p id="log-neto" class="text-2xl font-black text-orange-400">$0.00</p>
+                            </div>
+                            <div class="text-right">
+                                <label for="log-file" class="bg-white/10 p-3 rounded-2xl inline-block cursor-pointer active:bg-white/20">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                </label>
+                                <input id="log-file" type="file" class="hidden">
                             </div>
                         </div>
                     </div>
-                    <button onclick="window.saveLiquidation('Cierre')" class="w-full py-5 btn-orange rounded-[28px] text-[11px] font-black uppercase tracking-[0.2em]">Finalizar Jornada</button>
+                    <button onclick="window.saveLiquidation('Cierre')" class="w-full py-5 btn-orange rounded-[28px] text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-orange-100">Cerrar Día</button>
                 </div>
             </section>
 
             <!-- PESTAÑA 4: GERENCIA -->
             <section id="tab-gerencia" class="tab-content fade-in">
                 <div id="utility-card" class="card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors duration-500">
-                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Bruta Proyectada</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Bruta Mes</p>
                     <h2 id="gerencia-utility" class="text-4xl font-black mt-1">$0.00</h2>
-                    <p id="gerencia-status-msg" class="text-[10px] font-bold mt-4 uppercase">Calculando...</p>
+                    <p id="gerencia-status-msg" class="text-[10px] font-bold mt-4 uppercase">Estado Operativo</p>
                 </div>
                 <div class="card-samsung p-6 border border-gray-100 space-y-4">
                     <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Punto de Equilibrio</h3>
                     <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
-                        <div id="gerencia-progress" class="h-full bg-orange-500 transition-all duration-1000" style="width: 0%"></div>
+                        <div id="gerencia-progress" class="h-full bg-orange-500 transition-all duration-700" style="width: 0%"></div>
                     </div>
                     <div class="flex justify-between items-center text-[10px] font-black">
                         <p id="gerencia-percent" class="text-orange-600">0%</p>
@@ -208,7 +217,7 @@
                     </div>
                 </div>
                 <div class="card-samsung p-6 border border-gray-100 mt-4">
-                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest mb-4">Gastos Fijos Detallados</h3>
+                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest mb-4">Costos Fijos Mensuales</h3>
                     <div id="fixed-costs-list" class="space-y-2"></div>
                 </div>
             </section>
@@ -216,7 +225,7 @@
             <!-- PESTAÑA 5: CONTABILIDAD -->
             <section id="tab-contabilidad" class="tab-content fade-in">
                 <div class="card-samsung p-6 border border-gray-100 space-y-4 mb-4">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase">Movimiento Manual</h3>
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Nuevo Movimiento Manual</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <select id="acc-tipo" class="text-xs font-black p-2 border-b-2 bg-white">
                             <option value="ingreso">Ingreso (+)</option>
@@ -224,32 +233,32 @@
                         </select>
                         <input id="acc-monto" type="number" placeholder="Monto $" class="text-sm font-black py-2 border-b-2">
                     </div>
-                    <input id="acc-desc" type="text" placeholder="Concepto" class="w-full text-xs font-medium py-2 border-b-2">
-                    <button onclick="window.saveContabilidad()" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase">Registrar</button>
+                    <input id="acc-desc" type="text" placeholder="Descripción del gasto" class="w-full text-xs font-medium py-2 border-b-2">
+                    <button onclick="window.saveContabilidad()" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sincronizar</button>
                 </div>
                 <div id="contabilidad-ledger" class="space-y-3"></div>
             </section>
 
         </main>
 
-        <nav class="nav-bottom fixed bottom-0 left-0 right-0 h-24 flex justify-around items-center z-50 px-4 pb-4">
-            <button onclick="window.switchTab('dashboard')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-dashboard">
+        <nav class="nav-bottom fixed bottom-0 left-0 right-0 h-24 flex justify-around items-center z-50 px-4 pb-4 shadow-2xl">
+            <button onclick="window.switchTab('dashboard')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-100 p-2" id="nav-dashboard">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
                 <span class="text-[9px] font-black uppercase">Panel</span>
             </button>
-            <button onclick="window.switchTab('facturas')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-facturas">
+            <button onclick="window.switchTab('facturas')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-100 p-2" id="nav-facturas">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 <span class="text-[9px] font-black uppercase">Facturas</span>
             </button>
-            <button onclick="window.switchTab('logistica')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-logistica">
+            <button onclick="window.switchTab('logistica')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-100 p-2" id="nav-logistica">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V14a1 1 0 01-1 1H13z" /></svg>
-                <span class="text-[9px] font-black uppercase">Rutas</span>
+                <span class="text-[9px] font-black uppercase">Logística</span>
             </button>
-            <button onclick="window.switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-gerencia">
+            <button onclick="window.switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-100 p-2" id="nav-gerencia">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                <span class="text-[9px] font-black uppercase">Gerencia</span>
+                <span class="text-[9px] font-black uppercase">Metas</span>
             </button>
-            <button onclick="window.switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-contabilidad">
+            <button onclick="window.switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-100 p-2" id="nav-contabilidad">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 <span class="text-[9px] font-black uppercase">Libro</span>
             </button>
@@ -260,30 +269,63 @@
             <div class="card-samsung w-full max-w-md p-8 space-y-6 rounded-b-none animate-in slide-in-from-bottom duration-300">
                 <div class="flex justify-between items-center border-b pb-4">
                     <h3 class="font-black text-gray-800 text-xs tracking-widest uppercase">Nueva Factura</h3>
-                    <button onclick="window.closeModal('modal-factura')" class="text-gray-400">✕</button>
+                    <button onclick="window.closeModal('modal-factura')" class="text-gray-400 p-2">✕</button>
                 </div>
                 <div class="space-y-4">
-                    <input id="f-cliente" type="text" placeholder="Cliente" class="w-full text-sm font-black py-2 border-b-2" value="AUSTROECUATORIANA S.A.S.">
-                    <input id="f-num" type="text" placeholder="N° Factura" class="w-full text-xs font-black py-2 border-b-2">
-                    <input id="f-fecha" type="date" class="w-full text-xs font-black py-2 border-b-2">
-                    <div id="f-items" class="space-y-2 max-h-40 overflow-y-auto"></div>
-                    <div class="bg-gray-900 p-6 rounded-3xl text-white flex justify-between items-center">
-                        <span class="text-[10px] font-black opacity-40 uppercase">Total + IVA</span>
+                    <input id="f-cliente" type="text" placeholder="Cliente" class="w-full text-sm font-black border-b-2" value="AUSTROECUATORIANA S.A.S.">
+                    <input id="f-num" type="text" placeholder="N° Factura" class="w-full text-xs font-black border-b-2">
+                    <input id="f-fecha" type="date" class="w-full text-xs font-black border-b-2">
+                    <div id="f-items" class="space-y-3 max-h-48 overflow-y-auto"></div>
+                    <div class="bg-gray-900 p-6 rounded-3xl text-white flex justify-between items-center shadow-lg">
+                        <span class="text-[10px] font-black opacity-40 uppercase">Total Final</span>
                         <span id="f-total-display" class="text-2xl font-black text-orange-400">$0.00</span>
                     </div>
-                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black tracking-widest">Sincronizar Factura</button>
+                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black tracking-widest shadow-xl shadow-orange-100">Guardar Factura</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[1000] uppercase tracking-widest"></div>
+    <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[1000] uppercase tracking-widest shadow-2xl"></div>
 
     <script type="module">
         import { initializeApp } from "firebase/app";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
         import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
+        // CONFIGURACIÓN UI GLOBAL (Para asegurar disponibilidad inmediata)
+        window.switchTab = (tab) => {
+            state.activeTab = tab;
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.querySelectorAll('nav button').forEach(b => {
+                b.classList.replace('tab-active', 'text-gray-400');
+                b.classList.remove('scale-100');
+            });
+            const activeBtn = document.getElementById(`nav-${tab}`);
+            activeBtn.classList.replace('text-gray-400', 'tab-active');
+            activeBtn.classList.add('scale-100');
+            document.getElementById('view-title').innerText = tab.charAt(0).toUpperCase() + tab.slice(1);
+            render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.openModal = (id) => {
+            document.getElementById(id).classList.remove('hidden');
+            if (id === 'modal-factura') {
+                document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
+                document.getElementById('f-items').innerHTML = PRODUCTOS.map((p, i) => `
+                    <div class="flex justify-between items-center bg-gray-50 p-3 rounded-2xl">
+                        <span class="text-[10px] font-black text-gray-500 uppercase">${p.nombre}</span>
+                        <input type="number" id="f-prod-${i}" oninput="window.calcF()" placeholder="0" class="w-14 text-center text-sm font-black border-b-2 border-orange-200">
+                    </div>
+                `).join('');
+            }
+        };
+
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+
+        // DATA CONSTANTS
         const PRODUCTOS = [
             { id: 'P1', nombre: 'AVENA POLACA 165G', precio: 0.269565 },
             { id: 'P2', nombre: 'AVENA POLACA 340G', precio: 0.608694 },
@@ -292,19 +334,19 @@
         ];
 
         const GASTOS_FIJOS = [
-            { id: 'G1', concepto: 'Sueldos empleados', monto: 964.00 },
-            { id: 'G2', concepto: 'Combustible', monto: 350.00 },
-            { id: 'G3', concepto: 'Comisiones', monto: 600.00 },
-            { id: 'G4', concepto: 'Viáticos mercado local', monto: 60.00 },
-            { id: 'G5', concepto: 'Viáticos mercado foráneo', monto: 180.00 },
-            { id: 'G6', concepto: 'Depreciación de vehículos', monto: 200.00 },
-            { id: 'G7', concepto: 'Intereses préstamo vehículos', monto: 172.73 },
-            { id: 'G8', concepto: 'Pago de Capital Vehículos', monto: 683.06 },
-            { id: 'G9', concepto: 'Mantenimiento y reparaciones', monto: 100.00 },
-            { id: 'G10', concepto: 'Telefonía celular', monto: 30.00 },
-            { id: 'G11', concepto: 'Honorarios profesionales', monto: 200.00 },
-            { id: 'G12', concepto: 'Suministros y materiales', monto: 10.00 },
-            { id: 'G13', concepto: 'Gastos Varios', monto: 30.00 }
+            { concepto: 'Sueldos empleados', monto: 964.00 },
+            { concepto: 'Combustible', monto: 350.00 },
+            { concepto: 'Comisiones', monto: 600.00 },
+            { concepto: 'Viáticos mercado local', monto: 60.00 },
+            { concepto: 'Viáticos mercado foráneo', monto: 180.00 },
+            { concepto: 'Depreciación vehículos', monto: 200.00 },
+            { concepto: 'Intereses préstamo', monto: 172.73 },
+            { concepto: 'Pago Capital Vehículos', monto: 683.06 },
+            { concepto: 'Mantenimiento', monto: 100.00 },
+            { concepto: 'Telefonía celular', monto: 30.00 },
+            { concepto: 'Honorarios prof.', monto: 200.00 },
+            { concepto: 'Suministros', monto: 10.00 },
+            { concepto: 'Gastos Varios', monto: 30.00 }
         ];
 
         const TOTAL_GASTOS_FIJOS = 3579.80;
@@ -326,55 +368,8 @@
             activeVendor: 'Diego Javier Ciabichay Arias'
         };
 
-        async function init() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) { showToast("Error Auth"); }
-        }
-
-        onAuthStateChanged(auth, (u) => {
-            state.user = u;
-            if (u) {
-                document.getElementById('cloud-sync').style.opacity = '1';
-                setupListeners();
-            }
-        });
-
-        function setupListeners() {
-            if (!state.user) return;
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
-                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-                render();
-            });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), (snap) => {
-                state.ledger = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-                render();
-            });
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), (snap) => {
-                state.rutas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                render();
-            });
-        }
-
-        window.switchTab = (tab) => {
-            state.activeTab = tab;
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`tab-${tab}`).classList.add('active');
-            document.querySelectorAll('nav button').forEach(b => b.classList.replace('tab-active', 'text-gray-400'));
-            document.getElementById(`nav-${tab}`).classList.replace('text-gray-400', 'tab-active');
-            document.getElementById('view-title').innerText = tab.charAt(0).toUpperCase() + tab.slice(1);
-            render();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
-
-        window.setVendor = (v) => {
-            state.activeVendor = v;
-            render();
-        };
+        // UI ACTIONS
+        window.setVendor = (v) => { state.activeVendor = v; render(); };
 
         window.calcCarga = () => {
             let total = 0;
@@ -400,10 +395,73 @@
                 (parseFloat(document.getElementById('g-hospedaje').value) || 0) +
                 (parseFloat(document.getElementById('g-otros').value) || 0);
             const neto = venta - gastos;
-            document.getElementById('log-neto').innerText = `$${neto.toFixed(2)}`;
+            const netoEl = document.getElementById('log-neto');
+            if (netoEl) netoEl.innerText = `$${neto.toFixed(2)}`;
             return neto;
         };
 
+        window.calcF = () => {
+            let s = 0; PRODUCTOS.forEach((p, i) => s += (parseFloat(document.getElementById(`f-prod-${i}`).value) || 0) * p.precio);
+            const total = s * 1.15;
+            document.getElementById('f-total-display').innerText = `$${total.toFixed(2)}`;
+        };
+
+        // FIREBASE ACTIONS
+        window.saveFactura = async () => {
+            if (!state.user) return;
+            const num = document.getElementById('f-num').value;
+            if (!num) return showToast("Falta N° Factura");
+            const total = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), {
+                    cliente: document.getElementById('f-cliente').value,
+                    numFactura: num,
+                    fechaEmision: document.getElementById('f-fecha').value,
+                    total: total,
+                    estado: 'pendiente',
+                    timestamp: serverTimestamp()
+                });
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: total, descripcion: `Venta: ${num}`, timestamp: serverTimestamp() });
+                showToast("Factura Sincronizada"); window.closeModal('modal-factura');
+            } catch (e) { showToast("Error en Nube"); }
+        };
+
+        window.saveLiquidation = async (tipo) => {
+            if (!state.user) return;
+            showToast("Sincronizando...");
+            const data = {
+                vendedor: state.activeVendor,
+                tipo: tipo,
+                timestamp: serverTimestamp(),
+                montoCarga: tipo === 'Carga' ? window.calcCarga() : 0,
+                montoNeto: tipo === 'Cierre' ? window.calcNeto() : 0
+            };
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), data);
+                if (tipo === 'Cierre') {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: data.montoNeto, descripcion: `Cierre: ${state.activeVendor}`, timestamp: serverTimestamp() });
+                }
+                showToast("Éxito en Firestore");
+            } catch (e) { showToast("Error"); }
+        };
+
+        window.saveContabilidad = async () => {
+            if (!state.user) return;
+            const m = parseFloat(document.getElementById('acc-monto').value);
+            const d = document.getElementById('acc-desc').value;
+            if (!m || !d) return showToast("Faltan datos");
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: document.getElementById('acc-tipo').value, monto: m, descripcion: d, timestamp: serverTimestamp() });
+                showToast("Libro Actualizado");
+            } catch (e) { showToast("Fallo"); }
+        };
+
+        window.updateStatus = async (id, s) => {
+            if (!state.user) return;
+            try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id), { estado: s }); showToast("Actualizado"); } catch (e) { showToast("Error"); }
+        };
+
+        // RENDER LOGIC
         function render() {
             const container = document.getElementById('main-container');
             if (!container) return;
@@ -423,14 +481,14 @@
                         <div class="flex justify-between items-start mb-4">
                             <div class="max-w-[70%]">
                                 <h4 class="font-black text-xs text-gray-900 uppercase truncate">${f.cliente}</h4>
-                                <p class="text-[9px] text-gray-400 font-black">#${f.numFactura} • ${f.fechaEmision}</p>
+                                <p class="text-[9px] text-gray-400 font-black mt-1">#${f.numFactura} • ${f.fechaEmision}</p>
                             </div>
                             <span class="text-lg font-black text-orange-600">$${(f.total || 0).toFixed(2)}</span>
                         </div>
                         <div class="flex gap-2">
                              <span class="flex-1 text-[9px] font-black uppercase text-center py-3 rounded-2xl ${f.estado === 'cancelado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${f.estado}</span>
-                             <button onclick="window.updateStatus('${f.id}', 'abonado')" class="p-3 bg-gray-100 rounded-2xl text-blue-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></button>
-                             <button onclick="window.updateStatus('${f.id}', 'cancelado')" class="p-3 bg-gray-900 rounded-2xl text-white"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M5 13l4 4L19 7" /></svg></button>
+                             <button onclick="window.updateStatus('${f.id}', 'abonado')" class="p-3 bg-gray-100 rounded-2xl text-blue-600 active:scale-95"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></button>
+                             <button onclick="window.updateStatus('${f.id}', 'cancelado')" class="p-3 bg-gray-900 rounded-2xl text-white active:scale-95"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M5 13l4 4L19 7" /></svg></button>
                         </div>
                     </div>
                 `).join('');
@@ -446,7 +504,7 @@
                         <div class="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-2xl">
                             <div class="flex-1">
                                 <span class="text-[10px] font-black text-gray-600 uppercase tracking-tighter">${p.nombre}</span>
-                                <p class="text-[8px] font-bold text-gray-400">P. Unit: $${p.precio.toFixed(4)}</p>
+                                <p class="text-[8px] font-bold text-gray-400">$${p.precio.toFixed(4)} u.</p>
                             </div>
                             <div class="text-right">
                                  <input type="number" id="log-prod-${i}" oninput="window.calcCarga()" placeholder="0" class="w-16 text-center font-black text-sm py-1 border-b-2 border-orange-200 bg-transparent">
@@ -472,17 +530,17 @@
                 
                 if (utilityEl) utilityEl.innerText = `${utility < 0 ? '-' : ''}$${Math.abs(utility).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
                 if (utility < 0) {
-                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors duration-500";
-                    msgEl.innerText = "EN PÉRDIDA OPERATIVA";
+                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800";
+                    msgEl.innerText = "DÉFICIT OPERATIVO";
                 } else {
-                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-emerald-600 transition-colors duration-500";
-                    msgEl.innerText = "GENERANDO UTILIDAD";
+                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-emerald-600";
+                    msgEl.innerText = "PUNTO DE EQUILIBRIO SUPERADO";
                 }
 
                 const listEl = document.getElementById('fixed-costs-list');
                 if (listEl) {
                     listEl.innerHTML = GASTOS_FIJOS.map(g => `
-                        <div class="flex justify-between items-center text-[10px] p-2 bg-gray-50 rounded-xl">
+                        <div class="flex justify-between items-center text-[10px] p-3 bg-gray-50 rounded-xl mb-1">
                             <span class="text-gray-500 font-bold uppercase">${g.concepto}</span>
                             <span class="font-black text-gray-800">$${g.monto.toFixed(2)}</span>
                         </div>
@@ -503,89 +561,48 @@
             }
         }
 
-        window.openModal = (id) => {
-            document.getElementById(id).classList.remove('hidden');
-            if (id === 'modal-factura') {
-                document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
-                document.getElementById('f-items').innerHTML = PRODUCTOS.map((p, i) => `
-                    <div class="flex justify-between items-center p-2"><span class="text-[9px] font-black text-gray-500">${p.nombre}</span><input type="number" id="f-prod-${i}" oninput="window.calcF()" placeholder="0" class="w-12 text-center text-xs font-black border-b-2"></div>
-                `).join('');
-            }
-        };
-
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
-        window.calcF = () => {
-            let s = 0; PRODUCTOS.forEach((p, i) => s += (parseFloat(document.getElementById(`f-prod-${i}`).value) || 0) * p.precio);
-            document.getElementById('f-total-display').innerText = `$${(s * 1.15).toFixed(2)}`;
-        };
-
-        window.saveFactura = async () => {
-            if (!state.user) return;
-            const num = document.getElementById('f-num').value;
-            if (!num) return showToast("Falta Número");
-            const total = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
+        // INITIALIZATION
+        async function startSystem() {
             try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), {
-                    cliente: document.getElementById('f-cliente').value,
-                    numFactura: num,
-                    fechaEmision: document.getElementById('f-fecha').value,
-                    total: total,
-                    estado: 'pendiente',
-                    timestamp: serverTimestamp()
-                });
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: total, descripcion: `Venta: ${num}`, timestamp: serverTimestamp() });
-                showToast("Factura Sincronizada"); window.closeModal('modal-factura');
-            } catch (e) { showToast("Error Firestore"); }
-        };
-
-        window.saveLiquidation = async (tipo) => {
-            if (!state.user) return;
-            showToast("Sincronizando...");
-            const data = {
-                vendedor: state.activeVendor,
-                tipo: tipo,
-                timestamp: serverTimestamp(),
-                montoCarga: tipo === 'Carga' ? window.calcCarga() : 0,
-                montoNeto: tipo === 'Cierre' ? window.calcNeto() : 0,
-                gastos: tipo === 'Cierre' ? {
-                    viaticos: parseFloat(document.getElementById('g-viaticos').value) || 0,
-                    alimentacion: parseFloat(document.getElementById('g-alimentacion').value) || 0,
-                    combustible: parseFloat(document.getElementById('g-combustible').value) || 0,
-                    hospedaje: parseFloat(document.getElementById('g-hospedaje').value) || 0,
-                    otros: parseFloat(document.getElementById('g-otros').value) || 0
-                } : null
-            };
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), data);
-                if (tipo === 'Cierre') {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: data.montoNeto, descripcion: `Liquidación: ${state.activeVendor}`, timestamp: serverTimestamp() });
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-                showToast("Éxito en la Nube");
-            } catch (e) { showToast("Error"); }
-        };
+            } catch (e) { showToast("Error conexión"); }
+        }
 
-        window.saveContabilidad = async () => {
-            if (!state.user) return;
-            const m = parseFloat(document.getElementById('acc-monto').value);
-            const d = document.getElementById('acc-desc').value;
-            if (!m || !d) return showToast("Faltan Datos");
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: document.getElementById('acc-tipo').value, monto: m, descripcion: d, timestamp: serverTimestamp() });
-                showToast("Libro Actualizado");
-            } catch (e) { showToast("Error"); }
-        };
+        onAuthStateChanged(auth, (u) => {
+            state.user = u;
+            if (u) {
+                document.getElementById('cloud-sync').style.opacity = '1';
+                setupListeners();
+            }
+        });
 
-        window.updateStatus = async (id, s) => {
+        function setupListeners() {
             if (!state.user) return;
-            try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id), { estado: s }); showToast("Actualizado"); } catch (e) { showToast("Error"); }
-        };
+            const err = (e) => console.error(e);
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
+                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+                render();
+            }, err);
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), (snap) => {
+                state.ledger = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                render();
+            }, err);
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), (snap) => {
+                state.rutas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                render();
+            }, err);
+        }
 
         function showToast(msg) {
             const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = '1';
             setTimeout(() => t.style.opacity = '0', 2500);
         }
 
-        init();
+        startSystem();
     </script>
 </body>
 </html>
