@@ -1,142 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Test de Conexión Nube v3.3</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verificador de Nube v3.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-6">
-    <div class="max-w-md w-full bg-slate-800 p-8 rounded-[32px] shadow-2xl border border-slate-700">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-black tracking-tight">Verificador v3.3</h1>
-            <span id="conn-tag" class="px-2 py-1 bg-slate-700 rounded-lg text-[10px] font-bold text-slate-400 uppercase">Estado: Desconectado</span>
+<body class="bg-[#0f172a] text-white flex items-center justify-center min-h-screen p-6 font-sans">
+    <div class="max-w-md w-full bg-[#1e293b] p-8 rounded-[40px] shadow-2xl border border-slate-700/50">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter">Verificador v3.4</h1>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Rescate de Conexión</p>
+            </div>
+            <span id="conn-badge" class="px-3 py-1 bg-slate-800 rounded-full text-[10px] font-black text-slate-400">OFFLINE</span>
         </div>
         
-        <div id="status-box" class="p-5 rounded-2xl bg-slate-950 mb-6 text-sm font-mono border border-slate-700/50 min-h-[120px] flex flex-col justify-center shadow-inner">
-            <div id="log-content" class="text-slate-400">Listo para iniciar prueba maestra...</div>
+        <div id="status-box" class="p-6 rounded-[24px] bg-[#020617] mb-8 text-sm font-mono border border-slate-800 min-h-[140px] flex flex-col justify-center shadow-inner overflow-hidden">
+            <div id="log-content" class="text-slate-500 text-center">Listo para la prueba maestra...</div>
         </div>
 
-        <button onclick="ejecutarPruebaMaestra()" id="btn-main" class="w-full py-4 bg-orange-600 rounded-2xl font-black uppercase tracking-widest hover:bg-orange-500 active:scale-95 transition-all shadow-lg shadow-orange-900/20">
+        <button id="btn-main" class="w-full py-5 bg-orange-600 rounded-[20px] font-black uppercase tracking-widest text-[12px] hover:bg-orange-500 active:scale-95 transition-all shadow-xl shadow-orange-900/20">
             Iniciar Prueba de Fuego
         </button>
 
-        <div class="mt-8 space-y-3">
-            <div class="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                <span class="flex items-center gap-2"><span id="check-auth" class="w-2 h-2 rounded-full bg-slate-700 transition-colors"></span> Autenticación</span>
-                <span id="auth-val">---</span>
+        <div class="mt-10 space-y-4">
+            <div class="flex items-center justify-between text-[11px] font-black text-slate-500 uppercase">
+                <span class="flex items-center gap-3"><span id="check-auth" class="w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></span> 1. Autenticación</span>
+                <span id="auth-val" class="opacity-40">---</span>
             </div>
-            <div class="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                <span class="flex items-center gap-2"><span id="check-db" class="w-2 h-2 rounded-full bg-slate-700 transition-colors"></span> Escritura Datos</span>
-                <span id="db-val">---</span>
+            <div class="flex items-center justify-between text-[11px] font-black text-slate-500 uppercase">
+                <span class="flex items-center gap-3"><span id="check-db" class="w-2.5 h-2.5 rounded-full bg-slate-700 transition-all"></span> 2. Escritura Datos</span>
+                <span id="db-val" class="opacity-40">---</span>
             </div>
         </div>
 
-        <div id="api-help" class="hidden mt-6 p-4 bg-blue-900/30 rounded-2xl border border-blue-800/50">
-            <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">💡 Ayuda Técnica</p>
-            <p class="text-[9px] text-blue-300 leading-relaxed">Si recibes error de <b>API Key</b>, ve a <i>Configuración del proyecto</i> en Firebase y copia la <b>Clave de API web</b>. Esa es la que debe ir en el código.</p>
+        <div id="api-help" class="hidden mt-8 p-5 bg-blue-500/10 rounded-[24px] border border-blue-500/20">
+            <p class="text-[11px] font-black text-blue-400 uppercase mb-2">💡 Instrucciones para tu Web</p>
+            <p class="text-[10px] text-blue-200/70 leading-relaxed">Para que funcione en tu dominio idoraecuatoriana.web.app, ve a tu <b>Consola de Firebase > Configuración del Proyecto</b> y busca la <b>"Clave de API web"</b>. Copia ese valor exacto en el código.</p>
         </div>
     </div>
 
-    <script>
-        // Función segura para actualizar la UI
-        function ui(id, html, className = null) {
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Función para actualizar la interfaz de forma segura (sin errores de null)
+        function updateUI(id, html, classes = null) {
             const el = document.getElementById(id);
             if (el) {
                 if (html !== null) el.innerHTML = html;
-                if (className !== null) el.className = className;
+                if (classes !== null) el.className = classes;
             }
         }
 
-        function getFirebaseConfig() {
-            // Primero intentamos usar la configuración inyectada por el sistema
-            try {
-                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                    return JSON.parse(__firebase_config);
-                }
-            } catch (e) { console.error("Error parseando config inyectada", e); }
-            
-            // Fallback a tus llaves actuales (Asegúrate de que esta sea la 'Web API Key' de tu consola)
-            return {
-                apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
-                authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
-                projectId: "austrodistribuidoraecuatoriana",
-                storageBucket: "austrodistribuidoraecuatoriana.firebasestorage.app",
-                messagingSenderId: "711061794814",
-                appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
-            };
-        }
+        // Obtener configuración del entorno Canvas o manual
+        const apiKey = ""; // Regla del sistema: El entorno inyecta la clave si es ""
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: apiKey,
+            authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
+            projectId: "austrodistribuidoraecuatoriana",
+            storageBucket: "austrodistribuidoraecuatoriana.firebasestorage.app",
+            messagingSenderId: "711061794814",
+            appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
+        };
 
-        async function ejecutarPruebaMaestra() {
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'diagnostico-v34';
+        
+        let app, auth, db;
+
+        async function ejecutarPrueba() {
             const btn = document.getElementById('btn-main');
-            if (btn) btn.disabled = true;
-            
-            ui('log-content', "⚡ CONFIGURANDO SERVICIOS...", "text-blue-400");
-            ui('api-help', null, "hidden");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "PROCESANDO...";
+            }
+
+            updateUI('log-content', "⚡ INICIALIZANDO SDK v11...", "text-blue-400 font-bold");
+            updateUI('api-help', null, "hidden");
 
             try {
-                const config = getFirebaseConfig();
-                
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(config);
-                }
-                
-                const auth = firebase.auth();
-                const db = firebase.firestore();
+                // 1. Inicializar
+                if (!app) app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
 
-                ui('log-content', "🔑 SOLICITANDO IDENTIDAD...", "text-orange-400 font-bold");
-                
-                // Autenticación según protocolos de seguridad
-                let result;
+                updateUI('log-content', "🔑 SOLICITANDO ACCESO...", "text-orange-400 font-bold");
+
+                // 2. Autenticación (Regla 3)
+                let user;
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    result = await auth.signInWithCustomToken(__initial_auth_token);
+                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                    user = cred.user;
                 } else {
-                    result = await auth.signInAnonymously();
+                    const cred = await signInAnonymously(auth);
+                    user = cred.user;
                 }
 
-                ui('check-auth', null, "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]");
-                ui('auth-val', "ÉXITO", "text-green-500 font-black");
-                ui('log-content', "📡 PROBANDO ESCRITURA EN FIRESTORE...", "text-yellow-400");
+                updateUI('check-auth', null, "w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]");
+                updateUI('auth-val', "ÉXITO", "text-green-500 font-black");
+                updateUI('log-content', "📡 PROBANDO CANAL DE DATOS...", "text-yellow-400 font-bold");
 
-                // Intentar escribir un log de prueba
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'diagnostico-v33';
-                const path = `artifacts/${appId}/public/data/logs_conexion`;
-                
-                await db.collection(path).add({
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    evento: "CONEXION_VERIFICADA_V33",
-                    userAgent: navigator.userAgent,
+                // 3. Escritura (Regla 1)
+                const path = collection(db, 'artifacts', appId, 'public', 'data', 'verificacion_v34');
+                await addDoc(path, {
+                    mensaje: "PRUEBA EXITOSA V34",
+                    timestamp: serverTimestamp(),
+                    dispositivo: navigator.userAgent,
                     url: window.location.href
                 });
 
-                ui('check-db', null, "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]");
-                ui('db-val', "ÉXITO", "text-green-500 font-black");
-                ui('conn-tag', "ESTADO: ONLINE", "px-2 py-1 bg-green-900/40 rounded-lg text-[10px] font-bold text-green-400 uppercase");
+                updateUI('check-db', null, "w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]");
+                updateUI('db-val', "ÉXITO", "text-green-500 font-black");
+                updateUI('conn-badge', "ONLINE", "px-3 py-1 bg-green-900/30 rounded-full text-[10px] font-black text-green-400 uppercase tracking-widest");
                 
-                ui('log-content', "✅ ¡CONEXIÓN ESTABLECIDA!<br><span class='text-[10px] text-slate-500'>Los datos fluyen correctamente a la nube.</span>", "text-green-400 font-black text-center");
+                updateUI('log-content', "✅ ¡CONEXIÓN ESTABLECIDA!<br><span class='text-[10px] text-slate-500 mt-2 block'>Tu nube ya recibe datos correctamente.</span>", "text-green-400 font-black text-center");
                 
                 if (btn) {
-                    btn.innerText = "SISTEMA LISTO PARA LOGÍSTICA";
-                    btn.className = "w-full py-4 bg-green-600 rounded-2xl font-black uppercase text-white shadow-lg shadow-green-900/20";
+                    btn.innerText = "SISTEMA LISTO";
+                    btn.className = "w-full py-5 bg-green-600 rounded-[20px] font-black uppercase text-white shadow-xl shadow-green-900/20";
                 }
 
             } catch (e) {
-                console.error("Error en diagnóstico:", e);
-                let msg = e.message;
-                
-                if (e.code === 'auth/api-key-not-valid') {
-                    msg = "LA CLAVE DE API NO ES VÁLIDA PARA ESTE DOMINIO.";
-                    ui('api-help', null, "mt-6 p-4 bg-blue-900/30 rounded-2xl border border-blue-800/50 block");
+                console.error("Error diagnóstico:", e);
+                let errorTitle = "FALLO";
+                let errorMsg = e.message;
+
+                if (e.code === 'auth/api-key-not-valid' || e.message.includes('API key')) {
+                    errorTitle = "CLAVE INVÁLIDA";
+                    errorMsg = "La API Key de tu código no coincide con tu proyecto.";
+                    updateUI('api-help', null, "mt-8 p-5 bg-blue-500/10 rounded-[24px] border border-blue-500/20 block");
                 }
 
-                ui('log-content', `<span class="text-red-500 font-black">❌ FALLO</span><br><span class="text-[10px] text-red-400">${msg}</span>`, "text-center");
+                updateUI('log-content', `<span class="text-red-500 font-black">❌ ${errorTitle}</span><br><span class="text-[10px] text-red-400 mt-2 block">${errorMsg}</span>`, "text-center");
                 
                 if (btn) {
                     btn.disabled = false;
                     btn.innerText = "REINTENTAR PRUEBA";
                 }
             }
+        }
+
+        // Vincular al botón
+        const btnMain = document.getElementById('btn-main');
+        if (btnMain) {
+            btnMain.onclick = ejecutarPrueba;
         }
     </script>
 </body>
