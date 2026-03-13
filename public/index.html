@@ -2,117 +2,148 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Austro Logística v16.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Logística Austro v17.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- FIREBASE COMPAT SDK -->
+    <!-- LIBRERÍAS FIREBASE COMPAT -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #000; color: #fff; margin: 0; overflow-x: hidden; padding-bottom: 90px; }
-        .card-neo { background: #111; border: 1px solid #222; border-radius: 28px; padding: 25px; }
-        .btn-brand { background: #ea580c; color: #fff; border-radius: 20px; padding: 20px; font-weight: 900; width: 100%; border: none; cursor: pointer; text-transform: uppercase; font-size: 13px; letter-spacing: 1px; }
-        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 80px; background: #080808; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #222; z-index: 1000; }
-        .tab { display: none; padding: 20px; }
-        .tab.active { display: block; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        input { background: #1a1a1a; border: 1px solid #333; color: #fff; padding: 14px; border-radius: 14px; width: 100%; margin-bottom: 15px; font-size: 16px !important; outline: none; }
-        input:focus { border-color: #ea580c; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; padding: 25px; z-index: 2000; overflow-y: auto; }
-        .status-pill { background: #1a1a1a; padding: 6px 15px; border-radius: 30px; font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 8px; color: #555; }
+        :root { --brand: #ea580c; --bg: #0a0a0a; --card: #141414; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: #fff; margin: 0; padding-bottom: 100px; -webkit-font-smoothing: antialiased; }
+        .card-pro { background: var(--card); border: 1px solid #222; border-radius: 30px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn-brand { background: var(--brand); color: white; border-radius: 20px; padding: 22px; font-weight: 900; width: 100%; border: none; cursor: pointer; text-transform: uppercase; font-size: 14px; letter-spacing: 1px; box-shadow: 0 8px 20px rgba(234, 88, 12, 0.3); }
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 85px; background: rgba(10,10,10,0.95); backdrop-filter: blur(20px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #1a1a1a; z-index: 1000; }
+        .tab { display: none; padding: 20px; animation: fadeInUp 0.4s ease-out; }
+        .tab.active { display: block; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        input { background: #1a1a1a; border: 1px solid #333; color: white; padding: 16px; border-radius: 16px; width: 100%; margin-bottom: 15px; font-size: 16px !important; outline: none; transition: border 0.2s; }
+        input:focus { border-color: var(--brand); }
+        .status-badge { background: #1a1a1a; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 8px; border: 1px solid #222; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 2000; display: none; padding: 30px; overflow-y: auto; }
     </style>
 </head>
 <body>
 
-    <!-- HEADER -->
-    <header class="p-6 pt-12">
-        <div class="flex justify-between items-start mb-2">
-            <div id="connection-status" class="status-pill">
-                <div id="led" class="w-2.5 h-2.5 rounded-full bg-gray-600"></div>
-                <span id="led-text">SINCRONIZANDO v16.0</span>
+    <!-- CABECERA -->
+    <header class="p-6 pt-12 flex justify-between items-center">
+        <div>
+            <div class="status-badge mb-2">
+                <div id="led" class="dot bg-zinc-700"></div>
+                <span id="led-text" class="text-zinc-500 uppercase tracking-widest">Iniciando v17.0</span>
             </div>
-            <button onclick="location.reload(true)" class="bg-white/5 p-2 rounded-xl border border-white/10 text-[9px] font-black opacity-40 uppercase">Reiniciar</button>
+            <h1 id="view-title" class="text-4xl font-black tracking-tighter">Panel</h1>
         </div>
-        <h1 id="tab-title" class="text-4xl font-black tracking-tighter">Panel</h1>
+        <button onclick="localStorage.clear(); location.reload();" class="p-3 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-lg active:scale-90 transition-transform">
+            <svg class="w-6 h-6 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
     </header>
 
     <main>
-        <!-- DASHBOARD -->
+        <!-- PESTAÑA DASHBOARD -->
         <div id="tab-dash" class="tab active">
-            <div class="card-neo bg-gradient-to-br from-orange-600 to-orange-950 border-none mb-6 shadow-2xl">
-                <p class="text-[10px] font-black uppercase opacity-40 tracking-widest leading-none mb-2">Por Cobrar Austro</p>
-                <h2 id="total-money" class="text-5xl font-black tracking-tighter">$0.00</h2>
+            <div class="card-pro bg-gradient-to-br from-orange-600 to-orange-950 border-none mb-6 relative overflow-hidden">
+                <p class="text-[11px] font-black uppercase opacity-40 tracking-widest mb-2">Pendiente Austroecuatoriana</p>
+                <h2 id="dash-money" class="text-5xl font-black tracking-tighter leading-none">$0.00</h2>
+                <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
             </div>
 
-            <div id="error-alert" class="hidden card-neo bg-red-950/20 border-red-900 mb-6 p-6">
-                <h3 class="text-red-500 font-black text-xs uppercase mb-2">⚠️ Error de Google Cloud</h3>
-                <p id="error-msg" class="text-[10px] text-red-300 font-mono leading-tight mb-4"></p>
-                <p class="text-[9px] text-red-400 font-bold uppercase italic">Asegúrate de que guardaste el cambio de "No restringir clave" en Google Console.</p>
+            <!-- BLOQUE DE ERROR DINÁMICO -->
+            <div id="error-card" class="hidden card-pro border-red-900 bg-red-950/20 mb-8">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 bg-red-600 rounded-full flex items-center justify-center shadow-lg shadow-red-900/40">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-red-500 font-black text-sm uppercase leading-none">Acceso Denegado</h3>
+                        <p class="text-[9px] text-red-400 font-bold uppercase mt-1">Google aún no reconoce tu llave</p>
+                    </div>
+                </div>
+                <p id="error-msg" class="text-[10px] text-red-300 font-mono mb-6 bg-black/40 p-4 rounded-xl border border-red-900/30 leading-relaxed"></p>
+                <div class="grid grid-cols-1 gap-3">
+                    <button onclick="localStorage.clear(); location.reload();" class="w-full py-3 bg-white text-black rounded-xl font-black text-[11px] uppercase">Reiniciar Memoria</button>
+                    <button onclick="document.getElementById('modal-repair').style.display='block'" class="w-full py-3 bg-orange-600 text-white rounded-xl font-black text-[11px] uppercase">Probar otra llave</button>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-                <div class="card-neo text-center bg-zinc-900/50">
-                    <p class="text-[10px] text-zinc-500 uppercase font-black mb-1">Facturas</p>
-                    <p id="total-count" class="text-3xl font-black">0</p>
+                <div class="card-pro text-center">
+                    <p class="text-[10px] text-zinc-500 font-black uppercase mb-1">Facturas</p>
+                    <p id="dash-count" class="text-4xl font-black">0</p>
                 </div>
-                <div class="card-neo text-center bg-zinc-900/50">
-                    <p class="text-[10px] text-zinc-500 uppercase font-black mb-1">Ganancia</p>
-                    <p id="total-util" class="text-3xl font-black text-green-500">$0.00</p>
+                <div class="card-pro text-center">
+                    <p class="text-[10px] text-zinc-500 font-black uppercase mb-1">Utilidad</p>
+                    <p id="dash-util" class="text-3xl font-black text-green-500">$0.00</p>
                 </div>
             </div>
         </div>
 
-        <!-- LISTA -->
+        <!-- PESTAÑA LISTA -->
         <div id="tab-list" class="tab">
-            <button onclick="document.getElementById('modal-entry').style.display='block'; resetForm();" class="btn-brand mb-8">+ Registrar Venta Austro</button>
+            <button onclick="document.getElementById('modal-new').style.display='block'; window.resetF();" class="btn-brand mb-8">+ Registrar Factura Espejo</button>
             <div id="list-container" class="space-y-4">
-                <p class="text-center py-20 text-zinc-800 font-bold uppercase text-[10px] tracking-widest">Buscando registros...</p>
+                <p class="text-center py-24 text-zinc-800 font-black uppercase text-[11px] tracking-widest animate-pulse">Esperando conexión...</p>
             </div>
         </div>
     </main>
 
-    <!-- NAVEGACIÓN -->
+    <!-- NAVBAR SAMSUNG STYLE -->
     <nav class="nav-bar">
-        <button onclick="switchTab('dash')" id="nav-dash" class="text-orange-600 flex flex-col items-center gap-1 font-black text-[10px] uppercase">Panel</button>
-        <button onclick="switchTab('list')" id="nav-list" class="text-zinc-600 flex flex-col items-center gap-1 font-black text-[10px] uppercase">Facturas</button>
+        <button onclick="switchTab('dash')" id="nav-dash" class="text-orange-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase">
+            <svg class="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            Inicio
+        </button>
+        <button onclick="switchTab('list')" id="nav-list" class="text-zinc-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase">
+            <svg class="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Lista
+        </button>
     </nav>
 
-    <!-- MODAL REGISTRO -->
-    <div id="modal-entry" class="modal">
+    <!-- MODAL REPARACIÓN -->
+    <div id="modal-repair" class="modal">
+        <div class="max-w-md mx-auto">
+            <h3 class="text-2xl font-black mb-2 tracking-tighter">Bypass de Seguridad</h3>
+            <p class="text-xs text-zinc-500 mb-8 leading-relaxed">Si el error de "llave no válida" persiste, pega aquí la clave que copiaste de tu consola de Firebase para forzar el acceso.</p>
+            <input id="manual-key" type="text" placeholder="Pega el código AIzaSy...">
+            <button onclick="setManualKey()" class="btn-brand mb-4">Conectar Forzosamente</button>
+            <button onclick="document.getElementById('modal-repair').style.display='none'" class="w-full py-4 text-zinc-600 font-black uppercase text-[11px]">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL NUEVA FACTURA -->
+    <div id="modal-new" class="modal">
         <div class="max-w-md mx-auto">
             <div class="flex justify-between items-center mb-8">
-                <h3 class="font-black text-xl tracking-tighter">NUEVA FACTURA</h3>
-                <button onclick="document.getElementById('modal-entry').style.display='none'" class="text-3xl text-zinc-700">✕</button>
+                <h3 class="font-black text-xl tracking-tight">REGISTRO AUSTRO</h3>
+                <button onclick="document.getElementById('modal-new').style.display='none'" class="text-3xl text-zinc-800">✕</button>
             </div>
             
-            <input id="in-num" type="text" placeholder="N° Factura (Ej: 5913)">
-            
-            <div class="card-neo bg-zinc-900/40 border-zinc-800 mb-6">
-                <p class="text-[10px] text-zinc-500 font-black uppercase mb-4 tracking-widest">Cantidades de hoy</p>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold uppercase">VASO 165G</span> <input type="number" id="q0" oninput="liveCalc()" placeholder="0" class="w-24 mb-0 py-2 text-center font-black !bg-white/5"></div>
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold uppercase">VASO 340G</span> <input type="number" id="q1" oninput="liveCalc()" placeholder="0" class="w-24 mb-0 py-2 text-center font-black !bg-white/5"></div>
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold uppercase">EMP. 1/2L</span> <input type="number" id="q2" oninput="liveCalc()" placeholder="0" class="w-24 mb-0 py-2 text-center font-black !bg-white/5"></div>
-                    <div class="flex justify-between items-center"><span class="text-xs font-bold uppercase">EMP. 1L</span> <input type="number" id="q3" oninput="liveCalc()" placeholder="0" class="w-24 mb-0 py-2 text-center font-black !bg-white/5"></div>
+            <input id="f-num" type="text" placeholder="N° Factura">
+            <div id="f-items" class="card-pro bg-zinc-900/50 mb-6 space-y-4"></div>
+
+            <div class="card-pro bg-white text-black mb-8 shadow-2xl flex justify-between items-center p-8">
+                <div>
+                    <p class="text-[10px] font-black opacity-30 leading-none mb-1 uppercase tracking-widest">Total + IVA</p>
+                    <p id="f-total-val" class="text-4xl font-black tracking-tighter leading-none">$0.00</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] font-black text-orange-600 leading-none mb-1 uppercase">Utilidad</p>
+                    <p id="f-util-val" class="text-xl font-black leading-none">$0.00</p>
                 </div>
             </div>
 
-            <div class="card-neo bg-white text-black mb-8 p-8 shadow-2xl flex justify-between items-center">
-                <div><p class="text-[10px] font-black opacity-30 leading-none mb-1 uppercase">Total Final</p><p id="total-val" class="text-3xl font-black tracking-tighter leading-none">$0.00</p></div>
-                <div class="text-right"><p class="text-[10px] font-black text-orange-600 leading-none mb-1 uppercase">Utilidad</p><p id="util-val" class="text-lg font-black leading-none">$0.00</p></div>
-            </div>
-
-            <button id="btn-sync" class="btn-brand">Subir a la Nube</button>
+            <button id="btn-sync" class="btn-brand">Sincronizar Datos</button>
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN OFICIAL (VERIFICADA 4:15 PM)
-        const MASTER_CONFIG = {
+        // CONFIGURACIÓN OFICIAL
+        const CONFIG_BASE = {
             apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
             authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
             projectId: "austrodistribuidoraecuatoriana",
@@ -121,106 +152,119 @@
             appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
         };
 
-        const PRECIOS = [0.2696, 0.6087, 0.7770, 1.5974];
-        const RENTAS = [0.0782, 0.0870, 0.1100, 0.2287];
+        const ITEMS = [
+            { n: 'VASO 165G', c: 0.2696, r: 0.0782 },
+            { n: 'VASO 340G', c: 0.6087, r: 0.0870 },
+            { n: 'EMP. 1/2L', c: 0.7770, r: 0.1100 },
+            { n: 'EMP. 1L', c: 1.5974, r: 0.2287 }
+        ];
 
         let db, auth, facturas = [];
 
-        async function startApp() {
+        async function init() {
+            const finalKey = localStorage.getItem('custom_key') || CONFIG_BASE.apiKey;
+            const config = { ...CONFIG_BASE, apiKey: finalKey };
+
             try {
                 if (firebase.apps.length) return;
-                firebase.initializeApp(MASTER_CONFIG);
+                firebase.initializeApp(config);
                 db = firebase.firestore();
                 auth = firebase.auth();
 
                 auth.signInAnonymously().then(() => {
-                    document.getElementById('led').className = "w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
-                    document.getElementById('led-text').innerText = "NUBE CONECTADA";
-                    document.getElementById('error-alert').classList.add('hidden');
-                    listen();
+                    document.getElementById('led').className = "dot bg-green-500 shadow-[0_0_12px_#22c55e]";
+                    document.getElementById('led-text').innerText = "ONLINE v17.0";
+                    document.getElementById('led-text').className = "text-green-500 uppercase tracking-widest";
+                    document.getElementById('error-card').classList.add('hidden');
+                    startListening();
                 }).catch(e => {
-                    document.getElementById('error-alert').classList.remove('hidden');
-                    document.getElementById('error-msg').innerText = "FIREBASE RECHAZADO:\n" + e.message;
+                    document.getElementById('error-card').classList.remove('hidden');
+                    document.getElementById('error-msg').innerText = "GOOGLE ERROR: " + e.message + "\n\nDOMINIO: " + window.location.hostname;
+                    document.getElementById('led').className = "dot bg-red-600 shadow-[0_0_10px_#dc2626]";
                     document.getElementById('led-text').innerText = "BLOQUEADO";
-                    document.getElementById('led').className = "w-2.5 h-2.5 rounded-full bg-red-600";
                 });
             } catch (e) { console.error(e); }
         }
 
-        function listen() {
-            db.collection('artifacts/austro-v16-fresh/public/data/facturas').onSnapshot(snap => {
+        function startListening() {
+            db.collection('artifacts/v17-final/public/data/facturas').onSnapshot(snap => {
                 facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                draw();
+                updateUI();
             });
         }
 
-        function draw() {
-            const sum = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
+        function updateUI() {
+            const money = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
             const util = facturas.reduce((acc, f) => acc + (f.util || 0), 0);
-            document.getElementById('total-money').innerText = `$${sum.toFixed(2)}`;
-            document.getElementById('total-count').innerText = facturas.length;
-            document.getElementById('total-util').innerText = `$${util.toFixed(2)}`;
+            document.getElementById('dash-money').innerText = `$${money.toFixed(2)}`;
+            document.getElementById('dash-count').innerText = facturas.length;
+            document.getElementById('dash-util').innerText = `$${util.toFixed(2)}`;
             
             document.getElementById('list-container').innerHTML = facturas.map(f => `
-                <div class="card-neo !p-6 bg-zinc-900/30">
+                <div class="card-pro !p-6 bg-zinc-900/30">
                     <div class="flex justify-between items-start">
-                        <div>
-                            <h4 class="font-black text-sm uppercase leading-none mb-1">#${f.num}</h4>
-                            <p class="text-[9px] font-black text-zinc-600 uppercase">Estado: ${f.estado || 'Pendiente'}</p>
-                        </div>
+                        <div><h4 class="font-black text-sm uppercase">#${f.num}</h4><p class="text-[9px] font-black text-zinc-600 mt-1 uppercase tracking-widest">Pendiente</p></div>
                         <div class="text-right">
                             <span class="text-2xl font-black text-orange-500 tracking-tighter leading-none">$${f.total.toFixed(2)}</span>
-                            <p class="text-[9px] font-black text-blue-500 mt-1 leading-none uppercase">UTIL: $${(f.util || 0).toFixed(2)}</p>
+                            <p class="text-[9px] font-black text-blue-500 mt-1 uppercase">UT: $${(f.util || 0).toFixed(2)}</p>
                         </div>
                     </div>
                 </div>
-            `).join('') || '<p class="text-center py-20 text-zinc-900 font-bold uppercase text-[9px]">Base de datos limpia</p>';
+            `).join('') || '<p class="text-center py-20 text-zinc-900 font-black uppercase text-[10px]">Sin movimientos</p>';
         }
 
-        window.liveCalc = () => {
+        window.resetF = () => {
+            document.getElementById('f-items').innerHTML = ITEMS.map((item, i) => `
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-black uppercase text-zinc-500 flex-1">${item.n}</span>
+                    <input type="number" id="q-${i}" oninput="calc()" placeholder="0" class="w-24 !mb-0 text-center font-black !bg-white/5 !border-none">
+                </div>
+            `).join('');
+            calc();
+        };
+
+        window.calc = () => {
             let sub = 0; let ut = 0;
-            for(let i=0; i<4; i++) {
-                let val = parseFloat(document.getElementById('q'+i).value) || 0;
-                sub += val * PRECIOS[i]; ut += val * RENTAS[i];
-            }
-            const finalTotal = sub * 1.15;
-            document.getElementById('total-val').innerText = `$${finalTotal.toFixed(2)}`;
-            document.getElementById('util-val').innerText = `$${ut.toFixed(2)}`;
-            return { total: finalTotal, util: ut };
+            ITEMS.forEach((it, i) => {
+                let v = parseFloat(document.getElementById(`q-${i}`).value) || 0;
+                sub += v * it.c; ut += v * it.r;
+            });
+            const t = sub * 1.15;
+            document.getElementById('f-total-val').innerText = `$${t.toFixed(2)}`;
+            document.getElementById('f-util-val').innerText = `$${ut.toFixed(2)}`;
+            return { t, ut };
         };
 
         document.getElementById('btn-sync').onclick = async () => {
-            const num = document.getElementById('in-num').value;
-            if(!num) return alert("Falta N° de Factura");
+            const num = document.getElementById('f-num').value;
+            if(!num) return alert("Falta N° Factura");
             const btn = document.getElementById('btn-sync');
-            btn.disabled = true; btn.innerText = "SINCRO...";
-            
-            const results = liveCalc();
+            btn.disabled = true; btn.innerText = "SINCRONIZANDO...";
+            const res = calc();
             try {
-                await db.collection('artifacts/austro-v16-fresh/public/data/facturas').add({
-                    num: num, total: results.total, util: results.util, estado: 'Pendiente',
+                await db.collection('artifacts/v17-final/public/data/facturas').add({
+                    num: num, total: res.t, util: res.ut,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                document.getElementById('modal-entry').style.display='none';
-            } catch (e) { alert("Error de permisos: " + e.message); }
-            btn.disabled = false; btn.innerText = "Subir a la Nube";
-        };
-
-        window.resetForm = () => {
-            document.getElementById('in-num').value = '';
-            for(let i=0; i<4; i++) document.getElementById('q'+i).value = '';
-            liveCalc();
+                document.getElementById('modal-new').style.display='none';
+            } catch (e) { alert(e.message); }
+            btn.disabled = false; btn.innerText = "Sincronizar Datos";
         };
 
         window.switchTab = (t) => {
             document.querySelectorAll('.tab').forEach(c => c.classList.remove('active'));
             document.getElementById('tab-'+t).classList.add('active');
-            document.getElementById('tab-title').innerText = t === 'dash' ? 'Panel' : 'Lista';
-            document.getElementById('nav-dash').className = t === 'dash' ? 'text-orange-500 flex flex-col items-center gap-1 font-black text-[10px] uppercase' : 'text-zinc-600 flex flex-col items-center gap-1 font-black text-[10px] uppercase';
-            document.getElementById('nav-list').className = t === 'list' ? 'text-orange-500 flex flex-col items-center gap-1 font-black text-[10px] uppercase' : 'text-zinc-600 flex flex-col items-center gap-1 font-black text-[10px] uppercase';
+            document.getElementById('view-title').innerText = t === 'dash' ? 'Panel' : 'Lista';
+            document.getElementById('nav-dash').className = t === 'dash' ? 'text-orange-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase' : 'text-zinc-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase';
+            document.getElementById('nav-list').className = t === 'list' ? 'text-orange-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase' : 'text-zinc-600 flex flex-col items-center gap-1 font-black text-[11px] uppercase';
         };
 
-        window.onload = startApp;
+        function setManualKey() {
+            const k = document.getElementById('manual-key').value;
+            if(k) { localStorage.setItem('custom_key', k); location.reload(); }
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
