@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Logística Polaca Pro v5.1</title>
+    <title>Logística Polaca Pro v7.0 Final</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- LIBRERÍAS FIREBASE COMPAT (Máxima estabilidad en navegadores móviles) -->
+    <!-- LIBRERÍAS FIREBASE COMPAT (Versión recomendada para máxima compatibilidad móvil) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
         
         :root {
             --oneui-orange: #ea580c;
             --oneui-bg: #f4f4f4;
             --oneui-card: #ffffff;
+            --oneui-text: #1a1a1a;
         }
 
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--oneui-bg); 
-            color: #1a1a1a; 
+            color: var(--oneui-text); 
             margin: 0; 
             -webkit-tap-highlight-color: transparent; 
             touch-action: manipulation;
@@ -31,12 +32,13 @@
             min-height: 100vh;
         }
 
-        /* Diseño One UI de Samsung */
+        /* Estética One UI Premium */
         .card-samsung {
             background: var(--oneui-card);
             border-radius: 32px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            transition: transform 0.1s ease;
+            transition: transform 0.1s ease, box-shadow 0.2s ease;
+            border: 1px solid rgba(0,0,0,0.02);
         }
 
         .card-samsung:active { transform: scale(0.98); }
@@ -49,13 +51,14 @@
             border: none;
             height: 60px;
             box-shadow: 0 10px 25px rgba(234, 88, 12, 0.2);
+            transition: all 0.2s;
         }
 
         .btn-orange:disabled { opacity: 0.5; background-color: #94a3b8; box-shadow: none; }
 
         .nav-bottom {
             background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(20px);
+            backdrop-filter: blur(25px);
             border-top: 1px solid rgba(0,0,0,0.05);
             z-index: 100;
         }
@@ -79,13 +82,13 @@
         .tab-content.active { display: block; }
 
         .mirror-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-        .mirror-table td { padding: 12px 4px; border-bottom: 1px solid #f1f5f9; }
+        .mirror-table td { padding: 12px 6px; border-bottom: 1px solid #f1f5f9; }
 
         .modal-overlay {
             position: fixed;
             inset: 0;
             background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
             z-index: 200;
             display: none;
             padding: 15px;
@@ -112,14 +115,15 @@
     </style>
 
     <script>
-        // DATOS DE RENTABILIDAD EXACTOS (v5.1)
-        const PRODUCTOS_CONFIG = [
+        // TABLA TÉCNICA DE PRODUCTOS (Precisión Austroecuatoriana)
+        const PRODUCTOS_DATA = [
             { id: 'P1', nombre: 'VASO 165G.', costo: 0.2696, rent: 0.0782 },
             { id: 'P2', nombre: 'VASO 340G.', costo: 0.6087, rent: 0.0870 },
             { id: 'P3', nombre: 'EMP. 1/2L.', costo: 0.7770, rent: 0.1100 },
             { id: 'P4', nombre: 'EMP. 1L.', costo: 1.5974, rent: 0.2287 }
         ];
 
+        // LÓGICA DE NAVEGACIÓN INSTANTÁNEA
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             const target = document.getElementById('tab-' + tab);
@@ -151,7 +155,7 @@
                 
                 const tbody = document.getElementById('f-items-mirror');
                 if(tbody) {
-                    tbody.innerHTML = PRODUCTOS_CONFIG.map((p, i) => `
+                    tbody.innerHTML = PRODUCTOS_DATA.map((p, i) => `
                         <tr>
                             <td class="font-bold text-slate-700 text-[11px] uppercase leading-tight">${p.nombre}</td>
                             <td class="w-24">
@@ -175,7 +179,7 @@
 
         window.calcF = () => {
             let sub = 0; let util = 0;
-            PRODUCTOS_CONFIG.forEach((p, i) => {
+            PRODUCTOS_DATA.forEach((p, i) => {
                 const input = document.getElementById(`f-cant-${i}`);
                 const q = input ? (parseFloat(input.value) || 0) : 0;
                 sub += q * p.costo;
@@ -184,28 +188,28 @@
             const iva = sub * 0.15;
             const total = sub + iva;
             
-            const setVal = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = `$${val.toFixed(2)}`; };
-            setVal('f-subtotal', sub);
-            setVal('f-iva', iva);
-            setVal('f-total', total);
-            setVal('f-utilidad', util);
+            const updateText = (id, val) => { const e = document.getElementById(id); if(e) e.innerText = `$${val.toFixed(2)}`; };
+            updateText('f-subtotal', sub);
+            updateText('f-iva', iva);
+            updateText('f-total', total);
+            updateText('f-utilidad', util);
         };
     </script>
 </head>
 <body class="pb-32">
 
     <div id="app">
-        <!-- ESTADO DE LA NUBE -->
+        <!-- HEADER DE CONEXIÓN -->
         <header class="p-6 pt-10 sticky top-0 bg-[#f4f4f4]/90 backdrop-blur-xl z-40">
             <div class="flex justify-between items-center">
                 <div>
                     <div id="conn-badge" class="bg-gray-200 px-3 py-1 rounded-full text-[9px] font-black text-gray-500 flex items-center gap-2 mb-1 shadow-sm">
                         <span id="conn-dot" class="status-dot bg-gray-400"></span>
-                        <span id="conn-text">CONECTANDO...</span>
+                        <span id="conn-text">SINCRONIZANDO v7.0...</span>
                     </div>
                     <h1 id="view-title" class="text-4xl font-black tracking-tighter text-slate-900 leading-none">Panel</h1>
                 </div>
-                <div id="auth-status-ui" class="bg-gray-100 p-3 rounded-2xl shadow-sm transition-all border border-white">
+                <div id="auth-status-ui" class="bg-gray-100 p-3 rounded-2xl shadow-sm border border-white">
                     <svg id="cloud-icon" class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
             </div>
@@ -217,8 +221,8 @@
             <section id="tab-dashboard" class="tab-content active">
                 <div class="card-samsung p-8 bg-orange-600 text-white shadow-2xl shadow-orange-200 relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="text-[11px] font-bold uppercase opacity-60 tracking-widest">Saldo Pendiente de Cobro</p>
-                        <h2 id="dash-total" class="text-5xl font-black mt-1 tracking-tighter">$0.00</h2>
+                        <p class="text-[11px] font-bold uppercase opacity-60 tracking-widest leading-none">Saldo Pendiente Cobro</p>
+                        <h2 id="dash-total" class="text-5xl font-black mt-2 tracking-tighter">$0.00</h2>
                     </div>
                     <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
                 </div>
@@ -228,7 +232,7 @@
                         <div class="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center mb-3">
                             <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         </div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pendientes</p>
+                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Facturas</p>
                         <p id="dash-count" class="text-3xl font-black text-slate-800">0</p>
                     </div>
                     <div class="card-samsung p-6 border border-gray-100 flex flex-col items-center">
@@ -243,7 +247,7 @@
                 <div id="debug-box" class="hidden p-5 bg-red-50 text-red-600 rounded-3xl text-[10px] font-mono mt-4 border border-red-100 shadow-sm animate-pulse"></div>
             </section>
 
-            <!-- FACTURAS -->
+            <!-- GESTIÓN DE FACTURAS -->
             <section id="tab-facturas" class="tab-content">
                 <button onclick="openModal('modal-factura')" class="w-full py-5 btn-orange shadow-xl shadow-orange-100 mb-8 uppercase text-[12px] tracking-[0.2em] font-black">
                     + Nueva Factura Espejo
@@ -292,20 +296,14 @@
                     
                     <div class="bg-slate-50 rounded-3xl p-5 shadow-inner border border-slate-100 overflow-x-auto">
                         <table class="mirror-table">
-                            <thead>
-                                <tr>
-                                    <th>PRODUCTO</th>
-                                    <th class="text-center">CANT</th>
-                                    <th class="text-right">COSTE</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>PRODUCTO</th><th class="text-center">CANT</th><th class="text-right">COSTE</th></tr></thead>
                             <tbody id="f-items-mirror"></tbody>
                         </table>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-blue-50 p-5 rounded-3xl text-center border border-blue-100 shadow-sm">
-                            <p class="text-[9px] font-black text-blue-400 uppercase mb-1">Rentabilidad ($)</p>
+                            <p class="text-[9px] font-black text-blue-400 uppercase mb-1">Ganancia ($)</p>
                             <p id="f-utilidad" class="text-2xl font-black text-blue-700 leading-none">$0.00</p>
                         </div>
                         <div class="bg-slate-100 p-5 rounded-3xl text-center border border-slate-200">
@@ -337,10 +335,10 @@
         </div>
     </div>
 
-    <div id="toast" class="fixed top-14 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[1000] uppercase shadow-2xl tracking-widest border border-slate-700"></div>
+    <div id="toast" class="fixed top-14 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[1000] uppercase shadow-2xl border border-slate-700"></div>
 
     <script>
-        // CONFIGURACIÓN MAESTRA (Fijada para evitar errores de API Key)
+        // CONFIGURACIÓN MAESTRA (Fijada para tu proyecto Austroecuatoriana)
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
             authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
@@ -351,7 +349,7 @@
         };
 
         let state = { facturas: [], user: null, activeTab: 'dashboard' };
-        const COLLECTION_ID = "austro-final-v51";
+        const COLLECTION_ID = "austro-v7-final"; // Identificador de colección única
 
         async function initApp() {
             const dbBox = document.getElementById('debug-box');
@@ -360,12 +358,13 @@
                 const auth = firebase.auth();
                 const db = firebase.firestore();
 
+                // Autenticación según la regla de autorización que acabas de configurar
                 await auth.signInAnonymously();
 
                 auth.onAuthStateChanged((user) => {
                     if (user) {
                         state.user = user;
-                        // Actualizar UI de Conexión
+                        // Actualizar interfaz al conectar
                         const dot = document.getElementById('conn-dot');
                         const text = document.getElementById('conn-text');
                         const badge = document.getElementById('conn-badge');
@@ -378,63 +377,54 @@
                         if(icon) icon.className = "w-6 h-6 text-green-600";
                         if(authBox) authBox.className = "bg-green-100 p-3 rounded-2xl shadow-sm";
                         
-                        // Escucha en Tiempo Real
-                        const factPath = `artifacts/${COLLECTION_ID}/public/data/facturas`;
-                        db.collection(factPath).onSnapshot((snap) => {
+                        // Sincronización en tiempo real (Regla 1: Ruta estricta)
+                        db.collection(`artifacts/${COLLECTION_ID}/public/data/facturas`).onSnapshot((snap) => {
                             state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
                             window.renderApp();
                         }, (err) => {
-                            if(dbBox) { dbBox.classList.remove('hidden'); dbBox.innerText = "Error Lectura: " + err.message; }
+                            if(dbBox) { 
+                                dbBox.classList.remove('hidden'); 
+                                dbBox.innerHTML = `<strong>FALLO DE PERMISO:</strong><br>Entra a Firebase > Autenticación > Ajustes y añade <b>idoraecuatoriana.web.app</b> a Dominios Autorizados.`; 
+                            }
                         });
                     }
                 });
 
-                // Lógica de Guardado
-                const btnSave = document.getElementById('btn-save-final');
-                if(btnSave) {
-                    btnSave.addEventListener('click', async () => {
-                        if (!state.user) return showToast("SIN CONEXIÓN");
-                        const num = document.getElementById('f-num').value;
-                        if (!num) return showToast("FALTA NÚMERO");
-                        
-                        btnSave.disabled = true;
-                        btnSave.innerHTML = `<span class="loader-spin"></span>`;
+                document.getElementById('btn-save-final').addEventListener('click', async () => {
+                    if (!state.user) return showToast("SIN CONEXIÓN");
+                    const num = document.getElementById('f-num').value;
+                    if (!num) return showToast("INGRESE NÚMERO");
+                    
+                    const btn = document.getElementById('btn-save-final');
+                    btn.disabled = true;
+                    btn.innerHTML = `<span class="loader-spin"></span>`;
 
-                        const totalVal = parseFloat(document.getElementById('f-total').innerText.replace('$',''));
-                        const utilVal = parseFloat(document.getElementById('f-utilidad').innerText.replace('$',''));
-                        const subVal = parseFloat(document.getElementById('f-subtotal').innerText.replace('$',''));
+                    const data = {
+                        numFactura: num,
+                        fecha: document.getElementById('f-fecha').value,
+                        total: parseFloat(document.getElementById('f-total').innerText.replace('$','')),
+                        utilidad: parseFloat(document.getElementById('f-utilidad').innerText.replace('$','')),
+                        subtotal: parseFloat(document.getElementById('f-subtotal').innerText.replace('$','')),
+                        pagado: 0,
+                        saldo: parseFloat(document.getElementById('f-total').innerText.replace('$','')),
+                        estado: 'pendiente',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
 
-                        const data = {
-                            numFactura: num,
-                            fecha: document.getElementById('f-fecha').value,
-                            total: totalVal,
-                            utilidad: utilVal,
-                            subtotal: subVal,
-                            pagado: 0,
-                            saldo: totalVal,
-                            estado: 'pendiente',
-                            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        };
-
-                        try {
-                            const factPath = `artifacts/${COLLECTION_ID}/public/data/facturas`;
-                            await db.collection(factPath).add(data);
-                            showToast("REGISTRO EXITOSO");
-                            closeModal('modal-factura');
-                        } catch (e) {
-                            alert("Error al subir a la nube: " + e.message);
-                        } finally {
-                            btnSave.disabled = false;
-                            btnSave.innerHTML = `Sincronizar en Nube`;
-                        }
-                    });
-                }
+                    try {
+                        await db.collection(`artifacts/${COLLECTION_ID}/public/data/facturas`).add(data);
+                        showToast("SINCRO EXITOSA");
+                        closeModal('modal-factura');
+                    } catch (e) {
+                        alert("Error de escritura: " + e.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = `Sincronizar en Nube`;
+                    }
+                });
 
             } catch (e) {
-                if(dbBox) {
-                    dbBox.classList.remove('hidden');
-                    dbBox.innerHTML = `<strong>FALLO DE CONEXIÓN:</strong><br>${e.message}`;
-                }
+                if(dbBox) { dbBox.classList.remove('hidden'); dbBox.innerText = "Error: " + e.message; }
             }
         }
 
@@ -472,12 +462,12 @@
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                              <div class="bg-slate-50 rounded-2xl p-4 text-center border border-slate-100 shadow-inner">
-                                <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Por Cobrar</p>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase mb-1 tracking-tighter">Por Cobrar</p>
                                 <p class="text-lg font-black text-slate-800 tracking-tighter">$${(f.saldo || 0).toFixed(2)}</p>
                              </div>
                              <div class="bg-orange-50 rounded-2xl p-4 text-center flex flex-col justify-center border border-orange-100">
                                 <p class="text-[9px] font-bold text-orange-400 uppercase mb-1 tracking-tighter">Estado</p>
-                                <p class="text-[11px] font-black text-orange-700 uppercase">${f.estado}</p>
+                                <p class="text-[11px] font-black text-orange-700 uppercase leading-none">${f.estado}</p>
                              </div>
                         </div>
                     </div>
@@ -488,8 +478,8 @@
         function showToast(m) { 
             const t = document.getElementById('toast'); 
             if(t) { 
-                t.innerText = m; t.style.opacity = '1'; t.style.transform = 'translate(-50%, 10px)';
-                setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translate(-50%, 0)'; }, 3000); 
+                t.innerText = m; t.style.opacity = '1';
+                setTimeout(() => { t.style.opacity = '0'; }, 3000); 
             }
         }
 
