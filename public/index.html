@@ -57,7 +57,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useMemo, useCallback } = React;
 
         // --- CONFIGURACIÓN GLOBAL PRODUCTOS (VALORES FACTURA 5913) ---
         const today = new Date().toISOString().split('T')[0];
@@ -72,17 +72,12 @@
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION ---
-        let db, auth, appId;
-        try {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
-        } catch (e) {
-            console.error("Firebase Init Error:", e);
-        }
+        // --- INICIALIZACIÓN MANDATORIA FIREBASE ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
 
         // --- COMPONENTES UI GLOBALES ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -100,13 +95,15 @@
                     <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{title}</h2>
                     {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{sub}</p>}
                 </div>
-                <button onClick={onClose} className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
+                <button onClick={onClose} title="Volver" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
                     <Icon name="x" size={24}/>
                 </button>
             </div>
         );
 
-        // --- VISTA 1: FACTURACIÓN ESPEJO ---
+        // --- VISTAS DEL SISTEMA ---
+
+        // 1. FACTURACIÓN
         const FacturacionView = ({ facturas, user, onClose }) => {
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
@@ -129,7 +126,7 @@
 
             const guardarFactura = async (e) => {
                 if (e) e.preventDefault();
-                if (!user || !db) return alert("Error de conexión. Intente nuevamente.");
+                if (!user) return alert("Error: No autenticado. Espere un segundo.");
                 if (!form.numFactura) return alert("Ingrese el número de factura");
                 
                 setIsSaving(true);
@@ -146,50 +143,55 @@
                         createdAt: new Date().toISOString()
                     };
 
+                    // RUTA MANDATORIA (RULE 1)
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
                     setModalNueva(false);
                     resetForm();
                 } catch (err) {
-                    console.error("Error:", err);
-                    alert("Error al grabar en base de datos.");
+                    console.error("Error saving:", err);
+                    alert("Error de conexión con la base de datos.");
                 } finally {
                     setIsSaving(false);
                 }
             };
 
+            const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
+
             const registrarAbono = async (factura) => {
                 const monto = parseFloat(pagoForm.monto);
-                if (isNaN(monto) || monto <= 0 || !db) return;
+                if (isNaN(monto) || monto <= 0) return;
                 try {
                     const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
                     const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
+                    
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
                         saldoPendiente: nuevoSaldo, estado: nuevoEstado
                     });
+                    
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
-                        fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Abono Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
+                        fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
                     });
+                    
                     setModalPago(null);
                     setPagoForm({ monto: '', fecha: today, comprobante: null });
                 } catch (err) { console.error(err); }
             };
 
-            const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
             const facturasOrdenadas = useMemo(() => [...facturas].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)), [facturas]);
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="1. Carga Espejo Manual" onClose={onClose} />
+                    <ViewHeader title="Facturación" sub="1. Registro Manual Espejo" onClose={onClose} />
                     <div className="flex justify-end mb-4">
                         <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
                             <Icon name="file-plus" size={20}/> Nueva Factura Manual
                         </button>
                     </div>
 
-                    <div className="space-y-4 text-left">
+                    <div className="space-y-4">
                         {facturasOrdenadas.map(f => (
                             <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
-                                <div className="flex-1 text-left">
+                                <div className="text-left flex-1">
                                     <h4 className="font-black text-slate-800 uppercase text-lg">Factura #{f.numFactura}</h4>
                                     <div className="flex gap-4 mt-1 font-bold text-[10px] uppercase text-slate-400 italic">
                                         <span>{f.fecha}</span>
@@ -197,14 +199,14 @@
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l border-slate-100 font-black">
-                                    <div><p className="text-[8px] uppercase opacity-40">Monto</p><p>${f.total?.toFixed(2)}</p></div>
+                                    <div><p className="text-[8px] uppercase opacity-40">Monto</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
                                     <div><p className="text-[8px] uppercase opacity-40">Saldo</p><p className={f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}>${f.saldoPendiente?.toFixed(2)}</p></div>
                                 </div>
                                 <div className="flex gap-2">
                                     {f.estado !== 'Cancelado' && (
-                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl shadow-sm"><Icon name="banknote" size={24}/></button>
+                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 shadow-sm"><Icon name="banknote" size={24}/></button>
                                     )}
-                                    <button onClick={() => { if(confirm('¿Borrar factura?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
+                                    <button onClick={() => { if(confirm('¿Desea eliminar este registro?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
                                         <Icon name="trash-2" size={24}/>
                                     </button>
                                 </div>
@@ -220,12 +222,14 @@
                                 </button>
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-10 hide-scrollbar">
                                     <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
+                                        {/* CABECERA ESPEJO */}
                                         <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900">
-                                            <div className="text-left space-y-1">
+                                            <div className="text-left space-y-1 flex-1">
                                                 <h3 className="text-xl font-black text-slate-900 uppercase italic mb-3">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
-                                                <div className="text-slate-500 font-bold uppercase text-[9px] space-y-0.5">
+                                                <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px]">
                                                     <p>VIA QUININDE MARGEN DERECHO KM13</p>
                                                     <p>RUC: 1792039754001</p>
+                                                    <p>TELÉFONO: 022765404</p>
                                                 </div>
                                             </div>
                                             <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3 text-left">
@@ -242,12 +246,12 @@
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
                                             <div className="space-y-1 border-r pr-8 border-slate-100">
-                                                <p className="text-slate-400 font-black italic mb-2">Comprador:</p>
-                                                <p className="text-slate-900 font-black text-xs">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
+                                                <p className="text-slate-400 mb-2 font-black italic uppercase">Comprador:</p>
+                                                <p className="text-slate-900 font-black text-xs uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
                                                 <p>RUC: 0195174555001</p>
                                             </div>
                                             <div>
-                                                <p className="text-slate-400 font-black mb-2">Archivo de Respaldo:</p>
+                                                <p className="text-slate-400 mb-2 font-black italic">Archivo de Respaldo:</p>
                                                 <input type="file" className="text-[9px] w-full" onChange={e => {
                                                     const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
                                                     if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -255,40 +259,42 @@
                                             </div>
                                         </div>
 
-                                        <table className="w-full invoice-table mb-10">
-                                            <thead>
-                                                <tr>
-                                                    <th>Cod.</th>
-                                                    <th>Descripción</th>
-                                                    <th className="w-24 text-center">Cant.</th>
-                                                    <th className="w-32 text-right">Costo Uni.</th>
-                                                    <th className="w-32 text-right">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {form.items.map((it, idx) => (
-                                                    <tr key={it.id}>
-                                                        <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
-                                                        <td className="text-left font-black text-slate-800 text-xs">{it.nombre}</td>
-                                                        <td className="p-0">
-                                                            <input type="number" min="0" className="w-full text-center py-3 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
-                                                                const ni = [...form.items];
-                                                                ni[idx].cantidad = parseInt(e.target.value) || 0;
-                                                                setForm({...form, items: ni});
-                                                            }} />
-                                                        </td>
-                                                        <td className="text-right font-mono text-slate-500">${it.costo.toFixed(4)}</td>
-                                                        <td className="text-right font-black text-slate-900">${(it.cantidad * it.costo).toFixed(2)}</td>
+                                        <div className="overflow-x-auto mb-10">
+                                            <table className="w-full invoice-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Cod.</th>
+                                                        <th>Descripción</th>
+                                                        <th className="w-24 text-center">Cant.</th>
+                                                        <th className="w-32 text-right">Precio Uni.</th>
+                                                        <th className="w-32 text-right">Total</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    {form.items.map((it, idx) => (
+                                                        <tr key={it.id}>
+                                                            <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
+                                                            <td className="text-left font-black text-slate-800 text-xs">{it.nombre}</td>
+                                                            <td className="p-0">
+                                                                <input type="number" min="0" className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
+                                                                    const ni = [...form.items];
+                                                                    ni[idx].cantidad = parseInt(e.target.value) || 0;
+                                                                    setForm({...form, items: ni});
+                                                                }} />
+                                                            </td>
+                                                            <td className="text-right font-mono text-slate-500">${it.costo.toFixed(4)}</td>
+                                                            <td className="text-right font-black text-slate-900">${(it.cantidad * it.costo).toFixed(2)}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
 
                                         <div className="flex flex-col md:flex-row justify-between gap-10">
                                             <div className="flex-1 space-y-4 text-left">
-                                                <div className="bg-slate-50 p-5 rounded border italic text-[10px]">
-                                                    <p className="text-slate-400 font-black mb-1">INFO ADICIONAL:</p>
-                                                    <p className="text-slate-600 font-bold uppercase">VENDEDOR: ARIAS JAIME</p>
+                                                <div className="bg-slate-50 p-5 rounded border w-full italic text-[10px]">
+                                                    <p className="text-slate-400 font-black mb-1 italic">INFO ADICIONAL:</p>
+                                                    <p className="text-slate-600 uppercase">VENDEDOR: ARIAS JAIME</p>
                                                 </div>
                                                 <div className="bg-green-50 p-6 rounded-xl border border-green-200">
                                                     <div className="flex items-center gap-2 mb-2">
@@ -318,11 +324,39 @@
                             </div>
                         </div>
                     )}
+
+                    {modalPago && (
+                        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left overflow-hidden">
+                                <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
+                                <button onClick={() => setModalPago(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 italic">Registrar Pago a Factura</h3>
+                                <div className="bg-slate-50 p-6 rounded-2xl mb-6 text-center border">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest text-left">Saldo Pendiente actual</p>
+                                    <p className="text-4xl font-black text-slate-900 tracking-tighter">${modalPago.saldoPendiente.toFixed(2)}</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 text-left block">Monto del Pago $</label>
+                                        <input type="number" step="0.01" className="w-full bg-white border border-slate-200 p-5 rounded-[20px] font-black outline-none focus:ring-2 focus:ring-green-400 shadow-inner" value={pagoForm.monto} onChange={e => setPagoForm({...pagoForm, monto: e.target.value})} placeholder="0.00" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-black uppercase text-slate-400 ml-2 text-left block">Captura de Pago</label>
+                                        <input type="file" accept="image/*" className="text-xs w-full" onChange={e => {
+                                            const r = new FileReader(); r.onload = () => setPagoForm({...pagoForm, comprobante: r.result});
+                                            if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
+                                        }} />
+                                    </div>
+                                    <button onClick={() => registrarAbono(modalPago)} className="w-full bg-green-600 text-white py-5 rounded-2xl font-black uppercase shadow-xl hover:bg-green-700 transition-all mt-4">Confirmar Transacción</button>
+                                </div>
+                            </Card>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        // --- OTRAS VISTAS (RESTAURADAS) ---
+        // 2. LOGÍSTICA
         const LogisticaView = ({ cargas, onClose }) => (
             <div className="space-y-6 fade-in text-left">
                 <ViewHeader title="Logística" sub="2. Despachos y Jornada" onClose={onClose} />
@@ -339,6 +373,7 @@
             </div>
         );
 
+        // 3. INVENTARIO
         const InventarioView = ({ facturas, cargas, onClose }) => {
             const stock = useMemo(() => {
                 const s = {};
@@ -354,8 +389,9 @@
                         {stock.map(p => (
                             <Card key={p.id} className="relative overflow-hidden group">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 italic">{p.nombre}</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 italic tracking-widest">{p.nombre}</p>
                                 <p className={`text-5xl font-black tracking-tighter text-center`}>{(p.ingresado - p.despachado).toLocaleString()}</p>
+                                <p className="text-[8px] text-center font-bold text-slate-400 mt-2 uppercase italic tracking-widest">Unidades en Bodega</p>
                             </Card>
                         ))}
                     </div>
@@ -363,86 +399,108 @@
             );
         };
 
-        const ContabilidadView = ({ cartera, gastos, onClose }) => (
-            <div className="space-y-6 fade-in text-left">
-                <ViewHeader title="Contabilidad" sub="4. Libro Diario" onClose={onClose} />
-                <div className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm">
-                    <table className="w-full text-xs font-bold text-left">
-                        <thead className="bg-slate-50 font-black text-slate-500 uppercase tracking-widest">
-                            <tr><th className="p-6">Fecha</th><th className="p-6">Concepto</th><th className="p-6 text-right">Monto</th></tr>
-                        </thead>
-                        <tbody className="text-slate-700">
-                            {[...cartera, ...gastos].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map((m, i) => (
-                                <tr key={i} className="border-b border-slate-50">
-                                    <td className="p-6 text-slate-400 font-mono italic">{m.fecha}</td>
-                                    <td className="p-6 uppercase italic font-black text-slate-900 tracking-tight">{m.cliente || m.detalle}</td>
-                                    <td className={`p-6 text-right font-black ${m.monto > 0 ? 'text-green-600' : 'text-red-500'}`}>${m.monto?.toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+        // 4. CONTABILIDAD
+        const ContabilidadView = ({ cartera, gastos, onClose }) => {
+            const movimientos = useMemo(() => {
+                const items = [
+                    ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto, ref: i.cliente || 'Venta Ruta' })),
+                    ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto, ref: e.detalle || 'Gasto Operativo' })),
+                ];
+                items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+                let balance = 0;
+                return items.map(it => { balance += (it.val || 0); return { ...it, balanceAcumulado: balance }; }).reverse();
+            }, [cartera, gastos]);
+            return (
+                <div className="space-y-6 fade-in text-left">
+                    <ViewHeader title="Contabilidad" sub="4. Libro Diario" onClose={onClose} />
+                    <Card className="p-0 overflow-hidden border border-gray-100 shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs font-bold text-left">
+                                <thead className="bg-slate-50 font-black text-slate-500 uppercase tracking-widest text-left">
+                                    <tr><th className="p-6">Fecha</th><th className="p-6">Referencia</th><th className="p-6 text-right">Monto</th><th className="p-6 text-right">Balance</th></tr>
+                                </thead>
+                                <tbody className="text-slate-700">
+                                    {movimientos.map((m, i) => (
+                                        <tr key={i} className="border-b border-slate-50">
+                                            <td className="p-6 text-slate-400 font-mono italic">{m.fecha}</td>
+                                            <td className="p-6 uppercase italic font-black text-slate-900 tracking-tight">{m.ref}</td>
+                                            <td className={`p-6 text-right font-black ${m.val > 0 ? 'text-green-600' : 'text-red-500'}`}>${Math.abs(m.val)?.toLocaleString()}</td>
+                                            <td className="p-6 text-right font-black text-slate-900">${m.balanceAcumulado?.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
                 </div>
-            </div>
-        );
+            );
+        };
 
+        // 5. GERENCIA
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
             const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
             return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Gerencia" sub="5. Resumen" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
-                        <Card className="bg-slate-900 border-none shadow-2xl">
-                            <p className="text-[10px] uppercase opacity-50 mb-4 italic tracking-widest">Inversión Fija Mensual</p>
-                            <p className="text-4xl tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
+                <div className="space-y-6 fade-in pb-12 text-left text-slate-800 font-bold">
+                    <ViewHeader title="Gerencia" sub="5. Análisis de Rentabilidad" onClose={onClose} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black text-left">
+                        <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
+                            <div className="relative z-10 text-left">
+                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Mensual Fija</p>
+                                <p className="text-4xl font-black tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
+                            </div>
+                            <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
                         <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] uppercase opacity-60 mb-4 italic tracking-widest">Utilidad Neta del Mes</p>
-                            <p className="text-4xl tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Utilidad Neta del Mes</p>
+                            <p className="text-4xl font-black tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl">
-                            <p className="text-[10px] uppercase opacity-60 mb-4 italic tracking-widest">Saldo Pendiente Proveedor</p>
-                            <p className="text-4xl tracking-tighter">${saldoPagar.toLocaleString()}</p>
+                        <Card className="bg-orange-600 border-none shadow-2xl text-left">
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Pendiente Pago Proveedor</p>
+                            <p className="text-4xl font-black tracking-tighter">${saldoPagar.toLocaleString()}</p>
                         </Card>
                     </div>
                 </div>
             );
         };
 
-        // --- APP RAÍZ ---
+        // --- APP RAÍZ (GESTIÓN DE ESTADO Y CONEXIÓN) ---
         function App() {
             const [user, setUser] = useState(null);
             const [activeTab, setActiveTab] = useState('facturacion'); 
             const [loading, setLoading] = useState(true);
             const [data, setData] = useState({ cargas: [], cartera: [], gastos: [], facturas: [] });
 
+            // INICIALIZACIÓN DE AUTENTICACIÓN (RULE 3)
             useEffect(() => {
                 const initAuth = async () => {
-                    if (!auth) { setTimeout(() => setLoading(false), 2000); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Auth Error:", e); }
+                    } catch (e) { console.error("Auth Failure:", e); }
                 };
                 initAuth();
-                const unsub = auth?.onAuthStateChanged(u => { setUser(u); setLoading(false); });
-                const timer = setTimeout(() => setLoading(false), 5000);
-                return () => { if(unsub) unsub(); clearTimeout(timer); };
+                const unsub = auth.onAuthStateChanged(u => { 
+                    setUser(u); 
+                    setLoading(false); 
+                });
+                return () => unsub();
             }, []);
 
+            // CARGA DE DATOS (RULE 1)
             useEffect(() => {
-                if (!user || !db) return;
-                const cols = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
-                const unsubs = cols.map(col => {
+                if (!user) return;
+                const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
+                const unsubs = collections.map(col => {
                     return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
                         .onSnapshot(snap => {
                             const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                             setData(prev => ({ ...prev, [col === 'facturasProveedor' ? 'facturas' : col]: items }));
-                        }, err => console.error(`Error ${col}:`, err));
+                        }, err => console.error(`Snap Error ${col}:`, err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
@@ -458,7 +516,7 @@
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white border-none">
                     <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Avena Pro • Sincronizando ✨</p>
+                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Avena Pro • Conectando Datos...</p>
                 </div>
             );
 
@@ -471,11 +529,9 @@
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm text-left">
                         <div className="flex items-center gap-3 mb-16 text-left">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3">
-                                <Icon name="package" size={28}/>
-                            </div>
+                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
                             <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none">Avena Pro</span>
                         </div>
                         <nav className="space-y-2 flex-1">
