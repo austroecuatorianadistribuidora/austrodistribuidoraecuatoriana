@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Test de Conexión Nube v3.2</title>
+    <title>Test de Conexión Nube v3.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -10,38 +10,54 @@
 <body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-6">
     <div class="max-w-md w-full bg-slate-800 p-8 rounded-[32px] shadow-2xl border border-slate-700">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-black tracking-tight">Verificador v3.2</h1>
-            <span id="conn-tag" class="px-2 py-1 bg-slate-700 rounded-lg text-[10px] font-bold text-slate-400">OFFLINE</span>
+            <h1 class="text-xl font-black tracking-tight">Verificador v3.3</h1>
+            <span id="conn-tag" class="px-2 py-1 bg-slate-700 rounded-lg text-[10px] font-bold text-slate-400 uppercase">Estado: Desconectado</span>
         </div>
         
-        <div id="status-box" class="p-4 rounded-2xl bg-slate-900/50 mb-6 text-sm font-mono border border-slate-700/50 min-h-[100px] flex flex-col justify-center">
-            <div id="log-content">Esperando inicio...</div>
+        <div id="status-box" class="p-5 rounded-2xl bg-slate-950 mb-6 text-sm font-mono border border-slate-700/50 min-h-[120px] flex flex-col justify-center shadow-inner">
+            <div id="log-content" class="text-slate-400">Listo para iniciar prueba maestra...</div>
         </div>
 
         <button onclick="ejecutarPruebaMaestra()" id="btn-main" class="w-full py-4 bg-orange-600 rounded-2xl font-black uppercase tracking-widest hover:bg-orange-500 active:scale-95 transition-all shadow-lg shadow-orange-900/20">
-            Probar Conexión Ahora
+            Iniciar Prueba de Fuego
         </button>
 
-        <div class="mt-6 space-y-2">
-            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
-                <span id="check-auth" class="w-2 h-2 rounded-full bg-slate-600"></span> Autenticación
+        <div class="mt-8 space-y-3">
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                <span class="flex items-center gap-2"><span id="check-auth" class="w-2 h-2 rounded-full bg-slate-700 transition-colors"></span> Autenticación</span>
+                <span id="auth-val">---</span>
             </div>
-            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
-                <span id="check-db" class="w-2 h-2 rounded-full bg-slate-600"></span> Escritura Firestore
+            <div class="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                <span class="flex items-center gap-2"><span id="check-db" class="w-2 h-2 rounded-full bg-slate-700 transition-colors"></span> Escritura Datos</span>
+                <span id="db-val">---</span>
             </div>
+        </div>
+
+        <div id="api-help" class="hidden mt-6 p-4 bg-blue-900/30 rounded-2xl border border-blue-800/50">
+            <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">💡 Ayuda Técnica</p>
+            <p class="text-[9px] text-blue-300 leading-relaxed">Si recibes error de <b>API Key</b>, ve a <i>Configuración del proyecto</i> en Firebase y copia la <b>Clave de API web</b>. Esa es la que debe ir en el código.</p>
         </div>
     </div>
 
     <script>
-        // Esta función detecta automáticamente si estamos en el entorno seguro
+        // Función segura para actualizar la UI
+        function ui(id, html, className = null) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (html !== null) el.innerHTML = html;
+                if (className !== null) el.className = className;
+            }
+        }
+
         function getFirebaseConfig() {
+            // Primero intentamos usar la configuración inyectada por el sistema
             try {
-                if (typeof __firebase_config !== 'undefined') {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                     return JSON.parse(__firebase_config);
                 }
-            } catch (e) { console.error("Error config", e); }
+            } catch (e) { console.error("Error parseando config inyectada", e); }
             
-            // Fallback a tus llaves actuales solo si no hay globales
+            // Fallback a tus llaves actuales (Asegúrate de que esta sea la 'Web API Key' de tu consola)
             return {
                 apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
                 authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
@@ -52,16 +68,12 @@
             };
         }
 
-        function printLog(msg, color = "text-slate-300") {
-            const content = document.getElementById('log-content');
-            if (content) content.innerHTML = `<span class="${color}">${msg}</span>`;
-        }
-
         async function ejecutarPruebaMaestra() {
             const btn = document.getElementById('btn-main');
             if (btn) btn.disabled = true;
             
-            printLog("⚙️ CONFIGURANDO...", "text-blue-400");
+            ui('log-content', "⚡ CONFIGURANDO SERVICIOS...", "text-blue-400");
+            ui('api-help', null, "hidden");
 
             try {
                 const config = getFirebaseConfig();
@@ -73,44 +85,53 @@
                 const auth = firebase.auth();
                 const db = firebase.firestore();
 
-                printLog("🔑 AUTENTICANDO...", "text-orange-400");
+                ui('log-content', "🔑 SOLICITANDO IDENTIDAD...", "text-orange-400 font-bold");
                 
-                // Intento de login seguro
-                let user;
+                // Autenticación según protocolos de seguridad
+                let result;
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    const result = await auth.signInWithCustomToken(__initial_auth_token);
-                    user = result.user;
+                    result = await auth.signInWithCustomToken(__initial_auth_token);
                 } else {
-                    const result = await auth.signInAnonymously();
-                    user = result.user;
+                    result = await auth.signInAnonymously();
                 }
 
-                document.getElementById('check-auth').className = "w-2 h-2 rounded-full bg-green-500";
-                printLog("📝 INTENTANDO ESCRITURA...", "text-yellow-400");
+                ui('check-auth', null, "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]");
+                ui('auth-val', "ÉXITO", "text-green-500 font-black");
+                ui('log-content', "📡 PROBANDO ESCRITURA EN FIRESTORE...", "text-yellow-400");
 
-                // Ruta de acceso según Regla 1 (Crítico)
-                const appId = typeof __app_id !== 'undefined' ? __app_id : 'test-manual';
-                const testRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('test_logs');
+                // Intentar escribir un log de prueba
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'diagnostico-v33';
+                const path = `artifacts/${appId}/public/data/logs_conexion`;
                 
-                await testRef.add({
-                    fecha: new Date().toISOString(),
-                    resultado: "EXITO_V32",
-                    uid: user.uid
+                await db.collection(path).add({
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    evento: "CONEXION_VERIFICADA_V33",
+                    userAgent: navigator.userAgent,
+                    url: window.location.href
                 });
 
-                document.getElementById('check-db').className = "w-2 h-2 rounded-full bg-green-500";
-                document.getElementById('conn-tag').innerText = "ONLINE";
-                document.getElementById('conn-tag').className = "px-2 py-1 bg-green-900/30 rounded-lg text-[10px] font-bold text-green-500";
+                ui('check-db', null, "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]");
+                ui('db-val', "ÉXITO", "text-green-500 font-black");
+                ui('conn-tag', "ESTADO: ONLINE", "px-2 py-1 bg-green-900/40 rounded-lg text-[10px] font-bold text-green-400 uppercase");
                 
-                printLog("✅ ¡CONECTADO CON ÉXITO!", "text-green-400 font-black");
+                ui('log-content', "✅ ¡CONEXIÓN ESTABLECIDA!<br><span class='text-[10px] text-slate-500'>Los datos fluyen correctamente a la nube.</span>", "text-green-400 font-black text-center");
+                
                 if (btn) {
-                    btn.innerText = "SISTEMA LISTO";
+                    btn.innerText = "SISTEMA LISTO PARA LOGÍSTICA";
                     btn.className = "w-full py-4 bg-green-600 rounded-2xl font-black uppercase text-white shadow-lg shadow-green-900/20";
                 }
 
             } catch (e) {
-                console.error(e);
-                printLog("❌ ERROR: " + e.code + "<br><span class='text-[10px]'>" + e.message + "</span>", "text-red-400");
+                console.error("Error en diagnóstico:", e);
+                let msg = e.message;
+                
+                if (e.code === 'auth/api-key-not-valid') {
+                    msg = "LA CLAVE DE API NO ES VÁLIDA PARA ESTE DOMINIO.";
+                    ui('api-help', null, "mt-6 p-4 bg-blue-900/30 rounded-2xl border border-blue-800/50 block");
+                }
+
+                ui('log-content', `<span class="text-red-500 font-black">❌ FALLO</span><br><span class="text-[10px] text-red-400">${msg}</span>`, "text-center");
+                
                 if (btn) {
                     btn.disabled = false;
                     btn.innerText = "REINTENTAR PRUEBA";
