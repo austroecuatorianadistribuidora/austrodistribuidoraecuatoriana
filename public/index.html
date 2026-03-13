@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avena Control Pro - Versión 1.1 ✨</title>
+    <title>Avena Control Pro - Versión 1.2 ✨</title>
     <!-- Dependencias estables -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -61,7 +61,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        // --- CONFIGURACIÓN GLOBAL PRODUCTOS ---
+        // --- CONFIGURACIÓN GLOBAL ---
         const today = new Date().toISOString().split('T')[0];
         const PRODUCTOS_BASE = [
             { id: 'p1', codigo: 'P000000256', nombre: '01 EMPACADO AVENA POLACA 165G', costo: 0.269565, pvd: 0.3478 },
@@ -74,14 +74,16 @@
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- INICIALIZACIÓN FIREBASE (SEGURIDAD TOTAL) ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        // --- FIREBASE SETUP ---
+        const configRaw = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        const firebaseConfig = JSON.parse(configRaw);
+        if (!firebase.apps.length && firebaseConfig.apiKey) firebase.initializeApp(firebaseConfig);
+        
+        const db = firebase.apps.length ? firebase.firestore() : null;
+        const auth = firebase.apps.length ? firebase.auth() : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
 
-        // --- COMPONENTES UI ---
+        // --- COMPONENTES UI ATÓMICOS ---
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
@@ -103,7 +105,9 @@
             </div>
         );
 
-        // --- VISTA 1: FACTURACIÓN ESPEJO 1.1 ---
+        // --- SUB-VISTAS (DECLARADAS ANTES DE APP) ---
+
+        // VISTA 1: FACTURACIÓN 1.2 ESPEJO
         const FacturacionView = ({ facturas, user, onClose }) => {
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
@@ -124,10 +128,10 @@
                 return { subtotal, iva, total, utilidad };
             }, [form.items]);
 
-            const guardarFactura = async (e) => {
+            const onGuardarFactura = async (e) => {
                 if (e) e.preventDefault();
-                if (!user) return alert("Esperando conexión segura... Intente en 2 segundos.");
-                if (!form.numFactura) return alert("Debe ingresar el número de factura");
+                if (!user || !db) return alert("Error: Base de datos no conectada. Reinicie la web.");
+                if (!form.numFactura) return alert("Ingrese el Número de Factura");
                 
                 setIsSaving(true);
                 try {
@@ -143,14 +147,14 @@
                         createdAt: new Date().toISOString()
                     };
 
-                    // RULE 1: Ruta de datos absoluta
+                    // REGLA 1: Ruta estricta obligatoria
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
                     
                     setModalNueva(false);
                     setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
                 } catch (err) {
-                    console.error("Error saving:", err);
-                    alert("No se pudo conectar con la base de datos. Verifique su internet.");
+                    console.error("Firebase save error:", err);
+                    alert("Error de conexión al intentar grabar los datos.");
                 } finally {
                     setIsSaving(false);
                 }
@@ -158,13 +162,14 @@
 
             const registrarAbono = async (factura) => {
                 const monto = parseFloat(pagoForm.monto);
-                if (isNaN(monto) || monto <= 0) return;
+                if (isNaN(monto) || monto <= 0 || !db) return;
                 try {
                     const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
                     const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
                     
-                    const factRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id);
-                    await factRef.update({ saldoPendiente: nuevoSaldo, estado: nuevoEstado });
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
+                        saldoPendiente: nuevoSaldo, estado: nuevoEstado
+                    });
                     
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
                         fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
@@ -179,20 +184,20 @@
 
             return (
                 <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Facturación 1.1" sub="Carga Manual Espejo (Sin IA)" onClose={onClose} />
+                    <ViewHeader title="Facturación 1.2" sub="Carga Manual Espejo • Datos Blindados" onClose={onClose} />
                     
                     <div className="flex justify-end mb-4">
                         <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
-                            <Icon name="file-plus" size={20}/> Nueva Factura "Espejo"
+                            <Icon name="file-plus" size={20}/> Nueva Factura Manual
                         </button>
                     </div>
 
                     <div className="space-y-4">
                         {facturasOrdenadas.map(f => (
                             <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
-                                <div className="flex-1 font-bold">
-                                    <h4 className="text-slate-800 uppercase text-lg italic">Factura #{f.numFactura}</h4>
-                                    <div className="flex gap-4 mt-1 font-black text-[10px] uppercase text-slate-400">
+                                <div className="text-left flex-1">
+                                    <h4 className="font-black text-slate-800 uppercase text-lg italic tracking-tight">Factura #{f.numFactura}</h4>
+                                    <div className="flex gap-4 mt-1 font-bold text-[10px] text-slate-400 uppercase">
                                         <span>{f.fecha}</span>
                                         <span className={f.estado === 'Cancelado' ? 'text-green-600' : 'text-red-600'}>{f.estado}</span>
                                     </div>
@@ -203,9 +208,11 @@
                                 </div>
                                 <div className="flex gap-2">
                                     {f.estado !== 'Cancelado' && (
-                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 transition-all"><Icon name="banknote" size={24}/></button>
+                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl shadow-sm"><Icon name="banknote" size={24}/></button>
                                     )}
-                                    <button onClick={() => { if(confirm('¿Eliminar factura?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={24}/></button>
+                                    <button onClick={() => { if(confirm('¿Eliminar factura?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
+                                        <Icon name="trash-2" size={24}/>
+                                    </button>
                                 </div>
                             </Card>
                         ))}
@@ -213,23 +220,23 @@
 
                     {modalNueva && (
                         <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2 sm:p-10 backdrop-blur-md overflow-hidden">
-                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden relative shadow-2xl animate-in zoom-in-95">
+                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95">
                                 <button onClick={() => setModalNueva(false)} className="absolute top-4 right-4 z-10 p-3 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-all"><Icon name="x" size={24}/></button>
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-10 hide-scrollbar">
                                     <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
                                         {/* DISEÑO ESPEJO FACTURA POLACA */}
-                                        <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900 gap-6">
+                                        <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900 gap-10">
                                             <div className="text-left space-y-1 flex-1">
-                                                <h3 className="text-2xl font-black text-slate-900 uppercase italic leading-none mb-3">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
+                                                <h3 className="text-2xl font-black text-slate-900 uppercase italic leading-none mb-4">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
                                                 <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px] italic">
                                                     <p>VIA QUININDE MARGEN DERECHO KM13</p>
                                                     <p>RUC: 1792039754001</p>
                                                     <p>TELÉFONO: 022765404</p>
                                                 </div>
                                             </div>
-                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3">
+                                            <div className="w-full md:w-64 space-y-3">
                                                 <div className="bg-slate-900 text-white p-3 rounded text-left">
-                                                    <p className="text-[8px] font-black uppercase opacity-60 italic tracking-widest">NÚMERO FACTURA</p>
+                                                    <p className="text-[8px] font-black uppercase opacity-60 italic">NÚMERO FACTURA</p>
                                                     <input required placeholder="003-102-..." className="bg-transparent text-lg font-black border-none outline-none w-full italic" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
                                                 </div>
                                                 <div className="bg-slate-50 border p-3 rounded text-left">
@@ -240,13 +247,13 @@
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
-                                            <div className="space-y-1 border-r pr-8 border-slate-100">
-                                                <p className="text-slate-400 font-black mb-2 italic uppercase">Adquiriente:</p>
-                                                <p className="text-slate-900 font-black text-xs uppercase italic tracking-tight">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
+                                            <div className="space-y-1 border-r pr-8 border-slate-100 font-black">
+                                                <p className="text-slate-400 mb-2 italic uppercase font-black">Adquiriente:</p>
+                                                <p className="text-slate-900 font-black text-xs uppercase tracking-tight">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
                                                 <p>RUC: 0195174555001</p>
                                             </div>
                                             <div>
-                                                <p className="text-slate-400 mb-2 font-black italic">Foto Factura (Respaldo):</p>
+                                                <p className="text-slate-400 mb-2 font-black italic">Subir Respaldo Digital:</p>
                                                 <input type="file" className="text-[9px] w-full" onChange={e => {
                                                     const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
                                                     if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
@@ -268,7 +275,7 @@
                                                 <tbody>
                                                     {form.items.map((it, idx) => (
                                                         <tr key={it.id}>
-                                                            <td className="font-mono text-slate-400 text-[10px] italic">{it.codigo}</td>
+                                                            <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
                                                             <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
                                                             <td className="p-0">
                                                                 <input type="number" min="0" className="w-full text-center py-4 font-black bg-orange-50 border-none focus:ring-0" value={it.cantidad} onChange={e => {
@@ -287,33 +294,33 @@
 
                                         <div className="flex flex-col md:flex-row justify-between gap-10">
                                             <div className="flex-1 space-y-4 text-left italic">
-                                                <div className="bg-slate-50 p-5 rounded border w-full italic text-[10px]">
-                                                    <p className="text-slate-400 font-black mb-1 uppercase tracking-widest">INFO ADICIONAL:</p>
-                                                    <p className="text-slate-600 font-bold uppercase tracking-tight italic">VENDEDOR: ARIAS JAIME</p>
+                                                <div className="bg-slate-50 p-5 rounded border w-full italic text-[10px] font-black">
+                                                    <p className="text-slate-400 mb-1 uppercase tracking-widest">OBSERVACIÓN:</p>
+                                                    <p className="text-slate-600 font-bold uppercase tracking-tight">VENDEDOR: ARIAS JAIME</p>
                                                 </div>
                                                 <div className="bg-green-50 p-6 rounded-xl border border-green-200">
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <Icon name="trending-up" className="text-green-600" size={18}/>
-                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest italic">Ganancia estimada ✨</p>
+                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest italic">Utilidad que se gana ✨</p>
                                                     </div>
-                                                    <p className="text-4xl font-black text-green-800 tracking-tighter italic">${calc.utilidad.toFixed(2)}</p>
+                                                    <p className="text-4xl font-black text-green-800 tracking-tighter">${calc.utilidad.toFixed(2)}</p>
                                                 </div>
                                             </div>
                                             <div className="w-full md:w-80 space-y-2 text-left font-black italic">
-                                                <div className="flex justify-between text-[10px] border-b pb-2"><span className="text-slate-400 uppercase tracking-widest italic">SUBTOTAL 15%</span><span className="text-slate-800 font-black">${calc.subtotal.toFixed(2)}</span></div>
-                                                <div className="flex justify-between text-[10px] border-b pb-2"><span className="text-slate-400 uppercase tracking-widest italic">IVA 15%</span><span className="text-slate-800 font-black">${calc.iva.toFixed(2)}</span></div>
+                                                <div className="flex justify-between text-[10px] border-b pb-2 font-black"><span className="text-slate-400 uppercase tracking-widest">SUBTOTAL 15%</span><span className="text-slate-800">${calc.subtotal.toFixed(2)}</span></div>
+                                                <div className="flex justify-between text-[10px] border-b pb-2 font-black"><span className="text-slate-400 uppercase tracking-widest">IVA 15%</span><span className="text-slate-800">${calc.iva.toFixed(2)}</span></div>
                                                 <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
                                                     <span className="text-xs font-black uppercase tracking-tighter italic italic">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black tracking-tighter italic">${calc.total.toFixed(2)}</span>
+                                                    <span className="text-3xl font-black tracking-tighter italic italic">${calc.total.toFixed(2)}</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button onClick={() => setModalNueva(false)} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 transition-all">Cancelar y Saír</button>
-                                    <button onClick={guardarFactura} disabled={isSaving || !user} className={`px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all ${(!user || isSaving) ? 'btn-disabled' : ''}`}>
-                                        {isSaving ? "Guardando..." : user ? "Grabar Factura 1.1 ✨" : "Conectando..."}
+                                    <button onClick={() => setModalNueva(false)} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 transition-all">Cerrar</button>
+                                    <button onClick={onGuardarFactura} disabled={isSaving || !user} className={`px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-orange-600 transition-all ${(!user || isSaving) ? 'btn-disabled' : ''}`}>
+                                        {isSaving ? "Guardando..." : user ? "Grabar Factura 1.2 ✨" : "Reconectando..."}
                                     </button>
                                 </div>
                             </div>
@@ -323,16 +330,16 @@
             );
         };
 
-        // 2. LOGÍSTICA
+        // VISTA 2: LOGÍSTICA
         const LogisticaView = ({ cargas, onClose }) => (
-            <div className="space-y-6 fade-in text-left font-black">
+            <div className="space-y-6 fade-in text-left font-black italic">
                 <ViewHeader title="Logística" sub="Despachos en Ruta" onClose={onClose} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {cargas.map(c => (
-                        <Card key={c.id} className="border-l-8 border-l-orange-400 italic">
+                        <Card key={c.id} className="border-l-8 border-l-orange-400">
                             <div className="flex justify-between items-start">
-                                <div><h4 className="uppercase text-sm italic">{c.responsable}</h4><span className="text-[9px] text-slate-400 mt-1 block uppercase italic tracking-widest italic">{c.estado} • {c.fecha}</span></div>
-                                <div className="text-right"><p className="text-[8px] uppercase opacity-40">Carga Neta</p><p className="text-slate-800 text-xl font-black tracking-tighter italic">${(c.totalCargado || 0).toLocaleString()}</p></div>
+                                <div><h4 className="uppercase text-sm italic">{c.responsable}</h4><span className="text-[9px] text-slate-400 mt-1 block uppercase italic tracking-widest">{c.estado} • {c.fecha}</span></div>
+                                <div className="text-right"><p className="text-[8px] uppercase opacity-40">Monto Carga</p><p className="text-slate-800 text-xl tracking-tighter italic">${(c.totalCargado || 0).toLocaleString()}</p></div>
                             </div>
                         </Card>
                     ))}
@@ -340,7 +347,7 @@
             </div>
         );
 
-        // 3. INVENTARIO
+        // VISTA 3: INVENTARIO
         const InventarioView = ({ facturas, cargas, onClose }) => {
             const stock = useMemo(() => {
                 const s = {};
@@ -357,7 +364,7 @@
                             <Card key={p.id} className="relative overflow-hidden group">
                                 <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
                                 <p className="text-[10px] uppercase mb-4 italic tracking-widest">{p.nombre}</p>
-                                <p className="text-5xl tracking-tighter text-center italic italic">{(p.ingresado - p.despachado).toLocaleString()}</p>
+                                <p className="text-5xl tracking-tighter text-center italic">{(p.ingresado - p.despachado).toLocaleString()}</p>
                             </Card>
                         ))}
                     </div>
@@ -365,16 +372,16 @@
             );
         };
 
-        // 4. CONTABILIDAD
+        // VISTA 4: CONTABILIDAD
         const ContabilidadView = ({ cartera, gastos, onClose }) => {
             const items = [...cartera.map(i => ({...i, val: i.monto})), ...gastos.map(e => ({...e, val: -e.monto}))].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
             return (
                 <div className="space-y-6 fade-in text-left font-black italic">
                     <ViewHeader title="Contabilidad" sub="Movimientos de Caja" onClose={onClose} />
-                    <Card className="p-0 overflow-hidden border border-gray-100 shadow-sm text-left">
+                    <Card className="p-0 overflow-hidden border border-gray-100 shadow-sm">
                         <table className="w-full text-xs text-left">
                             <thead className="bg-slate-50 uppercase tracking-widest text-[9px] italic">
-                                <tr><th className="p-6 italic">Fecha</th><th className="p-6 italic">Detalle</th><th className="p-6 text-right italic">Valor</th></tr>
+                                <tr><th className="p-6 italic">Fecha</th><th className="p-6 italic">Detalle</th><th className="p-6 text-right italic font-black">Monto</th></tr>
                             </thead>
                             <tbody>
                                 {items.map((m, i) => (
@@ -391,41 +398,41 @@
             );
         };
 
-        // 5. GERENCIA
+        // VISTA 5: GERENCIA
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
             const utilidad = stats.utilidadBruta || 0;
             const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
             return (
-                <div className="space-y-6 fade-in text-left font-black italic">
-                    <ViewHeader title="Gerencia" sub="Rendimiento del Mes" onClose={onClose} />
+                <div className="space-y-6 fade-in pb-12 text-left font-black italic italic">
+                    <ViewHeader title="Gerencia" sub="Análisis del Mes" onClose={onClose} />
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white text-left italic">
                         <Card className="bg-slate-900 border-none shadow-2xl">
-                            <p className="text-[10px] uppercase opacity-50 tracking-widest mb-4 italic italic">Inversión Operativa</p>
-                            <p className="text-4xl tracking-tighter italic italic">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
+                            <p className="text-[10px] uppercase opacity-50 tracking-widest mb-4 italic">Inversión Fija</p>
+                            <p className="text-4xl tracking-tighter font-black italic">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
                         </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl italic`}>
-                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic italic">Utilidad Real Hoy</p>
-                            <p className="text-4xl tracking-tighter italic italic">${utilidad.toLocaleString()}</p>
+                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
+                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic">Utilidad Neta Real</p>
+                            <p className="text-4xl tracking-tighter font-black italic">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl italic">
-                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic italic">Deuda Proveedor</p>
-                            <p className="text-4xl tracking-tighter italic italic">${saldoPagar.toLocaleString()}</p>
+                        <Card className="bg-orange-600 border-none shadow-2xl">
+                            <p className="text-[10px] uppercase opacity-60 tracking-widest mb-4 italic">Deuda Proveedores</p>
+                            <p className="text-4xl tracking-tighter font-black italic">${saldoPagar.toLocaleString()}</p>
                         </Card>
                     </div>
                 </div>
             );
         };
 
-        // --- APP RAÍZ (VERSIÓN 1.1) ---
+        // --- APLICACIÓN PRINCIPAL (REACT ENTRY POINT) ---
         function App() {
             const [user, setUser] = useState(null);
             const [activeTab, setActiveTab] = useState('facturacion'); 
             const [loading, setLoading] = useState(true);
             const [data, setData] = useState({ cargas: [], cartera: [], gastos: [], facturas: [] });
 
-            // PROTOCOLO DE CONEXIÓN V1.1 (REGLA 3)
+            // REGLA 3: Iniciar autenticación primero
             useEffect(() => {
-                const initProtocol = async () => {
+                const initializeAppConnection = async () => {
                     if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -433,30 +440,30 @@
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Protocol failure:", e); }
+                    } catch (e) { console.error("Auth Failure:", e); }
                 };
                 
-                initProtocol();
+                initializeAppConnection();
                 
-                const unsub = auth?.onAuthStateChanged(u => { 
+                const unsubAuth = auth ? auth.onAuthStateChanged(u => { 
                     setUser(u); 
                     setLoading(false); 
-                });
+                }) : null;
 
-                const forceRelease = setTimeout(() => setLoading(false), 5000);
+                const timer = setTimeout(() => setLoading(false), 6000);
                 return () => { 
-                    if(unsub) unsub(); 
-                    clearTimeout(forceRelease); 
+                    if(unsubAuth) unsubAuth(); 
+                    clearTimeout(timer); 
                 };
             }, []);
 
-            // SNAPSHOTS (REGLA 1)
+            // REGLA 1: Cargar datos desde rutas estrictas
             useEffect(() => {
                 if (!user || !db) return;
                 const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
                 const unsubs = collections.map(col => {
-                    const path = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
-                    return path.onSnapshot(snap => {
+                    const ref = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col);
+                    return ref.onSnapshot(snap => {
                         const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                         setData(prev => ({ ...prev, [col === 'facturasProveedor' ? 'facturas' : col]: items }));
                     }, err => console.error(`Error snapshot ${col}:`, err));
@@ -475,7 +482,7 @@
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white border-none">
                     <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px] italic">Avena Pro • Conectando Versión 1.1 ✨...</p>
+                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px] italic italic">Versión 1.2 • Conectando Datos...</p>
                 </div>
             );
 
@@ -487,22 +494,22 @@
             );
 
             return (
-                <div className="min-h-screen md:pl-72 flex text-left font-black italic">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm text-left">
-                        <div className="flex items-center gap-3 mb-16 text-left">
+                <div className="min-h-screen md:pl-72 flex text-left font-black italic italic">
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
+                        <div className="flex items-center gap-3 mb-16">
                             <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
-                            <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none italic italic">Avena Pro <span className="text-[9px] block opacity-50 not-italic tracking-widest">VER 1.1</span></span>
+                            <span className="font-black text-2xl tracking-tighter italic text-orange-600 uppercase leading-none italic italic">Avena Pro <span className="text-[10px] block opacity-50 not-italic tracking-widest">VER 1.2</span></span>
                         </div>
                         <nav className="space-y-2 flex-1">
-                            <NavItem id="facturacion" icon="scan" label="1. Facturación 1.1" />
+                            <NavItem id="facturacion" icon="scan" label="1. Facturación 1.2" />
                             <NavItem id="logistica" icon="truck" label="2. Logística" />
                             <NavItem id="inventario" icon="archive" label="3. Inventario" />
                             <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" />
                             <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" />
                         </nav>
-                        <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden">
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic italic">Deuda Proveedores</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter text-center italic italic italic">${data.facturas.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
+                        <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden text-center">
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Deuda Proveedores</p>
+                            <p className="text-2xl font-black text-orange-400 tracking-tighter italic italic italic">${data.facturas.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
                         </div>
                     </aside>
                     <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-center md:text-left text-left">
@@ -512,6 +519,13 @@
                         {activeTab === 'contabilidad' && <ContabilidadView cartera={data.cartera} gastos={data.gastos} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={data.facturas} onClose={() => setActiveTab('facturacion')} />}
                     </main>
+                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
+                        {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
+                            <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
+                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
+                            </button>
+                        ))}
+                    </nav>
                 </div>
             );
         }
