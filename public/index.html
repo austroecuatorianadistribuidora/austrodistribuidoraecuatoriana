@@ -1,243 +1,476 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Austro Logística v28.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- LIBRERÍAS FIREBASE (SIN AUTH PARA EVITAR BLOQUEO) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        :root { --brand: #ea580c; --bg: #f8fafc; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: #0f172a; margin: 0; padding-bottom: 100px; -webkit-tap-highlight-color: transparent; }
-        
-        .card-pro { background: white; border-radius: 32px; padding: 25px; box-shadow: 0 4px 25px rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.05); }
-        .btn-brand { background: var(--brand); color: white; border-radius: 22px; padding: 20px; font-weight: 800; width: 100%; border: none; cursor: pointer; text-transform: uppercase; font-size: 14px; letter-spacing: 1.5px; box-shadow: 0 12px 30px rgba(234, 88, 12, 0.25); }
-        
-        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 85px; background: rgba(255,255,255,0.92); backdrop-filter: blur(25px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #e2e8f0; z-index: 1000; padding-bottom: 10px; }
-        .tab { display: none; padding: 20px; animation: slideUp 0.4s ease; }
-        .tab.active { display: block; }
-        
-        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        
-        input { background: #f1f5f9; border-radius: 16px; padding: 18px; width: 100%; border: 2px solid transparent; font-size: 16px !important; outline: none; margin-bottom: 12px; }
-        input:focus { border-color: var(--brand); background: white; }
-        
-        .status-pill { background: white; padding: 8px 16px; border-radius: 50px; font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; transition: all 0.5s; }
-        .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); z-index: 2000; display: none; padding: 25px; overflow-y: auto; }
-    </style>
-</head>
-<body>
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, updateDoc, doc, where } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
+import { 
+  LayoutDashboard, 
+  Truck, 
+  FileText, 
+  Calculator, 
+  Plus, 
+  ArrowUpRight, 
+  ArrowDownRight,
+  TrendingUp,
+  Fuel,
+  Utensils,
+  Home,
+  CheckCircle2,
+  RefreshCw,
+  Wallet,
+  Settings,
+  X,
+  User,
+  History,
+  ClipboardList
+} from 'lucide-react';
 
-    <!-- CABECERA CORPORATIVA -->
-    <header class="p-6 pt-12 flex justify-between items-start">
-        <div>
-            <div class="status-pill mb-3">
-                <div id="led" class="dot bg-zinc-300"></div>
-                <span id="led-text" class="text-zinc-400 uppercase tracking-widest leading-none">CONECTANDO...</span>
-            </div>
-            <h1 class="text-4xl font-black tracking-tighter text-slate-900 leading-none">Austro Logística</h1>
-        </div>
-        <button onclick="location.reload(true)" class="p-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
-            <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        </button>
-    </header>
+// --- CONFIGURACIÓN FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
+  authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
+  projectId: "austrodistribuidoraecuatoriana",
+  storageBucket: "austrodistribuidoraecuatoriana.firebasestorage.app",
+  messagingSenderId: "711061794814",
+  appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
+};
 
-    <main>
-        <!-- PANEL -->
-        <div id="tab-dash" class="tab active">
-            <div class="card-pro bg-slate-900 text-white border-none mb-6 relative overflow-hidden shadow-2xl">
-                <p class="text-[11px] font-black uppercase opacity-40 tracking-widest mb-1 leading-none">Cuentas por Cobrar Austro</p>
-                <h2 id="cloud-money" class="text-5xl font-black tracking-tighter leading-none">$0.00</h2>
-                <div class="absolute -bottom-10 -right-10 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl"></div>
-            </div>
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const appId = "austro-v30-enterprise";
 
-            <div class="grid grid-cols-2 gap-4">
-                <div class="card-pro text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Facturas</p>
-                    <p id="cloud-count" class="text-4xl font-black text-slate-800">0</p>
-                </div>
-                <div class="card-pro text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Ganancia</p>
-                    <p id="cloud-util" class="text-3xl font-black text-green-600">$0.00</p>
-                </div>
-            </div>
+// --- DATOS MAESTROS (Referencia Exacta del PDF Factura 5913) ---
+const PRODUCTOS = [
+  { id: 'v165', codigo: 'P000000256', nombre: 'EMPACADO AVENA POLACA 165G', precio: 0.26956500, utilidad: 0.07826087 },
+  { id: 'v340', codigo: 'P000000247', nombre: 'EMPACADO AVENA POLACA 340G', precio: 0.60869565, utilidad: 0.08695652 },
+  { id: 'e12l', codigo: 'P000000238', nombre: 'EMPACADO AVENA POLACA 1/2 L', precio: 0.77704348, utilidad: 0.10991304 },
+  { id: 'e1l',  codigo: 'P000000229', nombre: 'EMPACADO AVENA POLACA 1 L', precio: 1.59739130, utilidad: 0.22869565 }
+];
 
-            <div class="mt-8 p-6 bg-green-50 border border-green-100 rounded-[32px] flex items-center gap-4">
-                <div class="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <p class="text-[11px] text-green-700 font-bold uppercase leading-tight">Canal Directo v28 Habilitado</p>
-            </div>
-        </div>
+const GASTOS_FIJOS_MENSUALES = 3339.80; 
 
-        <!-- LISTADO -->
-        <div id="tab-list" class="tab">
-            <button onclick="openModal()" class="btn-brand mb-10">+ Registrar Nueva Factura</button>
-            <div id="list-container" class="space-y-4 pb-12">
-                <p class="text-center py-24 text-slate-300 font-bold uppercase text-[10px] tracking-widest">Sincronizando...</p>
-            </div>
-        </div>
-    </main>
+export default function App() {
+  const [activeTab, setActiveTab] = useState('gerencia');
+  const [facturas, setFacturas] = useState([]);
+  const [rutaSessions, setRutaSessions] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-    <!-- NAVEGACIÓN -->
-    <nav class="nav-bar">
-        <button onclick="switchTab('dash')" id="nav-dash" class="text-orange-600 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase">Panel</button>
-        <button onclick="switchTab('list')" id="nav-list" class="text-slate-300 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase">Facturas</button>
-    </nav>
+  useEffect(() => {
+    const startApp = async () => {
+      try { await signInAnonymously(auth); } catch (e) { console.warn("Auth Bypass Active"); }
 
-    <!-- MODAL -->
-    <div id="modal-form" class="modal">
-        <div class="bg-white rounded-[44px] p-8 max-w-md mx-auto mt-10 shadow-2xl">
-            <div class="flex justify-between items-center mb-8">
-                <div>
-                    <h3 class="font-black text-xl tracking-tighter uppercase leading-none">Nuevo Registro</h3>
-                    <p class="text-[9px] font-bold text-orange-500 mt-2 uppercase tracking-widest">Sistema de Auditoría</p>
-                </div>
-                <button onclick="closeModal()" class="text-slate-300 text-4xl font-light">✕</button>
-            </div>
-            
-            <input id="f-num" type="text" placeholder="N° de Factura">
-            
-            <div class="space-y-4 mb-8">
-                <div class="flex justify-between items-center text-[11px] font-bold uppercase text-slate-500"><span>Vaso 165g</span> <input type="number" id="q0" oninput="calc()" placeholder="0" class="w-24 mb-0 !py-2 text-center font-black"></div>
-                <div class="flex justify-between items-center text-[11px] font-bold uppercase text-slate-500"><span>Vaso 340g</span> <input type="number" id="q1" oninput="calc()" placeholder="0" class="w-24 mb-0 !py-2 text-center font-black"></div>
-                <div class="flex justify-between items-center text-[11px] font-bold uppercase text-slate-500"><span>Emp. 1/2L</span> <input type="number" id="q2" oninput="calc()" placeholder="0" class="w-24 mb-0 !py-2 text-center font-black"></div>
-                <div class="flex justify-between items-center text-[11px] font-bold uppercase text-slate-500"><span>Emp. 1L</span> <input type="number" id="q3" oninput="calc()" placeholder="0" class="w-24 mb-0 !py-2 text-center font-black"></div>
-            </div>
+      const qFacturas = query(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'));
+      onSnapshot(qFacturas, (snap) => {
+        setFacturas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      });
 
-            <div class="card-pro bg-orange-50 border-orange-100 flex justify-between items-center p-8 mb-8">
-                <div>
-                    <p class="text-[10px] font-black text-orange-400 uppercase leading-none mb-1 tracking-widest">Total + IVA</p>
-                    <p id="total-lbl" class="text-4xl font-black text-orange-700 leading-none tracking-tighter">$0.00</p>
-                </div>
-            </div>
+      const qSessions = query(collection(db, 'artifacts', appId, 'public', 'data', 'logistica_sessions'));
+      onSnapshot(qSessions, (snap) => {
+        setRutaSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+    };
+    startApp();
+  }, []);
 
-            <button id="save-btn" class="btn-brand">Guardar en Nube</button>
-            <div class="h-10"></div>
-        </div>
+  // Cálculos Gerencia
+  const totalVentas = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
+  const totalUtilidadBruta = facturas.reduce((acc, f) => acc + (f.utilidadTotal || 0), 0);
+  const totalGastosRuta = rutaSessions.reduce((acc, s) => acc + (s.totalGastos || 0), 0);
+  const utilidadNeta = totalUtilidadBruta - totalGastosRuta;
+  const porcentajeMeta = Math.min((utilidadNeta / GASTOS_FIJOS_MENSUALES) * 100, 100);
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50">
+      <RefreshCw className="w-10 h-10 text-orange-600 animate-spin mb-4" />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Configurando entorno corporativo...</p>
     </div>
+  );
 
-    <script>
-        const MASTER_CONFIG = {
-            apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
-            authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
-            projectId: "austrodistribuidoraecuatoriana",
-            storageBucket: "austrodistribuidoraecuatoriana.firebasestorage.app",
-            messagingSenderId: "711061794814",
-            appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
-        };
+  return (
+    <div className="bg-slate-50 min-h-screen pb-28 font-sans text-slate-900 select-none">
+      
+      {/* Header */}
+      <header className="p-6 pt-12 flex justify-between items-end bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e]"></div>
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sincronización en la Nube</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tighter text-slate-800 uppercase">
+            {activeTab === 'gerencia' && 'Gerencia'}
+            {activeTab === 'logistica' && 'Logística'}
+            {activeTab === 'facturacion' && 'Ventas'}
+            {activeTab === 'contabilidad' && 'Cierre'}
+          </h1>
+        </div>
+        <div className="bg-slate-100 p-2.5 rounded-2xl">
+          <Settings className="w-5 h-5 text-slate-400" />
+        </div>
+      </header>
 
-        const PRODUCT_DATA = [
-            { c: 0.2696, r: 0.0782 },
-            { c: 0.6087, r: 0.0870 },
-            { c: 0.7770, r: 0.1100 },
-            { c: 1.5974, r: 0.2287 }
-        ];
-
-        let db, facturas = [];
-
-        async function init() {
-            try {
-                // BYPASS: No usamos Auth para evitar el bloqueo de API Key
-                if (firebase.apps.length) return;
-                const app = firebase.initializeApp(MASTER_CONFIG);
-                db = firebase.firestore();
-
-                // Probamos conexión directa a Firestore
-                db.collection('artifacts/austro-v28-bypass/public/data/facturas').limit(1).get()
-                .then(() => {
-                    document.getElementById('led').className = "dot bg-green-500 shadow-[0_0_12px_#22c55e]";
-                    document.getElementById('led-text').innerText = "ONLINE v28.0";
-                    document.getElementById('led-text').className = "text-green-600 font-black text-[10px] uppercase tracking-widest";
-                    startSync();
-                })
-                .catch(e => {
-                    // Si falla aquí es por las REGLAS de Firestore
-                    document.getElementById('led-text').innerText = "REVISAR REGLAS";
-                    document.getElementById('led').className = "dot bg-red-600";
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        function startSync() {
-            db.collection('artifacts/austro-v28-bypass/public/data/facturas').onSnapshot(snap => {
-                facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                render();
-            });
-        }
-
-        function render() {
-            const t = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
-            const u = facturas.reduce((acc, f) => acc + (f.util || 0), 0);
-            document.getElementById('cloud-money').innerText = `$${t.toFixed(2)}`;
-            document.getElementById('cloud-count').innerText = facturas.length;
-            document.getElementById('cloud-util').innerText = `$${u.toFixed(2)}`;
-            
-            const container = document.getElementById('list-container');
-            const sorted = [...facturas].sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-
-            container.innerHTML = sorted.map(f => `
-                <div class="card-pro flex justify-between items-center border border-slate-100">
-                    <div>
-                        <h4 class="font-black text-slate-800 text-sm uppercase mb-1">FACTURA #${f.num}</h4>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sincronizado</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-2xl font-black text-orange-600 tracking-tighter">$${(f.total || 0).toFixed(2)}</span>
-                    </div>
+      <main className="p-4 max-w-lg mx-auto">
+        
+        {/* VISTA GERENCIA */}
+        {activeTab === 'gerencia' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            <div className="bg-slate-900 rounded-[35px] p-8 text-white relative overflow-hidden shadow-2xl">
+              <p className="text-[10px] font-black uppercase opacity-40 mb-1 tracking-widest">Resultado Operativo</p>
+              <h2 className="text-5xl font-black tracking-tighter mb-8">${utilidadNeta.toFixed(2)}</h2>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                  <span>Meta Punto Equilibrio</span>
+                  <span>{porcentajeMeta.toFixed(1)}%</span>
                 </div>
-            `).join('') || '<div class="text-center py-20 text-slate-200 font-bold uppercase text-[10px]">Listo para facturar</div>';
-        }
+                <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-full bg-orange-500 rounded-full transition-all duration-1000" style={{ width: `${porcentajeMeta}%` }}></div>
+                </div>
+              </div>
+            </div>
 
-        window.calc = () => {
-            let sub = 0; let ut = 0;
-            for(let i=0; i<4; i++) {
-                let v = parseFloat(document.getElementById('q'+i).value) || 0;
-                sub += v * PRODUCT_DATA[i].c; ut += v * PRODUCT_DATA[i].r;
-            }
-            const total = sub * 1.15;
-            document.getElementById('total-lbl').innerText = `$${total.toFixed(2)}`;
-            return { total, ut };
-        };
+            <div className="grid grid-cols-2 gap-4">
+              <StatCard label="Ingresos Totales" value={totalVentas} icon={<ArrowUpRight className="text-green-500" />} />
+              <StatCard label="Egresos Logística" value={totalGastosRuta} icon={<ArrowDownRight className="text-red-500" />} />
+            </div>
+          </div>
+        )}
 
-        document.getElementById('save-btn').onclick = async () => {
-            const n = document.getElementById('f-num').value;
-            if(!n) return alert("Ingresa el N° de factura");
-            const btn = document.getElementById('save-btn');
-            btn.disabled = true; btn.innerText = "SINCRO...";
-            const results = calc();
-            try {
-                await db.collection('artifacts/austro-v28-bypass/public/data/facturas').add({
-                    num: n, total: results.total, util: results.ut,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                closeModal();
-            } catch (e) { alert("Error al guardar: " + e.message); }
-            btn.disabled = false; btn.innerText = "Guardar en Nube";
-        };
+        {/* VISTA LOGÍSTICA (BYRON & DIEGO) */}
+        {activeTab === 'logistica' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            <div className="grid grid-cols-1 gap-4">
+              <UserRouteCard 
+                name="BYRON" 
+                activeSession={rutaSessions.find(s => s.user === 'BYRON' && s.status === 'OPEN')}
+                onAction={(type) => setShowModal({ type, user: 'BYRON' })}
+              />
+              <UserRouteCard 
+                name="DIEGO" 
+                activeSession={rutaSessions.find(s => s.user === 'DIEGO' && s.status === 'OPEN')}
+                onAction={(type) => setShowModal({ type, user: 'DIEGO' })}
+              />
+            </div>
 
-        window.switchTab = (t) => {
-            document.querySelectorAll('.tab').forEach(c => c.classList.remove('active'));
-            document.getElementById('tab-'+t).classList.add('active');
-            document.getElementById('nav-dash').className = t === 'dash' ? 'text-orange-600 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase' : 'text-slate-300 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase';
-            document.getElementById('nav-list').className = t === 'list' ? 'text-orange-600 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase' : 'text-slate-300 flex flex-col items-center gap-1.5 font-black text-[11px] uppercase';
-        };
+            <div className="mt-8 space-y-4">
+              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
+                <History size={14} /> Historial Operativo Reciente
+              </h4>
+              {rutaSessions.filter(s => s.status === 'CLOSED').slice(0, 5).map(s => (
+                <div key={s.id} className="bg-white rounded-[28px] p-5 border border-slate-100 shadow-sm flex justify-between items-center active:scale-98 transition-transform">
+                  <div className="flex gap-4 items-center">
+                    <div className="p-2 bg-slate-50 rounded-xl"><User size={18} className="text-slate-400" /></div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-800 uppercase tracking-tighter">{s.user} • {s.fecha}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Cobrado: ${s.cobrado?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-slate-900 tracking-tighter">${s.deposito?.toFixed(2)}</p>
+                    <p className="text-[8px] font-black text-red-500 uppercase leading-none mt-1">Gastos: -${s.totalGastos?.toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        window.openModal = () => {
-            document.getElementById('modal-form').style.display='block';
-            document.getElementById('f-num').value = '';
-            for(let i=0; i<4; i++) document.getElementById('q'+i).value = '';
-            calc();
-        };
-        window.closeModal = () => document.getElementById('modal-form').style.display='none';
+        {/* VISTA VENTAS */}
+        {activeTab === 'facturacion' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-5 duration-500">
+            <button 
+              onClick={() => setShowModal({ type: 'factura' })}
+              className="btn-brand w-full flex items-center justify-center gap-3 shadow-orange-100"
+            >
+              <FileText className="w-6 h-6" />
+              Emitir Factura Espejo
+            </button>
 
-        window.onload = init;
-    </script>
-</body>
-</html>
+            <div className="space-y-4">
+              {facturas.map(f => (
+                <div key={f.id} className="bg-white rounded-[28px] p-6 border border-slate-100 shadow-sm flex justify-between items-center active:scale-98 transition-transform">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300"><CheckCircle2 className="w-6 h-6" /></div>
+                    <div>
+                      <h4 className="font-black text-sm text-slate-800 uppercase leading-none mb-1 tracking-tighter">#{f.numFactura}</h4>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{f.fecha}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black tracking-tighter text-orange-600">${f.total.toFixed(2)}</span>
+                    <p className="text-[8px] font-black text-blue-500 uppercase mt-1">Utilidad: ${f.utilidadTotal.toFixed(2)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* Navegación One UI */}
+      <nav className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex justify-around items-center px-6 pb-6 z-50">
+        <NavBtn active={activeTab === 'gerencia'} onClick={() => setActiveTab('gerencia')} icon={<LayoutDashboard />} label="Gerencia" />
+        <NavBtn active={activeTab === 'logistica'} onClick={() => setActiveTab('logistica')} icon={<Truck />} label="Logística" />
+        <NavBtn active={activeTab === 'facturacion'} onClick={() => setActiveTab('facturacion')} icon={<FileText />} label="Ventas" />
+        <NavBtn active={activeTab === 'contabilidad'} onClick={() => setActiveTab('contabilidad')} icon={<Calculator />} label="Cierre" />
+      </nav>
+
+      {/* MODAL HANDLER */}
+      {showModal?.type === 'factura' && (
+        <FacturaEspejoModal 
+          onClose={() => setShowModal(false)} 
+          onSave={async (data) => {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), { ...data, timestamp: serverTimestamp() });
+            setShowModal(false);
+          }}
+        />
+      )}
+
+      {showModal?.type === 'inicio_ruta' && (
+        <InicioRutaModal 
+          user={showModal.user}
+          onClose={() => setShowModal(false)} 
+          onSave={async (data) => {
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'logistica_sessions'), { 
+              ...data, 
+              user: showModal.user, 
+              status: 'OPEN', 
+              timestamp: serverTimestamp() 
+            });
+            setShowModal(false);
+          }}
+        />
+      )}
+
+      {showModal?.type === 'cierre_ruta' && (
+        <CierreRutaModal 
+          session={showModal.session}
+          onClose={() => setShowModal(false)} 
+          onSave={async (data) => {
+            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logistica_sessions', showModal.session.id), {
+              ...data,
+              status: 'CLOSED',
+              closedAt: serverTimestamp()
+            });
+            setShowModal(false);
+          }}
+        />
+      )}
+
+    </div>
+  );
+}
+
+// --- SUBCOMPONENTES ---
+
+function StatCard({ label, value, icon }) {
+  return (
+    <div className="bg-white rounded-[32px] p-6 border border-slate-100 shadow-sm transition-all active:scale-95">
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+      </div>
+      <p className="text-3xl font-black text-slate-800 tracking-tighter">${value.toFixed(2)}</p>
+    </div>
+  );
+}
+
+function NavBtn({ active, onClick, icon, label }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? 'text-orange-600 scale-110' : 'text-slate-300'}`}>
+      {React.cloneElement(icon, { size: 24, strokeWidth: active ? 2.5 : 2 })}
+      <span className={`text-[9px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-40'}`}>{label}</span>
+    </button>
+  );
+}
+
+function UserRouteCard({ name, activeSession, onAction }) {
+  return (
+    <div className="bg-white rounded-[35px] border border-slate-100 p-8 shadow-sm relative overflow-hidden active:scale-[0.98] transition-transform">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-3">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activeSession ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+            <User size={24} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h3 className="font-black text-lg tracking-tight uppercase leading-none">{name}</h3>
+            <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${activeSession ? 'text-green-500' : 'text-slate-300'}`}>
+              {activeSession ? 'EN RUTA AHORA' : 'FUERA DE RUTA'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!activeSession ? (
+        <button onClick={() => onAction('inicio_ruta')} className="w-full bg-slate-900 text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+          <Plus size={16} /> Iniciar Carga Mañana
+        </button>
+      ) : (
+        <button onClick={() => onAction('cierre_ruta', activeSession)} className="w-full bg-orange-600 text-white rounded-2xl py-4 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-orange-200">
+          <CheckCircle2 size={16} /> Registrar Cierre de Día
+        </button>
+      )}
+    </div>
+  );
+}
+
+// MODAL: INICIO DE RUTA (MAÑANA)
+function InicioRutaModal({ user, onClose, onSave }) {
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [cargas, setCargas] = useState({ v165: '', v340: '', e12l: '', e1l: '' });
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl p-10 animate-in zoom-in-95">
+        <h3 className="text-xl font-black text-center uppercase tracking-[0.2em] mb-8 text-slate-800">Carga del Camión: {user}</h3>
+        <input type="date" className="!py-4 font-black text-center mb-6" value={fecha} onChange={e => setFecha(e.target.value)} />
+        
+        <div className="space-y-4 mb-10">
+          {PRODUCTOS.map(p => (
+            <div key={p.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-black text-slate-500 uppercase">{p.nombre}</span>
+              <input type="number" placeholder="CANT" className="w-20 mb-0 py-1 text-center font-black !bg-white rounded-lg shadow-sm" value={cargas[p.id]} onChange={e => setCargas({...cargas, [p.id]: e.target.value})} />
+            </div>
+          ))}
+        </div>
+
+        <button onClick={() => onSave({ fecha, cargas })} className="btn-brand py-6">Habilitar Salida a Ruta</button>
+        <button onClick={onClose} className="w-full text-center text-[10px] font-black text-slate-300 uppercase py-4">Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+// MODAL: CIERRE DE RUTA (TARDE)
+function CierreRutaModal({ session, onClose, onSave }) {
+  const [retornos, setRetornos] = useState({ v165: '', v340: '', e12l: '', e1l: '' });
+  const [cobrado, setCobrado] = useState('');
+  const [deposito, setDeposito] = useState('');
+  const [gastos, setGastos] = useState({ v: '', c: '', h: '', o: '' });
+
+  const totalG = Object.values(gastos).reduce((acc, v) => acc + (parseFloat(v) || 0), 0);
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl p-8 my-8 relative animate-in slide-in-from-bottom-10">
+        <h3 className="text-xl font-black text-center uppercase tracking-widest mb-6">Cierre de Día: {session.user}</h3>
+        
+        <label className="text-[10px] font-black text-slate-400 uppercase block mb-3 ml-2">1. Mercadería de Retorno (No vendida)</label>
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          {PRODUCTOS.map(p => (
+            <div key={p.id} className="bg-slate-50 p-3 rounded-xl flex flex-col items-center border border-slate-100">
+              <span className="text-[8px] font-black text-slate-400 uppercase mb-1">{p.nombre}</span>
+              <input type="number" placeholder="0" className="w-full mb-0 text-center font-black !bg-white text-xs py-1 rounded-lg" value={retornos[p.id]} onChange={e => setRetornos({...retornos, [p.id]: e.target.value})} />
+            </div>
+          ))}
+        </div>
+
+        <label className="text-[10px] font-black text-slate-400 uppercase block mb-3 ml-2">2. Resumen Financiero</label>
+        <div className="grid grid-cols-2 gap-3 mb-6 text-center">
+          <div className="bg-slate-900 rounded-2xl p-3">
+            <span className="text-[8px] font-bold text-orange-400 uppercase">Cobrado Total</span>
+            <input type="number" placeholder="$ 0" className="w-full !bg-transparent text-white font-black text-center text-sm py-1 border-none" value={cobrado} onChange={e => setCobrado(e.target.value)} />
+          </div>
+          <div className="bg-slate-900 rounded-2xl p-3 border-2 border-orange-500 shadow-lg shadow-orange-950/20">
+            <span className="text-[8px] font-bold text-orange-400 uppercase">Depósito Banco</span>
+            <input type="number" placeholder="$ 0" className="w-full !bg-transparent text-white font-black text-center text-sm py-1 border-none" value={deposito} onChange={e => setDeposito(e.target.value)} />
+          </div>
+        </div>
+
+        <label className="text-[10px] font-black text-slate-400 uppercase block mb-3 ml-2">3. Desglose de Gastos</label>
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <InputG icon={<Utensils size={14}/>} label="Comida" val={gastos.v} set={v => setGastos({...gastos, v})} />
+          <InputG icon={<Fuel size={14}/>} label="Gasolina" val={gastos.c} set={v => setGastos({...gastos, c})} />
+          <InputG icon={<Home size={14}/>} label="Hotel" val={gastos.h} set={v => setGastos({...gastos, h})} />
+          <InputG icon={<Calculator size={14}/>} label="Otros" val={gastos.o} set={v => setGastos({...gastos, o})} />
+        </div>
+
+        <div className="bg-red-50 p-4 rounded-2xl flex justify-between items-center mb-8 border border-red-100">
+          <span className="text-[10px] font-black text-red-700 uppercase">Total Egresos Ruta</span>
+          <span className="text-lg font-black text-red-600">-${totalG.toFixed(2)}</span>
+        </div>
+
+        <button 
+          onClick={() => onSave({ retornos, cobrado: parseFloat(cobrado) || 0, deposito: parseFloat(deposito) || 0, totalGastos: totalG, desglose: gastos })} 
+          className="btn-brand py-6"
+        >
+          Finalizar Ruta y Sincronizar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InputG({ icon, label, val, set }) {
+  return (
+    <div className="relative">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300">{icon}</div>
+      <input type="number" className="pl-9 text-xs font-black !py-3 !mb-0" placeholder={label} value={val} onChange={e => set(e.target.value)} />
+    </div>
+  );
+}
+
+function FacturaEspejoModal({ onClose, onSave }) {
+  const [num, setNum] = useState('');
+  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [cants, setCants] = useState({ v165: '', v340: '', e12l: '', e1l: '' });
+
+  const subtotal = PRODUCTOS.reduce((acc, p) => acc + (parseFloat(cants[p.id]) || 0) * p.precio, 0);
+  const utilidad = PRODUCTOS.reduce((acc, p) => acc + (parseFloat(cants[p.id]) || 0) * p.utilidad, 0);
+  const iva = subtotal * 0.15;
+  const total = subtotal + iva;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-[40px] w-full max-w-lg shadow-2xl relative my-8 animate-in zoom-in-95 duration-300">
+        <div className="p-8 border-b border-slate-100 bg-slate-50/50 rounded-t-[40px]">
+          <div className="flex justify-between items-start mb-6">
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-800 tracking-tighter uppercase leading-none">Lácteos La Polaca</h3>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Matriz: Vía Quinindé KM13</p>
+            </div>
+            <button onClick={onClose} className="p-2 bg-white rounded-xl text-slate-300"><X size={20} /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <input type="text" placeholder="Factura N°" className="!py-2 !text-xs font-black !mb-0" value={num} onChange={e => setNum(e.target.value)} />
+            <input type="date" className="!py-2 !text-xs font-black !mb-0" value={fecha} onChange={e => setFecha(e.target.value)} />
+          </div>
+        </div>
+        <div className="p-6">
+          {PRODUCTOS.map(p => (
+            <div key={p.id} className="flex justify-between items-center py-3 border-b border-slate-50 last:border-0">
+              <div className="flex-1">
+                <p className="text-[8px] font-black text-slate-300">{p.codigo}</p>
+                <p className="text-[10px] font-bold text-slate-700 tracking-tight">{p.nombre}</p>
+              </div>
+              <input type="number" placeholder="0" className="w-14 h-8 !p-0 text-center font-black !bg-slate-50 !mb-0 rounded-lg text-sm" value={cants[p.id]} onChange={e => setCants({...cants, [p.id]: e.target.value})} />
+              <div className="w-20 text-right"><span className="text-[11px] font-black text-slate-900">${((parseFloat(cants[p.id]) || 0) * p.precio).toFixed(2)}</span></div>
+            </div>
+          ))}
+        </div>
+        <div className="p-8 bg-slate-900 rounded-b-[40px] text-white">
+          <div className="space-y-1 mb-8 opacity-40 text-[10px] uppercase font-bold tracking-widest">
+            <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>IVA (15%)</span><span>${iva.toFixed(2)}</span></div>
+          </div>
+          <div className="flex justify-between items-center mb-8 pt-4 border-t border-white/10">
+            <span className="text-sm font-black uppercase tracking-widest opacity-50">Total Facturado</span>
+            <span className="text-4xl font-black tracking-tighter leading-none">${total.toFixed(2)}</span>
+          </div>
+          <button onClick={() => onSave({ numFactura: num, fecha, total, utilidadTotal: utilidad })} className="w-full bg-orange-600 py-6 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl">Sincronizar en Nube</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavButton({ active, onClick, icon, label }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${active ? 'text-orange-600 scale-110' : 'text-slate-300'}`}>
+      {React.cloneElement(icon, { size: 24, strokeWidth: active ? 2.5 : 2 })}
+      <span className={`text-[9px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-40'}`}>{label}</span>
+    </button>
+  );
+}
