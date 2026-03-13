@@ -1,519 +1,122 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Logística Polaca Pro v3.1</title>
+    <title>Test de Conexión Nube v3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FIREBASE MODULAR SDK -->
-    <script type="importmap">
-    {
-      "imports": {
-        "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
-        "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
-      }
-    }
-    </script>
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        
-        :root {
-            --oneui-orange: #ea580c;
-            --oneui-bg: #f4f4f4;
-            --oneui-card: #ffffff;
-        }
-
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--oneui-bg);
-            color: #1a1a1a;
-            margin: 0;
-            padding: 0;
-            -webkit-tap-highlight-color: transparent;
-            overflow-x: hidden;
-            min-height: 100vh;
-            touch-action: manipulation;
-        }
-
-        .card-samsung {
-            background: var(--oneui-card);
-            border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            transition: transform 0.1s ease;
-        }
-
-        .card-samsung:active { transform: scale(0.98); }
-
-        .btn-orange {
-            background-color: var(--oneui-orange);
-            color: white;
-            border-radius: 22px;
-            font-weight: 800;
-        }
-
-        .nav-bottom {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0,0,0,0.05);
-            z-index: 100;
-        }
-
-        .tab-active { color: var(--oneui-orange) !important; font-weight: 900; }
-
-        input {
-            background: #f1f5f9;
-            border-radius: 14px;
-            padding: 12px 14px;
-            outline: none;
-            width: 100%;
-            font-size: 16px !important; /* Evita zoom molesto */
-            border: 2px solid transparent;
-        }
-
-        input:focus { border-color: var(--oneui-orange); background: white; }
-        
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        .mirror-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-        .mirror-table td { padding: 10px 4px; border-bottom: 1px solid #f1f5f9; }
-
-        .loader-spin {
-            width: 18px; height: 18px;
-            border: 3px solid #eee;
-            border-top: 3px solid var(--oneui-orange);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            z-index: 200;
-            display: none;
-            padding: 20px 15px;
-            overflow-y: auto;
-        }
-    </style>
-
-    <script>
-        // DATOS DE PRODUCTOS (image_69f63b.png)
-        const PRODUCTOS_CONFIG = [
-            { id: 'P1', nombre: 'VASO 165G.', costo: 0.2696, rent: 0.0782 },
-            { id: 'P2', nombre: 'VASO 340G.', costo: 0.6087, rent: 0.0870 },
-            { id: 'P3', nombre: 'EMP. 1/2L.', costo: 0.7770, rent: 0.1100 },
-            { id: 'P4', nombre: 'EMP. 1L.', costo: 1.5974, rent: 0.2287 }
-        ];
-
-        // FUNCIONES DE UI GLOBALES
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            const target = document.getElementById('tab-' + tab);
-            if(target) target.classList.add('active');
-
-            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
-            const activeBtn = document.getElementById('nav-' + tab);
-            if(activeBtn) activeBtn.classList.add('tab-active');
-
-            const titles = { dashboard: 'Panel', facturas: 'Facturas', gerencia: 'Gerencia' };
-            const titleEl = document.getElementById('view-title');
-            if(titleEl) titleEl.innerText = titles[tab] || 'Inicio';
-            
-            if (window.renderApp) window.renderApp();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function openModal(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.style.display = 'block';
-                document.body.style.overflow = 'hidden'; // Prevenir scroll de fondo
-            }
-            
-            if (id === 'modal-factura') {
-                const tbody = document.getElementById('f-items-mirror');
-                if (tbody) {
-                    tbody.innerHTML = PRODUCTOS_CONFIG.map((p, i) => `
-                        <tr>
-                            <td class="font-bold text-gray-700 uppercase text-[10px]">${p.nombre}</td>
-                            <td class="w-24"><input type="number" id="f-cant-${i}" oninput="window.calcF()" placeholder="0" class="text-center font-black py-2"></td>
-                            <td class="font-mono text-gray-400 text-right text-[10px]">$${p.costo.toFixed(4)}</td>
-                        </tr>
-                    `).join('');
-                }
-                window.calcF();
-            }
-        }
-
-        function closeModal(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = 'auto';
-            }
-        }
-
-        window.calcF = () => {
-            let sub = 0; let util = 0;
-            PRODUCTOS_CONFIG.forEach((p, i) => {
-                const el = document.getElementById(`f-cant-${i}`);
-                const q = el ? (parseFloat(el.value) || 0) : 0;
-                sub += q * p.costo;
-                util += q * p.rent;
-            });
-            const iva = sub * 0.15;
-            const total = sub + iva;
-            
-            const ids = {'f-subtotal': sub, 'f-iva': iva, 'f-total': total, 'f-utilidad': util};
-            for(let k in ids) {
-                const el = document.getElementById(k);
-                if(el) el.innerText = `$${ids[k].toFixed(2)}`;
-            }
-        };
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
-<body class="pb-32">
-
-    <div id="app">
-        <!-- Header One UI -->
-        <header class="oneui-header">
-            <div class="flex justify-between items-start">
-                <div>
-                    <div id="conn-badge" class="bg-gray-100 px-3 py-1 rounded-full text-[9px] font-black text-gray-400 flex items-center gap-2 mb-1">
-                        <span id="conn-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
-                        <span id="conn-text">SINCRONIZANDO...</span>
-                    </div>
-                    <h1 id="view-title" class="text-3xl font-black tracking-tighter">Panel</h1>
-                </div>
-                <div class="text-[10px] font-black text-orange-600 opacity-30">v3.1</div>
-            </div>
-        </header>
-
-        <main id="main-container" class="px-5 space-y-6">
-            
-            <!-- PANEL DE INICIO -->
-            <section id="tab-dashboard" class="tab-content active fade-in">
-                <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100">
-                    <p class="text-[10px] font-bold uppercase opacity-60 tracking-widest">Saldo Pendiente de Cobro</p>
-                    <h2 id="dash-total" class="text-4xl font-black mt-1">$0.00</h2>
-                    <div class="mt-8 text-[9px] font-black opacity-30 uppercase">Actualizado v3.1</div>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4 mt-4">
-                    <div class="card-samsung p-6 border border-gray-100 text-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Facturas</p>
-                        <p id="dash-facturas-count" class="text-2xl font-black text-gray-800">0</p>
-                    </div>
-                    <div class="card-samsung p-6 border border-gray-100 text-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Abonos</p>
-                        <p id="dash-abonos-count" class="text-2xl font-black text-gray-800">0</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- FACTURAS -->
-            <section id="tab-facturas" class="tab-content fade-in">
-                <button onclick="openModal('modal-factura')" class="w-full py-5 btn-orange shadow-lg shadow-orange-100 mb-6 uppercase text-[11px] tracking-widest">
-                    + Nueva Factura Espejo
-                </button>
-                <div id="facturas-list" class="space-y-4">
-                    <!-- Dinámico -->
-                </div>
-            </section>
-
-            <!-- GERENCIA -->
-            <section id="tab-gerencia" class="tab-content fade-in">
-                <div class="card-samsung p-8 bg-gray-800 text-white mb-4 shadow-xl">
-                    <p class="text-[10px] font-black uppercase opacity-50 tracking-widest">Utilidad Bruta Acumulada</p>
-                    <h2 id="gerencia-utilidad" class="text-4xl font-black mt-1">$0.00</h2>
-                </div>
-                <div class="card-samsung p-6 border border-gray-100">
-                    <p class="text-[10px] font-black text-gray-400 uppercase mb-4 tracking-widest">Punto de Equilibrio ($19,887.78)</p>
-                    <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden mb-2">
-                        <div id="gerencia-prog" class="h-full bg-orange-600 transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <p id="gerencia-perc" class="text-[10px] font-black text-orange-600">0% de la meta mensual</p>
-                </div>
-            </section>
-
-        </main>
-
-        <!-- Navegación Inferior -->
-        <nav class="nav-bottom fixed bottom-0 left-0 right-0 h-24 flex justify-around items-center px-4 pb-4 shadow-2xl">
-            <button onclick="switchTab('dashboard')" class="flex flex-col items-center gap-1 text-gray-400" id="nav-dashboard">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                <span class="text-[9px] font-black uppercase">Panel</span>
-            </button>
-            <button onclick="switchTab('facturas')" class="flex flex-col items-center gap-1 text-gray-400" id="nav-facturas">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                <span class="text-[9px] font-black uppercase">Facturas</span>
-            </button>
-            <button onclick="switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400" id="nav-gerencia">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                <span class="text-[9px] font-black uppercase">Gerencia</span>
-            </button>
-        </nav>
-
-        <!-- MODAL FACTURA -->
-        <div id="modal-factura" class="modal-overlay">
-            <div class="card-samsung w-full max-w-md mx-auto p-8 space-y-6 animate-in slide-in-from-bottom duration-300 shadow-2xl">
-                <div class="flex justify-between items-center border-b pb-4">
-                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Factura Espejo Austro</h3>
-                    <button onclick="closeModal('modal-factura')" class="text-gray-400 p-2 font-black">✕</button>
-                </div>
-                
-                <div class="space-y-4">
-                    <input id="f-num" type="text" placeholder="N° Factura (Ej: 5913)">
-                    <input id="f-fecha" type="date">
-                    
-                    <div class="bg-gray-50 rounded-[24px] p-5 shadow-inner overflow-x-auto border border-gray-100">
-                        <table class="mirror-table">
-                            <thead>
-                                <tr class="text-[10px] font-black text-gray-300 uppercase">
-                                    <th>PRODUCTO</th>
-                                    <th class="w-20 text-center">CANT</th>
-                                    <th class="text-right">PDIST</th>
-                                </tr>
-                            </thead>
-                            <tbody id="f-items-mirror"></tbody>
-                        </table>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-blue-50 p-5 rounded-3xl text-center border border-blue-100">
-                            <p class="text-[8px] font-black text-blue-400 uppercase mb-1">Utilidad ($)</p>
-                            <p id="f-utilidad" class="text-xl font-black text-blue-700">$0.00</p>
-                        </div>
-                        <div class="bg-gray-100 p-5 rounded-3xl text-center border border-gray-200">
-                            <p class="text-[8px] font-black text-gray-400 uppercase mb-1">Subtotal Neto</p>
-                            <p id="f-subtotal" class="text-lg font-black text-gray-800">$0.00</p>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-900 p-6 rounded-[30px] text-white shadow-xl flex justify-between items-center">
-                        <div class="text-left">
-                            <p class="text-[9px] font-black opacity-40 uppercase">IVA 15%</p>
-                            <p id="f-iva" class="text-sm font-bold">$0.00</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-[10px] font-black opacity-60 uppercase tracking-widest">Total Factura</p>
-                            <p id="f-total" class="text-3xl font-black text-orange-400">$0.00</p>
-                        </div>
-                    </div>
-
-                    <button id="btn-sync-cloud" class="w-full py-5 btn-orange uppercase text-[12px] font-black shadow-2xl tracking-[0.2em] flex items-center justify-center gap-3">
-                        Sincronizar Factura
-                    </button>
-                    <div class="h-10"></div>
-                </div>
-            </div>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-6">
+    <div class="max-w-md w-full bg-slate-800 p-8 rounded-[32px] shadow-2xl border border-slate-700">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-black tracking-tight">Verificador v3.2</h1>
+            <span id="conn-tag" class="px-2 py-1 bg-slate-700 rounded-lg text-[10px] font-bold text-slate-400">OFFLINE</span>
+        </div>
+        
+        <div id="status-box" class="p-4 rounded-2xl bg-slate-900/50 mb-6 text-sm font-mono border border-slate-700/50 min-h-[100px] flex flex-col justify-center">
+            <div id="log-content">Esperando inicio...</div>
         </div>
 
-        <!-- MODAL ABONO -->
-        <div id="modal-abono" class="modal-overlay" style="padding-top: 80px;">
-            <div class="card-samsung w-full max-w-sm mx-auto p-8 space-y-6 shadow-2xl">
-                <h3 class="font-black text-gray-800 text-xs uppercase">Registrar Abono</h3>
-                <div class="space-y-4">
-                    <input id="ab-monto" type="number" placeholder="Monto ($)" class="text-xl font-black text-orange-600">
-                    <button id="btn-confirm-abono" class="w-full py-5 btn-orange uppercase text-[11px] font-black">Confirmar Pago</button>
-                    <button onclick="closeModal('modal-abono')" class="w-full text-xs font-bold text-gray-400 uppercase tracking-widest">Cerrar</button>
-                </div>
+        <button onclick="ejecutarPruebaMaestra()" id="btn-main" class="w-full py-4 bg-orange-600 rounded-2xl font-black uppercase tracking-widest hover:bg-orange-500 active:scale-95 transition-all shadow-lg shadow-orange-900/20">
+            Probar Conexión Ahora
+        </button>
+
+        <div class="mt-6 space-y-2">
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
+                <span id="check-auth" class="w-2 h-2 rounded-full bg-slate-600"></span> Autenticación
+            </div>
+            <div class="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase">
+                <span id="check-db" class="w-2 h-2 rounded-full bg-slate-600"></span> Escritura Firestore
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[1000] uppercase shadow-2xl"></div>
-
-    <script type="module">
-        import { initializeApp } from "firebase/app";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
-        import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
-
-        let state = { facturas: [], user: null, activeTab: 'dashboard', selectedId: null };
-
-        // FIREBASE INIT
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-pro-v3-1';
-
-        async function init() {
+    <script>
+        // Esta función detecta automáticamente si estamos en el entorno seguro
+        function getFirebaseConfig() {
             try {
+                if (typeof __firebase_config !== 'undefined') {
+                    return JSON.parse(__firebase_config);
+                }
+            } catch (e) { console.error("Error config", e); }
+            
+            // Fallback a tus llaves actuales solo si no hay globales
+            return {
+                apiKey: "AIzaSyBu0b-086orBd_fQut3i9n5s0W9fLpkRFI",
+                authDomain: "austrodistribuidoraecuatoriana.firebaseapp.com",
+                projectId: "austrodistribuidoraecuatoriana",
+                storageBucket: "austrodistribuidoraecuatoriana.firebasestorage.app",
+                messagingSenderId: "711061794814",
+                appId: "1:711061794814:web:65b028a387ecf277ca5aaf"
+            };
+        }
+
+        function printLog(msg, color = "text-slate-300") {
+            const content = document.getElementById('log-content');
+            if (content) content.innerHTML = `<span class="${color}">${msg}</span>`;
+        }
+
+        async function ejecutarPruebaMaestra() {
+            const btn = document.getElementById('btn-main');
+            if (btn) btn.disabled = true;
+            
+            printLog("⚙️ CONFIGURANDO...", "text-blue-400");
+
+            try {
+                const config = getFirebaseConfig();
+                
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                
+                const auth = firebase.auth();
+                const db = firebase.firestore();
+
+                printLog("🔑 AUTENTICANDO...", "text-orange-400");
+                
+                // Intento de login seguro
+                let user;
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else { await signInAnonymously(auth); }
+                    const result = await auth.signInWithCustomToken(__initial_auth_token);
+                    user = result.user;
+                } else {
+                    const result = await auth.signInAnonymously();
+                    user = result.user;
+                }
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        state.user = user;
-                        // Actualización segura de UI
-                        const badge = document.getElementById('conn-badge');
-                        if(badge) badge.className = "bg-green-50 px-3 py-1 rounded-full text-[9px] font-black text-green-600 flex items-center gap-2 mb-1 shadow-sm";
-                        
-                        const dot = document.getElementById('conn-dot');
-                        if(dot) dot.className = "w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]";
-                        
-                        const text = document.getElementById('conn-text');
-                        if(text) text.innerText = "NUBE CONECTADA";
-                        
-                        const authIcon = document.getElementById('auth-status-icon');
-                        if(authIcon) authIcon.className = "bg-green-100 p-2 rounded-2xl text-green-600 shadow-sm";
-                        
-                        setupListeners();
-                    }
+                document.getElementById('check-auth').className = "w-2 h-2 rounded-full bg-green-500";
+                printLog("📝 INTENTANDO ESCRITURA...", "text-yellow-400");
+
+                // Ruta de acceso según Regla 1 (Crítico)
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'test-manual';
+                const testRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('test_logs');
+                
+                await testRef.add({
+                    fecha: new Date().toISOString(),
+                    resultado: "EXITO_V32",
+                    uid: user.uid
                 });
-            } catch (e) { console.error("Auth error:", e); }
-        }
 
-        function setupListeners() {
-            if (!state.user) return;
-            const factRef = collection(db, 'artifacts', appId, 'public', 'data', 'facturas');
-            onSnapshot(factRef, (snap) => {
-                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                window.renderApp();
-            }, (err) => console.log("Snapshot error:", err));
-        }
-
-        // ACCIONES DE NUBE
-        const btnSync = document.getElementById('btn-sync-cloud');
-        if (btnSync) {
-            btnSync.addEventListener('click', async () => {
-                if (!state.user) return showToast("ESPERE CONEXIÓN...");
-                const n = document.getElementById('f-num').value;
-                if (!n) return showToast("INGRESE NÚMERO");
-
-                btnSync.disabled = true;
-                btnSync.innerHTML = `<span class="loader-spin"></span> SINCRO...`;
-
-                const totalVal = parseFloat(document.getElementById('f-total').innerText.replace('$',''));
-                const utilVal = parseFloat(document.getElementById('f-utilidad').innerText.replace('$',''));
-                const subVal = parseFloat(document.getElementById('f-subtotal').innerText.replace('$',''));
-
-                const data = {
-                    numFactura: n,
-                    fechaEmision: document.getElementById('f-fecha').value,
-                    subtotal: subVal,
-                    total: totalVal,
-                    utilidad: utilVal,
-                    pagado: 0,
-                    saldo: totalVal,
-                    estado: 'pendiente',
-                    timestamp: serverTimestamp()
-                };
-
-                try {
-                    const col = collection(db, 'artifacts', appId, 'public', 'data', 'facturas');
-                    await addDoc(col, data);
-                    showToast("GUARDADO EXITOSO");
-                    closeModal('modal-factura');
-                } catch (e) {
-                    alert("Fallo Nube: " + e.message);
-                } finally {
-                    btnSync.disabled = false;
-                    btnSync.innerText = "Sincronizar Factura";
+                document.getElementById('check-db').className = "w-2 h-2 rounded-full bg-green-500";
+                document.getElementById('conn-tag').innerText = "ONLINE";
+                document.getElementById('conn-tag').className = "px-2 py-1 bg-green-900/30 rounded-lg text-[10px] font-bold text-green-500";
+                
+                printLog("✅ ¡CONECTADO CON ÉXITO!", "text-green-400 font-black");
+                if (btn) {
+                    btn.innerText = "SISTEMA LISTO";
+                    btn.className = "w-full py-4 bg-green-600 rounded-2xl font-black uppercase text-white shadow-lg shadow-green-900/20";
                 }
-            });
-        }
 
-        const btnConfirmAbono = document.getElementById('btn-confirm-abono');
-        if (btnConfirmAbono) {
-            btnConfirmAbono.addEventListener('click', async () => {
-                const m = parseFloat(document.getElementById('ab-monto').value);
-                if (!m || m <= 0) return showToast("MONTO INVÁLIDO");
-                btnConfirmAbono.disabled = true;
-                
-                const f = state.facturas.find(fact => fact.id === state.selectedId);
-                const nPagado = (f.pagado || 0) + m;
-                const nSaldo = f.total - nPagado;
-                const nEstado = nSaldo <= 0 ? 'cancelado' : 'abonado';
-
-                try {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'facturas', state.selectedId);
-                    await updateDoc(docRef, { pagado: nPagado, saldo: nSaldo, estado: nEstado });
-                    showToast("PAGO OK");
-                    closeModal('modal-abono');
-                } catch (e) { alert(e.message); }
-                btnConfirmAbono.disabled = false;
-            });
-        }
-
-        // RENDER
-        window.renderApp = () => {
-            const tab = state.activeTab || 'dashboard';
-            const totalDeudaEl = document.getElementById('dash-total');
-            if (tab === 'dashboard' && totalDeudaEl) {
-                const pend = state.facturas.reduce((acc, f) => acc + (f.saldo || 0), 0);
-                totalDeudaEl.innerText = `$${pend.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                
-                const factCount = document.getElementById('dash-facturas-count');
-                if(factCount) factCount.innerText = state.facturas.filter(f => f.estado === 'pendiente').length;
-                
-                const abonoCount = document.getElementById('dash-abonos-count');
-                if(abonoCount) abonoCount.innerText = state.facturas.filter(f => f.estado === 'abonado').length;
-            }
-            
-            const listContainer = document.getElementById('facturas-list');
-            if (tab === 'facturas' && listContainer) {
-                const sorted = [...state.facturas].sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-                listContainer.innerHTML = sorted.length ? sorted.map(f => `
-                    <div class="card-samsung p-6 border border-gray-100 fade-in">
-                        <div class="flex justify-between items-start mb-4">
-                            <div><h4 class="font-black text-sm text-gray-800 uppercase leading-none">#${f.numFactura}</h4><p class="text-[9px] text-gray-400 font-bold mt-1">${f.fechaEmision}</p></div>
-                            <div class="text-right">
-                                <span class="text-lg font-black text-orange-600">$${(f.total || 0).toFixed(2)}</span>
-                                <p class="text-[8px] font-black text-blue-500 uppercase">Utilidad: $${(f.utilidad || 0).toFixed(2)}</p>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                             <div class="bg-gray-50 rounded-2xl p-4 text-center"><p class="text-[8px] font-bold text-gray-400 uppercase">Saldo</p><p class="text-sm font-black">$${(f.saldo || 0).toFixed(2)}</p></div>
-                             <div class="bg-orange-50 rounded-2xl p-4 text-center flex flex-col justify-center"><p class="text-[8px] font-bold text-orange-400 uppercase">Estado</p><p class="text-[10px] font-black text-orange-700 uppercase">${f.estado}</p></div>
-                        </div>
-                        <div class="mt-4 flex gap-2">
-                            <button onclick="state.selectedId='${f.id}'; openModal('modal-abono')" class="flex-1 bg-gray-100 py-4 rounded-2xl text-[9px] font-black uppercase shadow-sm">Abonar</button>
-                            <button onclick="window.cancelarFactura('${f.id}')" class="bg-gray-900 text-white px-6 py-4 rounded-2xl text-[9px] font-black uppercase shadow-sm">Cerrar</button>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-center text-gray-400 py-10 font-bold italic uppercase text-[10px]">Sin movimientos</p>';
-            }
-            
-            const gerUtilEl = document.getElementById('gerencia-utilidad');
-            if (tab === 'gerencia' && gerUtilEl) {
-                const ut = state.facturas.reduce((acc, f) => acc + (f.utilidad || 0), 0);
-                const vent = state.facturas.reduce((acc, f) => acc + (f.subtotal || 0), 0);
-                gerUtilEl.innerText = `$${ut.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                
-                const progBar = document.getElementById('gerencia-prog');
-                if(progBar) {
-                    const perc = Math.min((vent / 19887.78) * 100, 100);
-                    progBar.style.width = perc + '%';
-                    const percText = document.getElementById('gerencia-perc');
-                    if(percText) percText.innerText = `${perc.toFixed(1)}% Alcanzado`;
+            } catch (e) {
+                console.error(e);
+                printLog("❌ ERROR: " + e.code + "<br><span class='text-[10px]'>" + e.message + "</span>", "text-red-400");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "REINTENTAR PRUEBA";
                 }
             }
-        };
-
-        window.cancelarFactura = async (id) => {
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id);
-                await updateDoc(docRef, { saldo: 0, estado: 'cancelado' });
-                showToast("PAGADA TOTAL");
-            } catch (e) { alert(e.message); }
-        };
-
-        function showToast(m) { 
-            const t = document.getElementById('toast'); 
-            if(t) { t.innerText = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2500); }
         }
-
-        window.state = state;
-        init();
     </script>
 </body>
 </html>
