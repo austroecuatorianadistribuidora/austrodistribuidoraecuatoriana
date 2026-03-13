@@ -26,7 +26,6 @@
         .progress-bar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -42,7 +41,6 @@
         const apiKey = ""; 
         const today = new Date().toISOString().split('T')[0];
         
-        // Costos actualizados de Factura 5913
         const PRODUCTOS_DATA = [
             { id: 'p1', nombre: 'VASO 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
             { id: 'p2', nombre: 'VASO 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
@@ -77,17 +75,16 @@
 
         // --- INICIALIZACIÓN DE FIREBASE ---
         let db, auth, appId;
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        
-        if (configStr) {
-            try {
+        try {
+            const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+            if (configStr) {
                 const firebaseConfig = JSON.parse(configStr);
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.firestore();
                 auth = firebase.auth();
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
-            } catch (e) { console.error("Firebase Init Error:", e); }
-        }
+            }
+        } catch (e) { console.error("Firebase Error:", e); }
 
         // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -105,7 +102,7 @@
                     <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{title}</h2>
                     {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{sub}</p>}
                 </div>
-                <button onClick={onClose} title="Cerrar" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
+                <button onClick={onClose} title="Cerrar y volver" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
                     <Icon name="x" size={24}/>
                 </button>
             </div>
@@ -123,7 +120,7 @@
             return result.candidates?.[0]?.content?.parts?.[0]?.text;
         };
 
-        // --- VISTAS ---
+        // --- VISTAS DEL SISTEMA ---
 
         // 1. FACTURACIÓN IA
         const FacturacionView = ({ facturas, onClose }) => {
@@ -146,7 +143,7 @@
                             ...data, estado: 'Pendiente', saldoPendiente: data.total, createdAt: new Date().toISOString()
                         });
                         setModalScan(false);
-                    } catch (err) { alert("Error al procesar la factura."); } finally { setIsScanning(false); }
+                    } catch (err) { alert("Error de lectura IA."); } finally { setIsScanning(false); }
                 };
                 r.readAsDataURL(file);
             };
@@ -161,28 +158,23 @@
                     fecha: today, monto, categoria: 'Pago Proveedor', detalle: `Abono Fact #${f.numFactura}`, comprobante: tempAbono.comprobante
                 });
                 setModalAbono(null);
-                setTempAbono({ monto: '', fecha: today, comprobante: '' });
             };
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="Pestaña 1 - Registro de Compras" onClose={onClose} />
+                    <ViewHeader title="Facturación IA" sub="Registro de Ingresos" onClose={onClose} />
                     <div className="flex justify-end mb-4">
                         <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs">
-                            <Icon name="upload-cloud" size={20}/> Escanear Factura
+                            <Icon name="scan" size={20}/> Subir Documento
                         </button>
                     </div>
                     <div className="space-y-3">
                         {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
-                            <Card key={f.id} className="flex flex-col md:flex-row justify-between items-center border-l-8 border-l-blue-500 gap-4">
-                                <div className="text-left flex-1"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
-                                <div className="grid grid-cols-2 gap-8 text-center px-4">
-                                    <div><p className="text-[8px] font-black uppercase opacity-40">Monto</p><p className="font-black text-slate-800">${f.total?.toLocaleString()}</p></div>
-                                    <div><p className="text-[8px] font-black uppercase opacity-40">Saldo</p><p className={`font-black ${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toLocaleString()}</p></div>
-                                </div>
+                            <Card key={f.id} className="flex justify-between items-center border-l-8 border-l-blue-500">
+                                <div className="text-left"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
                                 <div className="flex gap-2">
-                                    {f.estado !== 'Cancelado' && <button onClick={() => setModalAbono(f)} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors"><Icon name="banknote" size={20}/></button>}
-                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-3 text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={20}/></button>
+                                    {f.estado !== 'Cancelado' && <button onClick={() => setModalAbono(f)} className="p-3 bg-green-50 text-green-600 rounded-xl"><Icon name="banknote" size={20}/></button>}
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-3 text-slate-200 hover:text-red-500"><Icon name="trash-2" size={20}/></button>
                                 </div>
                             </Card>
                         ))}
@@ -190,17 +182,17 @@
 
                     {modalScan && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative">
-                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 relative">
+                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
                                 <Icon name="scan" size={48} className="mx-auto text-orange-600 mb-6 animate-pulse"/>
-                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 italic">Lectura Inteligente</h3>
-                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase">Procesando...</p> : (
+                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800">Escanear Compra</h3>
+                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase">Leyendo Factura...</p> : (
                                     <div className="space-y-4">
                                         <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all">
                                             Seleccionar PDF o Foto
                                             <input type="file" className="hidden" accept="image/*,application/pdf" onChange={procesarIA} />
                                         </label>
-                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-all">← Cancelar y Salir</button>
+                                        <button onClick={() => setModalScan(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500">← Cancelar</button>
                                     </div>
                                 )}
                             </Card>
@@ -209,20 +201,20 @@
 
                     {modalAbono && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left">
-                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter">Registrar Pago: #{modalAbono.numFactura}</h3>
-                                <div className="space-y-4 text-left">
-                                    <input type="number" step="0.01" placeholder="Monto del Pago $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
+                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5">
+                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800">Abono Factura #{modalAbono.numFactura}</h3>
+                                <div className="space-y-4">
+                                    <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
                                     <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
                                         {tempAbono.comprobante ? <img src={tempAbono.comprobante} className="h-20 mx-auto rounded-xl shadow-md mb-2"/> : <Icon name="upload-cloud" size={32} className="text-slate-300 mb-2"/>}
-                                        <span className="text-[9px] font-black uppercase text-slate-400">Captura Comprobante</span>
+                                        <span className="text-[9px] font-black uppercase text-slate-400">Comprobante de Pago</span>
                                         <input type="file" className="hidden" accept="image/*" onChange={e => {
                                             const r = new FileReader(); r.onloadend = () => setTempAbono({...tempAbono, comprobante: r.result}); r.readAsDataURL(e.target.files[0]);
                                         }} />
                                     </label>
-                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Pago</button>
-                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar</button>
+                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl">Confirmar Pago</button>
+                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500">← Cancelar</button>
                                 </div>
                             </Card>
                         </div>
@@ -245,17 +237,17 @@
             return (
                 <div className="space-y-6 fade-in">
                     <ViewHeader title="Logística" sub="Despachos a Ruta" onClose={onClose} />
-                    <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                    <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl"><Icon name="plus"/></button></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {cargas.map(c => (
                             <Card key={c.id} className={`border-l-8 ${c.estado === 'Liquidado' ? 'border-l-green-500' : 'border-l-orange-400'}`}>
-                                <div className="flex justify-between items-start">
+                                <div className="flex justify-between items-start text-left">
                                     <div><h4 className="font-black text-slate-800 uppercase text-sm">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Vendido</p><p className="font-black text-green-600">${(c.ventaNeta || 0).toLocaleString()}</p></div>
+                                    <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recaudado</p><p className="font-black text-green-600">${(c.ventaNeta || 0).toLocaleString()}</p></div>
                                 </div>
                                 <div className="mt-6 flex justify-between border-t pt-4">
-                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-red-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
-                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Cerrar Ruta</button>}
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-red-200 hover:text-red-500"><Icon name="trash-2" size={16}/></button>
+                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg">Liquidar</button>}
                                 </div>
                             </Card>
                         ))}
@@ -263,9 +255,9 @@
 
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
-                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter text-slate-800 italic">Nueva Carga de Ruta</h3>
+                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter">Nueva Salida de Ruta</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
@@ -274,22 +266,22 @@
                                     });
                                     setModal(false);
                                 }} className="space-y-4">
-                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, vendedor: e.target.value})} required>
+                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none" onChange={e => setForm({...form, vendedor: e.target.value})} required>
                                         <option value="">Seleccionar Vendedor...</option>{VENDEDORES.map(v => <option key={v}>{v}</option>)}
                                     </select>
                                     {form.items.map((it, idx) => (
                                         <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
                                             <span className="flex-1 text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
-                                            <input type="number" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner" placeholder="Cant" onChange={e => {
+                                            <input type="number" className="w-24 p-2 rounded-xl text-center font-black bg-white" placeholder="Cant" onChange={e => {
                                                 const ni = [...form.items]; ni[idx].q = parseInt(e.target.value) || 0; setForm({...form, items: ni});
                                             }} />
                                         </div>
                                     ))}
-                                    <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4">
-                                        <div><p className="text-[9px] opacity-50 uppercase font-black tracking-widest">Valor Carga</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
-                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Despachar</button>
+                                    <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4 shadow-xl">
+                                        <div className="text-left"><p className="text-[9px] opacity-50 uppercase font-black">Carga Bruta</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
+                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px]">Cargar</button>
                                     </div>
-                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar y Volver</button>
+                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar y Volver</button>
                                 </form>
                             </Card>
                         </div>
@@ -297,19 +289,19 @@
 
                     {retModal && active && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-                            <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative text-left">
-                                <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-6 uppercase tracking-tighter text-slate-800">Liquidación: {active.responsable}</h3>
+                            <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative">
+                                <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-6 uppercase tracking-tighter">Liquidación: {active.responsable}</h3>
                                 {active.items.map(it => (
                                     <div key={it.pId} className="flex justify-between items-center mb-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                                         <span className="text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
-                                        <input type="number" placeholder="Retorna" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner" onChange={e => setRets({...rets, [it.pId]: parseInt(e.target.value) || 0})}/>
+                                        <input type="number" placeholder="Retorna" className="w-24 p-2 rounded-xl text-center font-black bg-white" onChange={e => setRets({...rets, [it.pId]: parseInt(e.target.value) || 0})}/>
                                     </div>
                                 ))}
                                 <div className="mt-8 border-t pt-6 text-center space-y-4">
                                     <label className="block p-8 bg-blue-50 text-blue-600 rounded-[40px] border-2 border-dashed border-blue-200 cursor-pointer hover:bg-blue-100 transition-all shadow-sm">
                                         {fotoDeposito ? <img src={fotoDeposito} className="h-24 mx-auto rounded-2xl shadow-lg mb-2"/> : <Icon name="camera" size={36} className="mx-auto mb-2"/>}
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Comprobante de Depósito</span>
+                                        <span className="text-[9px] font-black uppercase">Foto Depósito / Soporte</span>
                                         <input type="file" className="hidden" accept="image/*" onChange={e => {
                                             const r = new FileReader(); r.onloadend = () => setFotoDeposito(r.result); r.readAsDataURL(e.target.files[0]);
                                         }}/>
@@ -327,7 +319,7 @@
                                             cliente: active.responsable, monto: totalVendido, tipo: 'Recaudación Ruta', fecha: today
                                         });
                                         setRetModal(false);
-                                    }} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Finalizar Ruta</button>
+                                    }} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Finalizar Proceso</button>
                                     <button type="button" onClick={() => setRetModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar</button>
                                 </div>
                             </Card>
@@ -349,7 +341,7 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Inventario" sub="Control Kardex Real" onClose={onClose} />
+                    <ViewHeader title="Inventario" sub="Control de Bodega" onClose={onClose} />
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                         {inventario.map(p => (
                             <Card key={p.id} className="group hover:scale-105 transition-all cursor-default">
@@ -376,7 +368,7 @@
                 const items = [
                     ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto })),
                     ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto })),
-                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Compra Fact: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
+                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Compra: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
                 ];
                 items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                 let balance = 0;
@@ -388,11 +380,11 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Contabilidad" sub="Historial Libro Diario" onClose={onClose} />
+                    <ViewHeader title="Contabilidad" sub="Libro Diario" onClose={onClose} />
                     <div className="flex justify-end mb-4">
-                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Nuevo Asiento</button>
+                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg">Nuevo Movimiento</button>
                     </div>
-                    <Card className="p-0 overflow-hidden shadow-xl border-none">
+                    <Card className="p-0 overflow-hidden border-none shadow-xl">
                         <div className="overflow-x-auto text-left">
                             <table className="w-full">
                                 <thead className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest">
@@ -415,8 +407,8 @@
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-md animate-in zoom-in-95 relative">
-                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase text-slate-800">Registrar Movimiento</h3>
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase">Nuevo Asiento</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     const col = form.tipo === 'Ingreso' ? 'cartera' : 'gastos';
@@ -428,10 +420,10 @@
                                     setModal(false);
                                 }} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
-                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}>
+                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none" value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}>
                                             <option>Ingreso</option><option>Egreso</option>
                                         </select>
-                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.metodo} onChange={e => setForm({...form, metodo: e.target.value})}>
+                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none" value={form.metodo} onChange={e => setForm({...form, metodo: e.target.value})}>
                                             <option>Efectivo</option><option>Transferencia</option>
                                         </select>
                                     </div>
@@ -447,7 +439,7 @@
             );
         };
 
-        // 5. GERENCIA (REDISEÑADA)
+        // 5. GERENCIA (ANÁLISIS TOTAL)
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
@@ -456,14 +448,14 @@
 
             return (
                 <div className="space-y-6 fade-in pb-12">
-                    <ViewHeader title="Gerencia" sub="Análisis Estratégico" onClose={onClose} />
+                    <ViewHeader title="Gerencia" sub="Resumen Estratégico" onClose={onClose} />
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-white">
                         <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
                             <div className="relative z-10">
                                 <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4">Inversión Mensual</p>
                                 <p className="text-4xl font-black">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic">Costo operativo para funcionar 30 días</p>
+                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic">Costo operativo total fijo</p>
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
@@ -473,23 +465,23 @@
                             <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta para margen del 14%</p>
                         </Card>
                         <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Balance Neto</p>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Balance de Utilidad</p>
                             <p className="text-4xl font-black">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Real' : 'Déficit por Cubrir'}</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Excedente Real' : 'Faltante por Cubrir'}</p>
                         </Card>
                     </div>
 
                     <Card className="p-10 border-none shadow-xl text-left">
                         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                             <div>
-                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1">Estado de Punto de Equilibrio</h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Relación Utilidad real vs Inversión fija</p>
+                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1 italic">Análisis Punto de Equilibrio</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Avance de utilidad real frente a gastos</p>
                             </div>
                             <span className="text-5xl font-black text-slate-800">{perc}%</span>
                         </div>
                         <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 shadow-inner border border-slate-200">
                             <div className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
-                                {perc > 15 ? `$${utilidad.toLocaleString()} USD LOGRADOS` : ''}
+                                {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
                             </div>
                         </div>
                     </Card>
@@ -528,7 +520,7 @@
             const [form, setForm] = useState({ nombre: '', sueldo: 964 });
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Personal" sub="Staff Activo" onClose={onClose} />
+                    <ViewHeader title="Personal" sub="Gestión de Staff" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg tracking-widest hover:bg-black transition-all">Nuevo Staff</button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {personal.map(p => (
@@ -542,9 +534,9 @@
                         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-sm p-8 bg-white rounded-3xl animate-in zoom-in-95 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic">Nuevo Staff</h3>
+                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter">Nuevo Staff</h3>
                                 <form onSubmit={async (e) => { e.preventDefault(); await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').add(form); setModal(false); setForm({ nombre: '', sueldo: 964 }); }} className="space-y-4">
-                                    <input placeholder="Nombre" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                                    <input placeholder="Nombre Completo" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
                                     <input type="number" placeholder="Sueldo Mensual" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
                                     <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Guardar</button>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
@@ -577,13 +569,29 @@
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Auth Error:", e); setLoading(false); }
+                    } catch (e) { 
+                        console.error("Auth Error:", e); 
+                        setLoading(false); 
+                    }
                 };
+
                 initAuth();
-                if (auth) {
-                    const unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
-                    return () => unsub();
-                }
+
+                const unsub = auth?.onAuthStateChanged(u => { 
+                    setUser(u); 
+                    setLoading(false); 
+                }, (error) => {
+                    console.error("Auth State Error:", error);
+                    setLoading(false);
+                });
+
+                // Seguro de carga: Si en 5 segundos no ha cargado, forzar entrada
+                const timeout = setTimeout(() => setLoading(false), 5000);
+
+                return () => {
+                    if (unsub) unsub();
+                    clearTimeout(timeout);
+                };
             }, []);
 
             useEffect(() => {
@@ -598,7 +606,7 @@
                             if (col === 'gastos') setGastos(data);
                             if (col === 'personal') setPersonal(data);
                             if (col === 'facturasProveedor') setFacturasProv(data);
-                        }, err => console.error(`Snap Error en ${col}:`, err));
+                        }, err => console.error(`Error en ${col}:`, err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
@@ -623,7 +631,7 @@
                 <div className="min-h-screen md:pl-72 bg-slate-50 flex">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm">
                         <div className="flex items-center gap-3 mb-12">
-                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={24}/></div>
+                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3"><Icon name="package" size={24}/></div>
                             <span className="font-black text-2xl tracking-tighter uppercase italic text-orange-600">Avena Pro</span>
                         </div>
                         <nav className="space-y-1 flex-1 overflow-y-auto hide-scrollbar">
