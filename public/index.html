@@ -4,77 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Distribuidoraustroapp - Gestión Integral ✨</title>
-    <!-- Dependencias estables -->
+    <!-- Bibliotecas de React y UI -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
     
-    <!-- Firebase SDK (Compat) -->
+    <!-- Firebase SDK (Compat para estabilidad en el entorno) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; background-color: #f1f5f9; color: #1e293b; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; color: #1e293b; overflow-x: hidden; }
         
         .invoice-paper { 
             background: white; 
-            box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25); 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); 
             border: 1px solid #e2e8f0; 
-            max-width: 850px;
-            margin: auto;
+            max-width: 850px; 
+            margin: auto; 
         }
         
         .invoice-table th, .invoice-table td { 
-            border: 1px solid #cbd5e1; 
-            padding: 10px; 
-            font-size: 0.7rem; 
+            border: 1px solid #e2e8f0; 
+            padding: 12px; 
+            font-size: 0.75rem; 
         }
         
         .invoice-table th { 
-            background-color: #f8fafc; 
+            background-color: #f1f5f9; 
             font-weight: 800; 
             text-transform: uppercase; 
             color: #475569;
         }
 
         .progress-bar { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
-        .fade-in { animation: fadeIn 0.3s ease-out; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .hide-scrollbar::-webkit-scrollbar { width: 6px; }
-        .hide-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .hide-scrollbar::-webkit-scrollbar { width: 4px; }
+        .hide-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        .sidebar-item-active {
+            background-color: #ea580c;
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(234, 88, 12, 0.3);
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
+        const { useState, useEffect, useMemo } = React;
 
-        // --- CONFIGURACIÓN GLOBAL ---
+        // --- INICIALIZACIÓN DE FIREBASE (REGLA 3) ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'austro-v27';
+
+        // --- CONSTANTES ---
         const today = new Date().toISOString().split('T')[0];
         const PRODUCTOS_BASE = [
-            { id: 'p1', codigo: 'P000000256', nombre: '01 EMPACADO AVENA POLACA 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
-            { id: 'p2', codigo: 'P000000247', nombre: '02 EMPACADO AVENA POLACA 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
-            { id: 'p3', codigo: 'P000000005', nombre: '03 EMPACADO AVENA POLACA 500G', costo: 0.777042, pvd: 0.8869, color: '#ea580c' },
-            { id: 'p4', codigo: 'P000000006', nombre: '04 EMPACADO AVENA POLACA 1000G', costo: 1.597390, pvd: 1.8260, color: '#c2410c' },
+            { id: 'p1', codigo: 'P000000256', nombre: '01 EMPACADO AVENA POLACA 165G', costo: 0.269565, pvd: 0.3478 },
+            { id: 'p2', codigo: 'P000000247', nombre: '02 EMPACADO AVENA POLACA 340G', costo: 0.608694, pvd: 0.6956 },
+            { id: 'p3', codigo: 'P000000005', nombre: '03 EMPACADO AVENA POLACA 500G', costo: 0.777042, pvd: 0.8869 },
+            { id: 'p4', codigo: 'P000000006', nombre: '04 EMPACADO AVENA POLACA 1000G', costo: 1.597390, pvd: 1.8260 },
         ];
 
-        // --- GASTOS SEGÚN IMAGEN ---
         const GASTOS_VENTAS_DETALLE = [
             { concepto: "Sueldos empleados", valor: 964.00 },
             { concepto: "Combustible", valor: 350.00 },
             { concepto: "Comisiones", valor: 600.00 },
-            { concepto: "Viáticos mercado local (3*20*1)", valor: 60.00 },
-            { concepto: "Viáticos mercado foráneo (1*9*20)", valor: 180.00 },
+            { concepto: "Viáticos mercado local", valor: 60.00 },
+            { concepto: "Viáticos mercado foráneo", valor: 180.00 },
             { concepto: "Depreciación de vehículos", valor: 200.00 },
             { concepto: "Intereses préstamo vehículos", valor: 172.73 },
             { concepto: "Pago de capital vehículos", valor: 683.06 },
@@ -85,322 +97,58 @@
         const GASTOS_ADMIN_DETALLE = [
             { concepto: "Honorarios profesionales", valor: 200.00 },
             { concepto: "Suministros y materiales", valor: 10.00 },
-            { concepto: "Suministros de aseo y limpieza", valor: 0.00 },
             { concepto: "Gastos Varios", valor: 30.00 }
         ];
 
-        const TOTAL_VENTAS = 3339.80;
-        const TOTAL_ADMIN = 240.00;
         const TOTAL_GASTOS_FIJOS = 3579.80;
-        const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        if (firebaseConfig && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebaseConfig ? firebase.firestore() : null;
-        const auth = firebaseConfig ? firebase.auth() : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidaustroapp-v1';
-
-        // --- COMPONENTES UI GLOBALES ---
+        // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
         };
 
         const Card = ({ children, className = "" }) => (
-            <div className={`bg-white p-6 rounded-[32px] border border-gray-200 shadow-sm ${className}`}>{children}</div>
+            <div className={`bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm ${className}`}>{children}</div>
         );
 
         const ViewHeader = ({ title, sub, onClose }) => (
-            <div className="flex justify-between items-center border-b pb-6 mb-6 text-left">
+            <div className="flex justify-between items-center border-b pb-6 mb-8 text-left">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{title}</h2>
-                    {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{sub}</p>}
+                    <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase italic leading-none">{title}</h2>
+                    {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-2 tracking-widest">{sub}</p>}
                 </div>
-                <button onClick={onClose} title="Volver" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
+                <button onClick={onClose} className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 rounded-2xl transition-all">
                     <Icon name="x" size={24}/>
                 </button>
             </div>
         );
 
-        // --- VISTAS ---
-
-        const FacturacionView = ({ facturas, db, appId, user, onClose }) => {
-            const [modalNueva, setModalNueva] = useState(false);
-            const [modalPago, setModalPago] = useState(null);
+        function App() {
+            const [user, setUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('facturacion');
+            const [loading, setLoading] = useState(true);
+            const [facturas, setFacturas] = useState([]);
+            const [cargas, setCargas] = useState([]);
             const [isSaving, setIsSaving] = useState(false);
+            const [modalNueva, setModalNueva] = useState(false);
             const [errorMsg, setErrorMsg] = useState(null);
-            
+
             const [form, setForm] = useState({
                 numFactura: '',
                 fecha: today,
-                items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })),
-                respaldoDoc: null
+                items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 }))
             });
-            const [pagoForm, setPagoForm] = useState({ monto: '', fecha: today, comprobante: null });
 
             const calc = useMemo(() => {
                 const subtotal = form.items.reduce((acc, it) => acc + (it.cantidad * it.costo), 0);
-                const iva = subtotal * 0.15;
-                const total = subtotal + iva;
                 const utilidad = form.items.reduce((acc, it) => acc + (it.cantidad * (it.pvd - it.costo)), 0);
-                return { subtotal, iva, total, utilidad };
+                return { subtotal, total: subtotal * 1.15, utilidad };
             }, [form.items]);
 
-            const handleGuardarFactura = async (e) => {
-                if (e) e.preventDefault();
-                setErrorMsg(null);
-                
-                if (!user) {
-                    setErrorMsg("Error: No has iniciado sesión en Firebase. Verifica que el inicio anónimo esté activo.");
-                    return;
-                }
-                if (!form.numFactura) {
-                    setErrorMsg("Error: Debes ingresar el número de factura.");
-                    return;
-                }
-                if (!db) {
-                    setErrorMsg("Error: La base de datos no está inicializada.");
-                    return;
-                }
-                
-                setIsSaving(true);
-                try {
-                    const data = {
-                        numFactura: form.numFactura,
-                        fecha: form.fecha,
-                        items: form.items.map(it => ({ id: it.id, nombre: it.nombre, cantidad: it.cantidad, costo: it.costo, total: it.cantidad * it.costo })),
-                        total: calc.total,
-                        saldoPendiente: calc.total,
-                        utilidadCompra: calc.utilidad,
-                        estado: 'Pendiente',
-                        respaldo: form.respaldoDoc,
-                        createdAt: new Date().toISOString()
-                    };
-
-                    // RUTA CRÍTICA: /artifacts/{appId}/public/data/facturasProveedor
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
-                    
-                    setModalNueva(false);
-                    resetForm();
-                } catch (err) {
-                    console.error("Error al guardar factura:", err);
-                    setErrorMsg(`Error de Firebase: ${err.message}`);
-                } finally {
-                    setIsSaving(false);
-                }
-            };
-
-            const resetForm = () => {
-                setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
-                setErrorMsg(null);
-            };
-
-            return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Facturación" sub="1. Registro e Ingresos Manuales" onClose={onClose} />
-                    <div className="flex justify-end mb-4 text-left">
-                        <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
-                            <Icon name="file-plus" size={20}/> Nueva Factura Espejo
-                        </button>
-                    </div>
-
-                    <div className="space-y-4">
-                        {[...facturas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
-                            <Card key={f.id} className={`flex flex-col md:flex-row justify-between items-center border-l-8 ${f.estado === 'Cancelado' ? 'border-l-green-500' : 'border-l-slate-800'} gap-4`}>
-                                <div className="text-left flex-1">
-                                    <h4 className="font-black text-slate-800 uppercase tracking-tighter text-lg leading-tight">Factura #{f.numFactura}</h4>
-                                    <div className="flex gap-4 mt-1">
-                                        <span className="text-[10px] font-black uppercase text-slate-400">{f.fecha}</span>
-                                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${f.estado === 'Cancelado' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{f.estado}</span>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-8 text-center px-4 md:border-l md:border-r border-slate-100 w-full md:w-auto font-black text-left">
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Total</p><p className="text-slate-800">${f.total?.toFixed(2)}</p></div>
-                                    <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
-                                </div>
-                                <div className="flex gap-2 w-full md:w-auto justify-end">
-                                    <button onClick={() => { if(confirm('¿Desea eliminar este registro?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
-                                        <Icon name="trash-2" size={24}/>
-                                    </button>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-
-                    {modalNueva && (
-                        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-2 sm:p-10 backdrop-blur-sm overflow-hidden">
-                            <div className="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl flex flex-col overflow-hidden relative shadow-2xl">
-                                <button onClick={() => setModalNueva(false)} className="absolute top-4 right-4 z-10 p-3 bg-slate-100 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-all">
-                                    <Icon name="x" size={24}/>
-                                </button>
-                                <div className="flex-1 overflow-y-auto p-4 sm:p-10 hide-scrollbar">
-                                    {errorMsg && (
-                                        <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3 animate-bounce">
-                                            <Icon name="alert-circle" className="text-red-500 mt-1" size={24}/>
-                                            <div>
-                                                <p className="font-black text-red-600 uppercase text-xs italic">¡Atención!</p>
-                                                <p className="text-red-800 text-sm font-bold">{errorMsg}</p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
-                                        <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900">
-                                            <div className="text-left space-y-1">
-                                                <h3 className="text-xl font-black text-slate-900 uppercase italic leading-none mb-3 tracking-tighter">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
-                                                <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px]">
-                                                    <p>RUC: 1792039754001</p>
-                                                    <p>VIA QUININDE MARGEN DERECHO KM13</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3 text-left">
-                                                <div className="bg-slate-900 text-white p-3 rounded">
-                                                    <p className="text-[8px] font-black uppercase opacity-60">FACTURA Nº</p>
-                                                    <input required placeholder="003-102-0000XXXXX" className="bg-transparent text-lg font-black border-none outline-none w-full placeholder:text-slate-700" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
-                                                </div>
-                                                <div className="bg-slate-50 border p-3 rounded">
-                                                    <p className="text-[8px] font-black text-slate-400 uppercase">FECHA EMISIÓN</p>
-                                                    <input type="date" required className="bg-transparent font-black border-none outline-none w-full" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="overflow-x-auto mb-10">
-                                            <table className="w-full invoice-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Descripción</th>
-                                                        <th className="w-24 text-center">Cant.</th>
-                                                        <th className="w-32 text-right">Precio Uni.</th>
-                                                        <th className="w-32 text-right">Total</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {form.items.map((it, idx) => (
-                                                        <tr key={it.id}>
-                                                            <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
-                                                            <td className="p-0">
-                                                                <input 
-                                                                    type="number" 
-                                                                    className="w-full text-center py-3 font-black bg-orange-50 border-none focus:ring-0" 
-                                                                    value={it.cantidad === 0 ? '' : it.cantidad} 
-                                                                    placeholder=""
-                                                                    onChange={e => {
-                                                                        const ni = [...form.items];
-                                                                        ni[idx].cantidad = e.target.value === '' ? 0 : parseInt(e.target.value);
-                                                                        setForm({...form, items: ni});
-                                                                    }} 
-                                                                />
-                                                            </td>
-                                                            <td className="text-right font-mono text-slate-500">${it.costo.toFixed(4)}</td>
-                                                            <td className="text-right font-black text-slate-900">${(it.cantidad * it.costo).toFixed(2)}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
-                                            <span className="text-xs font-black uppercase tracking-tighter italic">VALOR TOTAL CON IVA</span>
-                                            <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500">Cancelar</button>
-                                    <button 
-                                        onClick={handleGuardarFactura} 
-                                        disabled={isSaving} 
-                                        className={`px-10 py-4 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-orange-600'} text-white rounded-2xl font-black uppercase text-[10px] shadow-xl transition-all flex items-center gap-3`}>
-                                        {isSaving && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                                        {isSaving ? 'GRABANDO...' : 'GRABAR FACTURA ✨'}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        const LogisticaView = ({ cargas, db, appId, user, onClose }) => {
-            const [modal, setModal] = useState(false);
-            const [form, setForm] = useState({ vendedor: '', items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 })) });
-            
-            const handleGuardarCarga = async () => {
-                if (!user || !db) return;
-                const totalCargado = form.items.reduce((a, b) => a + (b.q * b.pvd), 0);
-                if (totalCargado <= 0) return;
-                try {
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
-                        responsable: form.vendedor || "Ruta General",
-                        fecha: today,
-                        totalCargado,
-                        estado: 'En Ruta',
-                        items: form.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, cost: it.costo }))
-                    });
-                    setModal(false);
-                    setForm({ vendedor: '', items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 })) });
-                } catch(e) { console.error(e); }
-            };
-
-            return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Logística" sub="2. Despachos y Jornada" onClose={onClose} />
-                    <div className="flex justify-end mb-4 text-left"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs"><Icon name="plus"/> Nuevo Despacho</button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {cargas.map(c => (
-                            <Card key={c.id} className="border-l-8 border-l-orange-400">
-                                <div className="flex justify-between items-start text-left">
-                                    <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tighter">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right font-black"><p className="text-[8px] uppercase opacity-40">Valor</p><p className="text-slate-800 text-xl tracking-tighter">${(c.totalCargado || 0).toLocaleString()}</p></div>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                    {modal && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-                            <Card className="max-w-2xl w-full text-left">
-                                <h3 className="text-xl font-black mb-4 uppercase italic">Despacho de Ruta</h3>
-                                <div className="space-y-4">
-                                    <select className="w-full p-4 bg-slate-50 rounded-xl font-bold uppercase text-xs" value={form.vendedor} onChange={e => setForm({...form, vendedor: e.target.value})}>
-                                        <option value="">Seleccione Vendedor</option>
-                                        {VENDEDORES.map(v => <option key={v} value={v}>{v}</option>)}
-                                    </select>
-                                    <div className="space-y-2">
-                                        {form.items.map((it, idx) => (
-                                            <div key={it.id} className="flex justify-between items-center border-b pb-2">
-                                                <span className="text-[10px] font-black uppercase flex-1">{it.nombre}</span>
-                                                <input type="number" placeholder="" className="w-24 p-2 bg-orange-50 rounded text-center font-black" value={it.q === 0 ? '' : it.q} onChange={e => {
-                                                    const ni = [...form.items]; ni[idx].q = e.target.value === '' ? 0 : parseInt(e.target.value); setForm({...form, items: ni});
-                                                }} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="flex justify-end gap-2 pt-4">
-                                        <button onClick={() => setModal(false)} className="px-6 py-2 font-bold uppercase text-xs">Cerrar</button>
-                                        <button onClick={handleGuardarCarga} className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black uppercase text-xs">Despachar</button>
-                                    </div>
-                                </div>
-                            </Card>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // --- APP RAÍZ ---
-        function App() {
-            const [user, setUser] = useState(null);
-            const [activeTab, setActiveTab] = useState('facturacion'); 
-            const [loading, setLoading] = useState(true);
-            const [cargas, setCargas] = useState([]);
-            const [facturasProv, setFacturasProv] = useState([]);
-
+            // --- PASO 1: AUTENTICACIÓN (REGLA 3) ---
             useEffect(() => {
-                if (!auth) { setLoading(false); return; }
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -408,89 +156,218 @@
                         } else {
                             await auth.signInAnonymously();
                         }
-                    } catch (e) { console.error("Error Auth:", e); }
+                    } catch (e) {
+                        console.error("Error Auth:", e);
+                    }
                 };
                 initAuth();
-                const unsubAuth = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
-                return () => unsubAuth();
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
             }, []);
 
+            // --- PASO 2: FETCHING DE DATOS (REGLA 1 & 2) ---
             useEffect(() => {
-                if (!user || !db) return;
-                const cols = ['cargas', 'facturasProveedor'];
-                const unsubs = cols.map(col => {
-                    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
-                        .onSnapshot(snap => {
-                            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                            if (col === 'cargas') setCargas(data);
-                            if (col === 'facturasProveedor') setFacturasProv(data);
-                        }, err => console.error("Snapshot error:", err));
-                });
-                return () => unsubs.forEach(fn => fn());
+                if (!user) return; // Guard obligatorio (Regla 3)
+
+                // Usamos la ruta estricta: /artifacts/{appId}/public/data/{collectionName}
+                const baseRef = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                
+                const unsubF = baseRef.collection('facturasProveedor').onSnapshot(
+                    (s) => setFacturas(s.docs.map(d => ({id: d.id, ...d.data()}))),
+                    (e) => console.error("Error snapshot facturas:", e)
+                );
+                
+                const unsubC = baseRef.collection('cargas').onSnapshot(
+                    (s) => setCargas(s.docs.map(d => ({id: d.id, ...d.data()}))),
+                    (e) => console.error("Error snapshot cargas:", e)
+                );
+
+                return () => { unsubF(); unsubC(); };
             }, [user]);
 
-            const stats = useMemo(() => {
-                const utilidadBruta = cargas.reduce((acc, c) => {
-                    const itemsUtil = (c.items || []).reduce((sub, it) => sub + (it.q * (it.pvd - (it.cost || it.costo))), 0);
-                    return acc + itemsUtil;
-                }, 0);
-                return { utilidadBruta };
+            const handleGuardarFactura = async () => {
+                if (!user) { setErrorMsg("Error: Esperando autenticación..."); return; }
+                if (!form.numFactura) { setErrorMsg("Falta número de factura."); return; }
+                
+                setIsSaving(true);
+                setErrorMsg(null);
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add({
+                        ...form,
+                        total: calc.total,
+                        utilidad: calc.utilidad,
+                        createdAt: new Date().toISOString(),
+                        createdBy: user.uid
+                    });
+                    setModalNueva(false);
+                    setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })) });
+                } catch (e) {
+                    console.error("Error guardando:", e);
+                    setErrorMsg("Error de permisos: Verifica que las Reglas de Firestore estén publicadas.");
+                } finally {
+                    setIsSaving(false);
+                }
+            };
+
+            const utilidadReal = useMemo(() => {
+                return cargas.reduce((acc, c) => acc + (c.items || []).reduce((sub, it) => sub + (it.q * (it.pvd - (it.cost || it.costo))), 0), 0);
             }, [cargas]);
 
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white">
-                    <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Austro App • Conectando...</p>
+                    <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+                    <p className="font-black text-orange-600 uppercase tracking-widest text-xs italic">Sincronizando Sistema...</p>
                 </div>
             );
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-10 text-left">
+                    {/* BARRA LATERAL */}
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 flex-col p-8 z-30 shadow-sm">
+                        <div className="flex items-center gap-4 mb-10">
                             <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
-                            <span className="font-black text-xl tracking-tighter italic text-orange-600 uppercase leading-tight leading-none">Distribuidora Austroapp</span>
+                            <span className="font-black text-xl tracking-tighter text-orange-600 uppercase italic leading-none">AustroApp</span>
                         </div>
 
-                        {/* INDICADOR DE CONEXIÓN */}
-                        <div className="mb-8 p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
-                            <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
-                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none">
-                                {user ? `Conectado como ${user.uid.substring(0,6)}` : 'Sin Conexión'}
-                            </span>
+                        {/* ESTADO DE CONEXIÓN */}
+                        <div className={`mb-8 p-4 rounded-2xl flex flex-col gap-2 ${user ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500 animate-pulse'}`}></div>
+                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{user ? 'Conectado' : 'Error Permisos'}</span>
+                            </div>
+                            {user && <p className="text-[7px] font-bold text-slate-400 truncate uppercase">UID: {user.uid.substring(0,10)}...</p>}
                         </div>
 
-                        <nav className="space-y-2 flex-1">
-                            <button onClick={() => setActiveTab('facturacion')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'facturacion' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="scan" size={22}/> 1. Facturación</button>
-                            <button onClick={() => setActiveTab('logistica')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'logistica' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="truck" size={22}/> 2. Logística</button>
-                            <button onClick={() => setActiveTab('gerencia')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'gerencia' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="line-chart" size={22}/> 3. Gerencia ✨</button>
+                        <nav className="space-y-3 flex-1">
+                            {['facturacion', 'logistica', 'inventario', 'gerencia'].map(tab => (
+                                <button 
+                                    key={tab} 
+                                    onClick={() => setActiveTab(tab)} 
+                                    className={`w-full flex items-center gap-4 p-5 rounded-[25px] transition-all font-black uppercase text-[11px] tracking-widest italic ${activeTab === tab ? 'sidebar-item-active' : 'text-slate-400 hover:bg-slate-50'}`}
+                                >
+                                    <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : 'line-chart'} size={22}/>
+                                    <span>{tab}</span>
+                                </button>
+                            ))}
                         </nav>
                         
-                        <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden">
-                            <p className="text-[8px] font-black uppercase opacity-50 mb-1 italic">A pagar Proveedor</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter leading-none">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                        <div className="mt-auto p-4 bg-slate-900 rounded-3xl text-white text-center shadow-lg">
+                            <p className="text-[8px] font-black uppercase opacity-50 mb-1">Proyecto</p>
+                            <p className="text-[9px] font-bold text-orange-400 truncate">{appId}</p>
                         </div>
                     </aside>
-                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 text-left">
-                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'logistica' && <LogisticaView cargas={cargas} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'gerencia' && (
+
+                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-32 text-left">
+                        {activeTab === 'facturacion' && (
                             <div className="space-y-6 fade-in text-left">
-                                <ViewHeader title="Gerencia" sub="Resumen Ejecutivo" onClose={() => setActiveTab('facturacion')} />
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white font-black">
-                                    <Card className="bg-slate-900 border-none shadow-2xl"><p className="text-[10px] font-black uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-4xl tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p></Card>
-                                    <Card className="bg-orange-600 border-none shadow-2xl"><p className="text-[10px] font-black uppercase opacity-60 mb-4 tracking-widest">Utilidad Generada</p><p className="text-4xl tracking-tighter">${stats.utilidadBruta.toLocaleString(undefined, {minimumFractionDigits: 2})}</p></Card>
+                                <ViewHeader title="Facturación" sub="Compras Proveedor" onClose={() => setActiveTab('gerencia')} />
+                                <div className="flex justify-end mb-4">
+                                    <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs">Nueva Factura</button>
+                                </div>
+                                <div className="space-y-4">
+                                    {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
+                                        <Card key={f.id} className="flex justify-between items-center border-l-8 border-orange-500">
+                                            <div className="text-left">
+                                                <h4 className="font-black text-slate-800 uppercase italic">Factura #{f.numFactura}</h4>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase">{f.fecha}</span>
+                                            </div>
+                                            <div className="text-right px-6 md:border-l border-slate-100 font-black">
+                                                <p className="text-[8px] uppercase opacity-40">Monto</p>
+                                                <p className="text-xl tracking-tighter">${f.total?.toFixed(2)}</p>
+                                            </div>
+                                            <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-4 text-slate-200 hover:text-red-500">
+                                                <Icon name="trash-2" size={22}/>
+                                            </button>
+                                        </Card>
+                                    ))}
                                 </div>
                             </div>
                         )}
+
+                        {activeTab === 'gerencia' && (
+                            <div className="space-y-8 fade-in text-left">
+                                <ViewHeader title="Gerencia" sub="Resumen Ejecutivo" onClose={() => setActiveTab('facturacion')} />
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black italic">
+                                    <Card className="bg-slate-900 border-none p-8"><p className="text-[10px] uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-3xl font-black italic">${TOTAL_GASTOS_FIJOS.toFixed(2)}</p></Card>
+                                    <Card className="bg-orange-600 border-none p-8"><p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Estimada</p><p className="text-3xl font-black italic">${utilidadReal.toFixed(2)}</p></Card>
+                                    <Card className={`${utilidadReal >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none p-8`}>
+                                        <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Resultado Final</p>
+                                        <p className="text-3xl font-black italic">${(utilidadReal - TOTAL_GASTOS_FIJOS).toFixed(2)}</p>
+                                    </Card>
+                                </div>
+                                <Card className="p-10 border-none shadow-xl bg-white text-left">
+                                    <h3 className="font-black text-xl uppercase tracking-tighter mb-8 border-b-2 border-slate-900 pb-2 italic">Desglose de Gastos</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-black text-orange-500 uppercase italic mb-4">Ventas ($3,339.80)</p>
+                                            {GASTOS_VENTAS_DETALLE.map((g,i) => (
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                            ))}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase italic mb-4">Administración ($240.00)</p>
+                                            {GASTOS_ADMIN_DETALLE.map((g,i) => (
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </Card>
+                            </div>
+                        )}
                     </main>
-                    <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
-                        {['facturacion', 'logistica', 'gerencia'].map(tab => (
-                            <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
-                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : 'line-chart'} size={24}/>
-                            </button>
-                        ))}
-                    </nav>
+
+                    {modalNueva && (
+                        <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2">
+                            <div className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] flex flex-col overflow-hidden relative shadow-2xl">
+                                <button onClick={() => setModalNueva(false)} className="absolute top-6 right-6 z-10 p-2 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 shadow-sm"><Icon name="x"/></button>
+                                <div className="flex-1 overflow-y-auto p-8 hide-scrollbar">
+                                    {errorMsg && <div className="mb-6 p-4 bg-red-50 text-red-700 border-2 border-red-200 rounded-2xl font-black text-xs uppercase italic animate-bounce">{errorMsg}</div>}
+                                    <div className="invoice-paper p-8 border rounded-xl text-left">
+                                        <h3 className="text-xl font-black text-slate-900 uppercase italic mb-8 border-b-2 border-slate-900 pb-4 italic italic">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
+                                        <div className="grid grid-cols-2 gap-4 mb-8">
+                                            <div className="bg-slate-900 text-white p-4 rounded-2xl">
+                                                <p className="text-[8px] font-black uppercase opacity-60 mb-1 italic leading-none">Nº DOCUMENTO</p>
+                                                <input className="bg-transparent text-lg font-black w-full outline-none placeholder:text-slate-700" placeholder="000-000-000" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
+                                            </div>
+                                            <div className="bg-slate-50 border p-4 rounded-2xl text-left">
+                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1 italic leading-none">FECHA EMISIÓN</p>
+                                                <input type="date" className="bg-transparent font-black w-full outline-none text-slate-700" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <table className="w-full invoice-table mb-8">
+                                            <thead><tr><th>Descripción</th><th className="w-24 text-center">Cant.</th><th className="w-32 text-right">Precio</th></tr></thead>
+                                            <tbody>
+                                                {form.items.map((it, idx) => (
+                                                    <tr key={it.id}>
+                                                        <td className="font-black text-xs uppercase italic text-slate-700">{it.nombre}</td>
+                                                        <td className="p-0">
+                                                            <input type="number" className="w-full text-center py-4 font-black bg-orange-50/50 border-none text-orange-600 focus:bg-orange-100 transition-colors" value={it.cantidad === 0 ? '' : it.cantidad} placeholder="" onChange={e => {
+                                                                const ni = [...form.items]; ni[idx].cantidad = e.target.value === '' ? 0 : parseInt(e.target.value); setForm({...form, items: ni});
+                                                            }} />
+                                                        </td>
+                                                        <td className="text-right font-mono text-slate-400 italic">${it.costo.toFixed(4)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <div className="bg-slate-900 text-white p-8 rounded-[40px] flex justify-between items-center italic shadow-2xl">
+                                            <span className="font-black uppercase text-xs tracking-widest italic opacity-50 italic">Total con Impuestos</span>
+                                            <span className="text-5xl font-black italic tracking-tighter leading-none">${calc.total.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="p-8 bg-slate-50 border-t flex justify-end gap-4">
+                                    <button onClick={() => setModalNueva(false)} className="px-10 py-4 font-black uppercase text-xs text-slate-400">Cancelar</button>
+                                    <button onClick={handleGuardarFactura} disabled={isSaving} className={`bg-orange-600 text-white px-12 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-xl transition-all ${isSaving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}>
+                                        {isSaving ? 'Guardando...' : 'Grabar Factura ✨'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
