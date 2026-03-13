@@ -130,6 +130,8 @@
             const [modalNueva, setModalNueva] = useState(false);
             const [modalPago, setModalPago] = useState(null);
             const [isSaving, setIsSaving] = useState(false);
+            const [errorMsg, setErrorMsg] = useState(null);
+            
             const [form, setForm] = useState({
                 numFactura: '',
                 fecha: today,
@@ -148,9 +150,20 @@
 
             const handleGuardarFactura = async (e) => {
                 if (e) e.preventDefault();
-                if (!user) return console.error("No autenticado");
-                if (!form.numFactura) return console.error("Falta número de factura");
-                if (!db) return console.error("Base de datos no disponible");
+                setErrorMsg(null);
+                
+                if (!user) {
+                    setErrorMsg("Error: No has iniciado sesión en Firebase. Verifica que el inicio anónimo esté activo.");
+                    return;
+                }
+                if (!form.numFactura) {
+                    setErrorMsg("Error: Debes ingresar el número de factura.");
+                    return;
+                }
+                if (!db) {
+                    setErrorMsg("Error: La base de datos no está inicializada.");
+                    return;
+                }
                 
                 setIsSaving(true);
                 try {
@@ -166,37 +179,23 @@
                         createdAt: new Date().toISOString()
                     };
 
+                    // RUTA CRÍTICA: /artifacts/{appId}/public/data/facturasProveedor
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add(data);
+                    
                     setModalNueva(false);
                     resetForm();
                 } catch (err) {
                     console.error("Error al guardar factura:", err);
+                    setErrorMsg(`Error de Firebase: ${err.message}`);
                 } finally {
                     setIsSaving(false);
                 }
             };
 
-            const registrarAbono = async (factura) => {
-                if (!user || !db) return;
-                const monto = parseFloat(pagoForm.monto);
-                if (isNaN(monto) || monto <= 0) return;
-                try {
-                    const nuevoSaldo = Math.max(0, factura.saldoPendiente - monto);
-                    const nuevoEstado = nuevoSaldo <= 0.05 ? 'Cancelado' : 'Abonado';
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(factura.id).update({
-                        saldoPendiente: nuevoSaldo, estado: nuevoEstado
-                    });
-                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
-                        fecha: pagoForm.fecha, monto, categoria: 'Pago Proveedor', detalle: `Pago Fact #${factura.numFactura}`, comprobante: pagoForm.comprobante
-                    });
-                    setModalPago(null);
-                    setPagoForm({ monto: '', fecha: today, comprobante: null });
-                } catch (err) {
-                    console.error("Error al abonar:", err);
-                }
+            const resetForm = () => {
+                setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
+                setErrorMsg(null);
             };
-
-            const resetForm = () => setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })), respaldoDoc: null });
 
             return (
                 <div className="space-y-6 fade-in text-left">
@@ -222,9 +221,6 @@
                                     <div><p className="text-[8px] uppercase font-bold opacity-40 mb-1">Pendiente</p><p className={`${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toFixed(2)}</p></div>
                                 </div>
                                 <div className="flex gap-2 w-full md:w-auto justify-end">
-                                    {f.estado !== 'Cancelado' && (
-                                        <button onClick={() => setModalPago(f)} className="p-4 bg-green-50 text-green-600 rounded-2xl hover:bg-green-100 shadow-sm"><Icon name="banknote" size={24}/></button>
-                                    )}
                                     <button onClick={() => { if(confirm('¿Desea eliminar este registro?')) db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete() }} className="p-4 text-slate-200 hover:text-red-500 transition-colors">
                                         <Icon name="trash-2" size={24}/>
                                     </button>
@@ -240,14 +236,23 @@
                                     <Icon name="x" size={24}/>
                                 </button>
                                 <div className="flex-1 overflow-y-auto p-4 sm:p-10 hide-scrollbar">
+                                    {errorMsg && (
+                                        <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-2xl flex items-start gap-3 animate-bounce">
+                                            <Icon name="alert-circle" className="text-red-500 mt-1" size={24}/>
+                                            <div>
+                                                <p className="font-black text-red-600 uppercase text-xs italic">¡Atención!</p>
+                                                <p className="text-red-800 text-sm font-bold">{errorMsg}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="invoice-paper p-6 sm:p-10 border rounded-sm">
                                         <div className="flex flex-col md:flex-row justify-between items-start mb-10 pb-10 border-b-2 border-slate-900">
                                             <div className="text-left space-y-1">
                                                 <h3 className="text-xl font-black text-slate-900 uppercase italic leading-none mb-3 tracking-tighter">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
                                                 <div className="space-y-0.5 text-slate-500 font-bold uppercase text-[9px]">
-                                                    <p>VIA QUININDE MARGEN DERECHO KM13</p>
                                                     <p>RUC: 1792039754001</p>
-                                                    <p>TELÉFONO: 022765404</p>
+                                                    <p>VIA QUININDE MARGEN DERECHO KM13</p>
                                                 </div>
                                             </div>
                                             <div className="w-full md:w-64 mt-6 md:mt-0 space-y-3 text-left">
@@ -262,27 +267,10 @@
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-[10px] font-bold text-slate-600 uppercase text-left italic">
-                                            <div className="space-y-1 border-r pr-8 border-slate-100">
-                                                <p className="text-slate-400 mb-2 font-black italic">Adquiriente:</p>
-                                                <p className="text-slate-900 font-black text-xs tracking-tight uppercase">DISTRIBUIDORA AUSTROECUATORIANA S.A.S.</p>
-                                                <p>RUC: 0195174555001</p>
-                                                <p>CIUDAD: CUENCA</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-slate-400 mb-2 font-black italic">Cargar Respaldo:</p>
-                                                <input type="file" className="text-[9px] w-full" onChange={e => {
-                                                    const r = new FileReader(); r.onload = () => setForm({...form, respaldoDoc: r.result});
-                                                    if(e.target.files[0]) r.readAsDataURL(e.target.files[0]);
-                                                }} />
-                                            </div>
-                                        </div>
-
                                         <div className="overflow-x-auto mb-10">
                                             <table className="w-full invoice-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Cod.</th>
                                                         <th>Descripción</th>
                                                         <th className="w-24 text-center">Cant.</th>
                                                         <th className="w-32 text-right">Precio Uni.</th>
@@ -292,7 +280,6 @@
                                                 <tbody>
                                                     {form.items.map((it, idx) => (
                                                         <tr key={it.id}>
-                                                            <td className="font-mono text-slate-400 text-[10px]">{it.codigo}</td>
                                                             <td className="text-left font-black text-slate-800 text-xs uppercase">{it.nombre}</td>
                                                             <td className="p-0">
                                                                 <input 
@@ -315,33 +302,20 @@
                                             </table>
                                         </div>
 
-                                        <div className="flex flex-col md:flex-row justify-between gap-10">
-                                            <div className="flex-1 space-y-4 text-left">
-                                                <div className="bg-slate-50 p-5 rounded border w-full italic">
-                                                    <p className="text-[8px] font-black text-slate-400 uppercase mb-2">Vendedor:</p>
-                                                    <p className="text-[10px] font-bold text-slate-600 uppercase">ARIAS JAIME</p>
-                                                </div>
-                                                <div className="bg-green-50 p-6 rounded-xl border border-green-200">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <Icon name="trending-up" className="text-green-600" size={18}/>
-                                                        <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Utilidad Estimada ✨</p>
-                                                    </div>
-                                                    <p className="text-4xl font-black text-green-800 tracking-tighter">${calc.utilidad.toFixed(2)}</p>
-                                                </div>
-                                            </div>
-                                            <div className="w-full md:w-80 space-y-2 text-left">
-                                                <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
-                                                    <span className="text-xs font-black uppercase tracking-tighter">VALOR TOTAL</span>
-                                                    <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
-                                                </div>
-                                            </div>
+                                        <div className="flex justify-between items-center p-4 bg-slate-900 text-white rounded mt-4 shadow-xl">
+                                            <span className="text-xs font-black uppercase tracking-tighter italic">VALOR TOTAL CON IVA</span>
+                                            <span className="text-3xl font-black tracking-tighter">${calc.total.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="p-6 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all">Cancelar</button>
-                                    <button onClick={handleGuardarFactura} disabled={isSaving} className={`px-10 py-4 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-orange-600'} text-white rounded-2xl font-black uppercase text-[10px] shadow-xl transition-all`}>
-                                        {isSaving ? 'Grabando...' : 'Grabar Factura ✨'}
+                                    <button type="button" onClick={() => { resetForm(); setModalNueva(false); }} className="px-8 py-4 bg-white border border-slate-300 rounded-2xl font-black uppercase text-[10px] text-slate-500">Cancelar</button>
+                                    <button 
+                                        onClick={handleGuardarFactura} 
+                                        disabled={isSaving} 
+                                        className={`px-10 py-4 ${isSaving ? 'bg-slate-400' : 'bg-slate-900 hover:bg-orange-600'} text-white rounded-2xl font-black uppercase text-[10px] shadow-xl transition-all flex items-center gap-3`}>
+                                        {isSaving && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                                        {isSaving ? 'GRABANDO...' : 'GRABAR FACTURA ✨'}
                                     </button>
                                 </div>
                             </div>
@@ -395,7 +369,7 @@
                                         <option value="">Seleccione Vendedor</option>
                                         {VENDEDORES.map(v => <option key={v} value={v}>{v}</option>)}
                                     </select>
-                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2 hide-scrollbar">
+                                    <div className="space-y-2">
                                         {form.items.map((it, idx) => (
                                             <div key={it.id} className="flex justify-between items-center border-b pb-2">
                                                 <span className="text-[10px] font-black uppercase flex-1">{it.nombre}</span>
@@ -417,130 +391,12 @@
             );
         };
 
-        const InventarioView = ({ facturas, cargas, onClose }) => {
-            const inventario = useMemo(() => {
-                const stock = {};
-                PRODUCTOS_BASE.forEach(p => stock[p.id] = { ...p, ingresado: 0, despachado: 0 });
-                facturas.forEach(f => { if(f.items) f.items.forEach(it => { if (stock[it.id]) stock[it.id].ingresado += (it.cantidad || 0); }); });
-                cargas.forEach(c => { if(c.items) c.items.forEach(it => { if (stock[it.pId]) stock[it.pId].despachado += (it.q || 0); }); });
-                return Object.values(stock).map(p => ({ ...p, actual: p.ingresado - p.despachado }));
-            }, [facturas, cargas]);
-            return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Inventario" sub="3. Control de Stock Central" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {inventario.map(p => (
-                            <Card key={p.id} className="relative overflow-hidden text-left">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-orange-600"></div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-4 leading-tight">{p.nombre}</p>
-                                <p className={`text-5xl font-black tracking-tighter text-center ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        const ContabilidadView = ({ cartera, gastos, onClose }) => {
-            const movimientos = useMemo(() => {
-                const items = [
-                    ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto, ref: i.cliente || 'Venta de Ruta' })),
-                    ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto, ref: e.detalle || 'Gasto Operativo' })),
-                ];
-                items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-                let balance = 0;
-                return items.map(it => { balance += (it.val || 0); return { ...it, balanceAcumulado: balance }; }).reverse();
-            }, [cartera, gastos]);
-            return (
-                <div className="space-y-6 fade-in text-left">
-                    <ViewHeader title="Contabilidad" sub="4. Movimientos de Caja" onClose={onClose} />
-                    <Card className="p-0 overflow-hidden border-none shadow-xl">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-xs font-bold">
-                                <thead className="bg-slate-50 text-slate-500 uppercase font-black text-left">
-                                    <tr><th className="p-6">Fecha</th><th className="p-6">Detalle</th><th className="p-6">Monto</th><th className="p-6 text-right">Balance</th></tr>
-                                </thead>
-                                <tbody>
-                                    {movimientos.map((m, idx) => (
-                                        <tr key={idx} className="border-b border-slate-50">
-                                            <td className="p-6 text-slate-400 font-mono">{m.fecha}</td>
-                                            <td className="p-6 font-black uppercase italic">{m.ref}</td>
-                                            <td className={`p-6 font-black ${m.val > 0 ? 'text-green-600' : 'text-red-500'}`}>{m.val > 0 ? '+' : ''}${m.val.toFixed(2)}</td>
-                                            <td className="p-6 text-right font-black">${m.balanceAcumulado.toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </div>
-            );
-        };
-
-        const GerenciaView = ({ stats, facturasProv, onClose }) => {
-            const utilidad = stats.utilidadBruta || 0;
-            const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
-            return (
-                <div className="space-y-6 fade-in pb-12 text-left text-slate-800 font-bold">
-                    <ViewHeader title="Gerencia" sub="5. Resumen Ejecutivo" onClose={onClose} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
-                        <Card className="bg-slate-900 border-none shadow-2xl text-left">
-                            <p className="text-[10px] font-black uppercase opacity-50 mb-4 italic tracking-widest">Inversión Fija</p>
-                            <p className="text-4xl tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                        </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl text-left">
-                            <p className="text-[10px] font-black uppercase opacity-60 mb-4 italic tracking-widest">Utilidad Bruta</p>
-                            <p className="text-4xl tracking-tighter">${utilidad.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                        </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl text-left`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 mb-4 italic tracking-widest">Resultado Neto</p>
-                            <p className="text-4xl tracking-tighter">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                        </Card>
-                    </div>
-
-                    <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
-                        <h3 className="font-black text-3xl uppercase tracking-tighter italic mb-4">Punto de Equilibrio: {perc}%</h3>
-                        <div className="w-full bg-slate-100 h-16 rounded-[40px] overflow-hidden p-2 shadow-inner border border-slate-200">
-                            <div className={`progress-bar h-full rounded-[30px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
-                                {perc > 15 ? `$${utilidad.toLocaleString()} GENERADOS` : ''}
-                            </div>
-                        </div>
-                    </Card>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-white border border-slate-200">
-                            <h3 className="font-black uppercase text-sm mb-4 italic">Gastos de Ventas (${TOTAL_VENTAS.toFixed(2)})</h3>
-                            <div className="space-y-2">
-                                {GASTOS_VENTAS_DETALLE.map((i, idx) => (
-                                    <div key={idx} className="flex justify-between text-[10px] uppercase font-bold border-b pb-2 border-dashed border-slate-100 italic">
-                                        <span>{i.concepto}</span><span>${i.valor.toFixed(2)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                        <Card className="bg-white border border-slate-200">
-                            <h3 className="font-black uppercase text-sm mb-4 italic">Gastos Administrativos (${TOTAL_ADMIN.toFixed(2)})</h3>
-                            <div className="space-y-2">
-                                {GASTOS_ADMIN_DETALLE.map((i, idx) => (
-                                    <div key={idx} className="flex justify-between text-[10px] uppercase font-bold border-b pb-2 border-dashed border-slate-100 italic">
-                                        <span>{i.concepto}</span><span>${i.valor.toFixed(2)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    </div>
-                </div>
-            );
-        };
-
         // --- APP RAÍZ ---
         function App() {
             const [user, setUser] = useState(null);
             const [activeTab, setActiveTab] = useState('facturacion'); 
             const [loading, setLoading] = useState(true);
             const [cargas, setCargas] = useState([]);
-            const [cartera, setCartera] = useState([]);
-            const [gastos, setGastos] = useState([]);
             const [facturasProv, setFacturasProv] = useState([]);
 
             useEffect(() => {
@@ -561,16 +417,14 @@
 
             useEffect(() => {
                 if (!user || !db) return;
-                const cols = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
+                const cols = ['cargas', 'facturasProveedor'];
                 const unsubs = cols.map(col => {
                     return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
                         .onSnapshot(snap => {
                             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                             if (col === 'cargas') setCargas(data);
-                            if (col === 'cartera') setCartera(data);
-                            if (col === 'gastos') setGastos(data);
                             if (col === 'facturasProveedor') setFacturasProv(data);
-                        });
+                        }, err => console.error("Snapshot error:", err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
@@ -586,46 +440,54 @@
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white">
                     <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Distribuidora Austro App • Cargando...</p>
+                    <p className="font-black text-orange-600 animate-pulse uppercase tracking-[0.4em] text-[10px]">Austro App • Conectando...</p>
                 </div>
-            );
-
-            const NavItem = ({ id, icon, label }) => (
-                <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-white hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}>
-                    <Icon name={icon} size={22}/><span className="hidden md:inline">{label}</span>
-                </button>
             );
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-gray-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-16 text-left">
+                        <div className="flex items-center gap-3 mb-10 text-left">
                             <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
-                            <span className="font-black text-xl tracking-tighter italic text-orange-600 uppercase leading-none leading-tight">Distribuidora Austroapp</span>
+                            <span className="font-black text-xl tracking-tighter italic text-orange-600 uppercase leading-tight leading-none">Distribuidora Austroapp</span>
                         </div>
+
+                        {/* INDICADOR DE CONEXIÓN */}
+                        <div className="mb-8 p-4 bg-slate-50 rounded-2xl flex items-center gap-3">
+                            <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`}></div>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest italic leading-none">
+                                {user ? `Conectado como ${user.uid.substring(0,6)}` : 'Sin Conexión'}
+                            </span>
+                        </div>
+
                         <nav className="space-y-2 flex-1">
-                            <NavItem id="facturacion" icon="scan" label="1. Facturación" />
-                            <NavItem id="logistica" icon="truck" label="2. Logística" />
-                            <NavItem id="inventario" icon="archive" label="3. Inventario" />
-                            <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" />
-                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" />
+                            <button onClick={() => setActiveTab('facturacion')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'facturacion' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="scan" size={22}/> 1. Facturación</button>
+                            <button onClick={() => setActiveTab('logistica')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'logistica' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="truck" size={22}/> 2. Logística</button>
+                            <button onClick={() => setActiveTab('gerencia')} className={`w-full flex items-center gap-3 p-5 rounded-3xl transition-all ${activeTab === 'gerencia' ? 'bg-orange-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'} font-black uppercase text-[11px] tracking-widest`}><Icon name="line-chart" size={22}/> 3. Gerencia ✨</button>
                         </nav>
+                        
                         <div className="mt-auto p-6 bg-slate-900 rounded-[35px] text-white text-center shadow-2xl relative overflow-hidden">
                             <p className="text-[8px] font-black uppercase opacity-50 mb-1 italic">A pagar Proveedor</p>
-                            <p className="text-2xl font-black text-orange-400 tracking-tighter">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className="text-2xl font-black text-orange-400 tracking-tighter leading-none">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                         </div>
                     </aside>
-                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 md:pb-12 text-left">
+                    <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-24 text-left">
                         {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'logistica' && <LogisticaView cargas={cargas} db={db} appId={appId} user={user} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'inventario' && <InventarioView facturas={facturasProv} cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} onClose={() => setActiveTab('gerencia')} />}
-                        {activeTab === 'gerencia' && <GerenciaView stats={stats} facturasProv={facturasProv} onClose={() => setActiveTab('facturacion')} />}
+                        {activeTab === 'gerencia' && (
+                            <div className="space-y-6 fade-in text-left">
+                                <ViewHeader title="Gerencia" sub="Resumen Ejecutivo" onClose={() => setActiveTab('facturacion')} />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-white font-black">
+                                    <Card className="bg-slate-900 border-none shadow-2xl"><p className="text-[10px] font-black uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-4xl tracking-tighter">${TOTAL_GASTOS_FIJOS.toLocaleString(undefined, {minimumFractionDigits: 2})}</p></Card>
+                                    <Card className="bg-orange-600 border-none shadow-2xl"><p className="text-[10px] font-black uppercase opacity-60 mb-4 tracking-widest">Utilidad Generada</p><p className="text-4xl tracking-tighter">${stats.utilidadBruta.toLocaleString(undefined, {minimumFractionDigits: 2})}</p></Card>
+                                </div>
+                            </div>
+                        )}
                     </main>
                     <nav className="md:hidden fixed bottom-4 left-4 right-4 bg-slate-900/95 backdrop-blur-md rounded-[35px] flex justify-around p-5 z-40 border border-white/10 shadow-2xl">
-                        {['facturacion', 'logistica', 'inventario', 'contabilidad', 'gerencia'].map(tab => (
+                        {['facturacion', 'logistica', 'gerencia'].map(tab => (
                             <button key={tab} onClick={() => setActiveTab(tab)} className={activeTab === tab ? 'text-orange-500' : 'text-slate-500'}>
-                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : tab === 'contabilidad' ? 'book-open' : 'line-chart'} size={24}/>
+                                <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : 'line-chart'} size={24}/>
                             </button>
                         ))}
                     </nav>
