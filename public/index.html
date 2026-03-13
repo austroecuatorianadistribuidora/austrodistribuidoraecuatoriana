@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Logística Polaca Pro v2.2</title>
+    <title>Logística Polaca Pro v1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="importmap">
     {
@@ -98,7 +98,7 @@
         <header class="oneui-header">
             <div class="flex justify-between items-start">
                 <div>
-                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Cloud Sync Active</div>
+                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Sincronización Activa</div>
                     <h1 id="view-title" class="text-3xl font-extrabold tracking-tight">Inicio</h1>
                 </div>
                 <div class="bg-orange-100 p-2 rounded-2xl">
@@ -109,11 +109,17 @@
 
         <main id="main-container" class="px-5 space-y-6">
             
-            <!-- PESTAÑA 1: INICIO -->
+            <!-- PESTAÑA 1: INICIO (CON VERSIÓN) -->
             <section id="tab-dashboard" class="tab-content active fade-in">
-                <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100">
+                <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
                     <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Balance de Facturación</p>
                     <h2 id="dash-total" class="text-4xl font-black mt-1">$0.00</h2>
+                    
+                    <div class="mt-8 flex justify-between items-center">
+                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold">TIEMPO REAL</span>
+                        <!-- Indicador de Versión Solicitado -->
+                        <span class="text-[10px] font-mono font-bold opacity-40">v1.1</span>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4 mt-4">
@@ -145,7 +151,6 @@
                     </button>
                 </div>
 
-                <!-- CARGA MAÑANA -->
                 <div class="card-samsung p-6 border border-gray-100 space-y-6">
                     <div class="flex justify-between items-center">
                         <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Carga de Inventario (Mañana)</h3>
@@ -159,75 +164,59 @@
                     <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Sincronizar Carga</button>
                 </div>
 
-                <!-- CIERRE NOCHE -->
                 <div class="card-samsung p-6 border border-gray-100 mt-4 space-y-5">
                     <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Cuadre de Caja y Gastos (Noche)</h3>
-                    
                     <div class="space-y-4">
                         <div>
                             <label class="text-[9px] font-black text-blue-600 uppercase">Total Vendido ($)</label>
                             <input id="log-venta" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-lg font-black py-2 border-b-2 border-blue-100">
                         </div>
-
-                        <p class="text-[8px] font-black text-gray-300 uppercase mt-2">Desglose de Gastos Operativos</p>
+                        <p class="text-[8px] font-black text-gray-300 uppercase mt-2">Gastos Operativos</p>
                         <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-[9px] font-black text-gray-400">Viáticos</label>
-                                <input id="g-viaticos" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-xs font-bold py-1">
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-black text-gray-400">Alimentación</label>
-                                <input id="g-alimentacion" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-xs font-bold py-1">
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-black text-gray-400">Combustible</label>
-                                <input id="g-combustible" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-xs font-bold py-1">
-                            </div>
-                            <div>
-                                <label class="text-[9px] font-black text-gray-400">Hospedaje</label>
-                                <input id="g-hospedaje" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-xs font-bold py-1">
-                            </div>
+                            <input id="g-viaticos" type="number" oninput="window.calcNeto()" placeholder="Viáticos" class="w-full text-xs font-bold py-1 border-b">
+                            <input id="g-alimentacion" type="number" oninput="window.calcNeto()" placeholder="Comida" class="w-full text-xs font-bold py-1 border-b">
+                            <input id="g-combustible" type="number" oninput="window.calcNeto()" placeholder="Combust." class="w-full text-xs font-bold py-1 border-b">
+                            <input id="g-hospedaje" type="number" oninput="window.calcNeto()" placeholder="Hosped." class="w-full text-xs font-bold py-1 border-b">
                         </div>
-                        <div>
-                            <label class="text-[9px] font-black text-gray-400">Otros Gastos Varios</label>
-                            <input id="g-otros" type="number" oninput="window.calcNeto()" placeholder="0.00" class="w-full text-xs font-bold py-1">
-                        </div>
-
+                        <input id="g-otros" type="number" oninput="window.calcNeto()" placeholder="Otros Gastos" class="w-full text-xs font-bold py-1 border-b">
                         <div class="bg-gray-900 p-5 rounded-2xl flex justify-between items-center shadow-lg">
                             <div>
                                 <p class="text-[9px] font-black text-orange-200 uppercase tracking-widest">Neto a Depositar</p>
                                 <p id="log-neto" class="text-3xl font-black text-orange-400">$0.00</p>
                             </div>
-                            <div class="text-right">
-                                <label for="log-file" class="bg-white/10 p-3 rounded-2xl inline-block cursor-pointer">
-                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                </label>
-                                <input id="log-file" type="file" class="hidden">
-                            </div>
                         </div>
                     </div>
-                    <button onclick="window.saveLiquidation('Cierre')" class="w-full py-5 btn-orange rounded-[28px] text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-orange-100">Finalizar Jornada</button>
+                    <button onclick="window.saveLiquidation('Cierre')" class="w-full py-5 btn-orange rounded-[28px] text-[11px] font-black uppercase tracking-[0.2em]">Finalizar Jornada</button>
                 </div>
             </section>
 
             <!-- PESTAÑA 4: GERENCIA -->
             <section id="tab-gerencia" class="tab-content fade-in">
+                <div id="utility-card" class="card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors duration-500">
+                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Bruta Proyectada</p>
+                    <h2 id="gerencia-utility" class="text-4xl font-black mt-1">$0.00</h2>
+                    <p id="gerencia-status-msg" class="text-[10px] font-bold mt-4 uppercase">Calculando...</p>
+                </div>
                 <div class="card-samsung p-6 border border-gray-100 space-y-4">
-                    <h3 class="font-black text-gray-800 text-lg">Meta de Ventas</h3>
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Punto de Equilibrio</h3>
                     <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
                         <div id="gerencia-progress" class="h-full bg-orange-500 transition-all duration-1000" style="width: 0%"></div>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <p id="gerencia-percent" class="text-[10px] font-black text-orange-600">0%</p>
-                        <p class="text-[10px] font-black text-gray-400 uppercase">Meta: $6,945.00</p>
+                    <div class="flex justify-between items-center text-[10px] font-black">
+                        <p id="gerencia-percent" class="text-orange-600">0%</p>
+                        <p class="text-gray-400 uppercase">Meta: $19,887.78</p>
                     </div>
+                </div>
+                <div class="card-samsung p-6 border border-gray-100 mt-4">
+                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest mb-4">Gastos Fijos Detallados</h3>
+                    <div id="fixed-costs-list" class="space-y-2"></div>
                 </div>
             </section>
 
             <!-- PESTAÑA 5: CONTABILIDAD -->
             <section id="tab-contabilidad" class="tab-content fade-in">
                 <div class="card-samsung p-6 border border-gray-100 space-y-4 mb-4">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase">Registrar Movimiento Manual</h3>
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase">Movimiento Manual</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <select id="acc-tipo" class="text-xs font-black p-2 border-b-2 bg-white">
                             <option value="ingreso">Ingreso (+)</option>
@@ -235,8 +224,8 @@
                         </select>
                         <input id="acc-monto" type="number" placeholder="Monto $" class="text-sm font-black py-2 border-b-2">
                     </div>
-                    <input id="acc-desc" type="text" placeholder="Concepto (ej. Pago combustible)" class="w-full text-xs font-medium py-2 border-b-2">
-                    <button onclick="window.saveContabilidad()" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase">Registrar en Libro</button>
+                    <input id="acc-desc" type="text" placeholder="Concepto" class="w-full text-xs font-medium py-2 border-b-2">
+                    <button onclick="window.saveContabilidad()" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase">Registrar</button>
                 </div>
                 <div id="contabilidad-ledger" class="space-y-3"></div>
             </section>
@@ -258,7 +247,7 @@
             </button>
             <button onclick="window.switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-gerencia">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                <span class="text-[9px] font-black uppercase">Metas</span>
+                <span class="text-[9px] font-black uppercase">Gerencia</span>
             </button>
             <button onclick="window.switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 transition-all scale-90" id="nav-contabilidad">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -302,6 +291,26 @@
             { id: 'P4', nombre: 'AVENA POLACA 1000G', precio: 1.597390 }
         ];
 
+        const GASTOS_FIJOS = [
+            { id: 'G1', concepto: 'Sueldos empleados', monto: 964.00 },
+            { id: 'G2', concepto: 'Combustible', monto: 350.00 },
+            { id: 'G3', concepto: 'Comisiones', monto: 600.00 },
+            { id: 'G4', concepto: 'Viáticos mercado local', monto: 60.00 },
+            { id: 'G5', concepto: 'Viáticos mercado foráneo', monto: 180.00 },
+            { id: 'G6', concepto: 'Depreciación de vehículos', monto: 200.00 },
+            { id: 'G7', concepto: 'Intereses préstamo vehículos', monto: 172.73 },
+            { id: 'G8', concepto: 'Pago de Capital Vehículos', monto: 683.06 },
+            { id: 'G9', concepto: 'Mantenimiento y reparaciones', monto: 100.00 },
+            { id: 'G10', concepto: 'Telefonía celular', monto: 30.00 },
+            { id: 'G11', concepto: 'Honorarios profesionales', monto: 200.00 },
+            { id: 'G12', concepto: 'Suministros y materiales', monto: 10.00 },
+            { id: 'G13', concepto: 'Gastos Varios', monto: 30.00 }
+        ];
+
+        const TOTAL_GASTOS_FIJOS = 3579.80;
+        const MARGEN_OPERATIVO = 0.18;
+        const META_PUNTO_EQUILIBRIO = TOTAL_GASTOS_FIJOS / MARGEN_OPERATIVO;
+
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -317,7 +326,6 @@
             activeVendor: 'Diego Javier Ciabichay Arias'
         };
 
-        // Regla 3: Auth antes de consultas
         async function init() {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -325,10 +333,7 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (e) { 
-                console.error(e);
-                showToast("Fallo de Autenticación"); 
-            }
+            } catch (e) { showToast("Error Auth"); }
         }
 
         onAuthStateChanged(auth, (u) => {
@@ -341,24 +346,18 @@
 
         function setupListeners() {
             if (!state.user) return;
-
-            // Regla 1: Rutas estrictas y Callbacks de Error requeridos
-            const errorCb = (err) => console.error("Firestore Error:", err);
-
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
                 state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
                 render();
-            }, errorCb);
-
+            });
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), (snap) => {
                 state.ledger = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
                 render();
-            }, errorCb);
-
+            });
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), (snap) => {
                 state.rutas = snap.docs.map(d => ({id: d.id, ...d.data()}));
                 render();
-            }, errorCb);
+            });
         }
 
         window.switchTab = (tab) => {
@@ -400,7 +399,6 @@
                 (parseFloat(document.getElementById('g-combustible').value) || 0) +
                 (parseFloat(document.getElementById('g-hospedaje').value) || 0) +
                 (parseFloat(document.getElementById('g-otros').value) || 0);
-            
             const neto = venta - gastos;
             document.getElementById('log-neto').innerText = `$${neto.toFixed(2)}`;
             return neto;
@@ -461,11 +459,35 @@
 
             if (tab === 'gerencia') {
                 const totalIn = state.facturas.reduce((acc, f) => acc + (f.total || 0), 0);
-                const percent = Math.min((totalIn / 6945) * 100, 100);
+                const percent = Math.min((totalIn / META_PUNTO_EQUILIBRIO) * 100, 100);
                 const progEl = document.getElementById('gerencia-progress');
                 if (progEl) progEl.style.width = percent + '%';
                 const percEl = document.getElementById('gerencia-percent');
                 if (percEl) percEl.innerText = `${percent.toFixed(1)}% Alcanzado`;
+                
+                const utility = (totalIn * MARGEN_OPERATIVO) - TOTAL_GASTOS_FIJOS;
+                const utilityEl = document.getElementById('gerencia-utility');
+                const cardEl = document.getElementById('utility-card');
+                const msgEl = document.getElementById('gerencia-status-msg');
+                
+                if (utilityEl) utilityEl.innerText = `${utility < 0 ? '-' : ''}$${Math.abs(utility).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                if (utility < 0) {
+                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors duration-500";
+                    msgEl.innerText = "EN PÉRDIDA OPERATIVA";
+                } else {
+                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-emerald-600 transition-colors duration-500";
+                    msgEl.innerText = "GENERANDO UTILIDAD";
+                }
+
+                const listEl = document.getElementById('fixed-costs-list');
+                if (listEl) {
+                    listEl.innerHTML = GASTOS_FIJOS.map(g => `
+                        <div class="flex justify-between items-center text-[10px] p-2 bg-gray-50 rounded-xl">
+                            <span class="text-gray-500 font-bold uppercase">${g.concepto}</span>
+                            <span class="font-black text-gray-800">$${g.monto.toFixed(2)}</span>
+                        </div>
+                    `).join('');
+                }
             }
 
             if (tab === 'contabilidad') {
@@ -503,8 +525,7 @@
             if (!num) return showToast("Falta Número");
             const total = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
             try {
-                const fRef = collection(db, 'artifacts', appId, 'public', 'data', 'facturas');
-                await addDoc(fRef, {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), {
                     cliente: document.getElementById('f-cliente').value,
                     numFactura: num,
                     fechaEmision: document.getElementById('f-fecha').value,
@@ -512,10 +533,9 @@
                     estado: 'pendiente',
                     timestamp: serverTimestamp()
                 });
-                const lRef = collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad');
-                await addDoc(lRef, { tipo: 'ingreso', monto: total, descripcion: `Venta: ${num}`, timestamp: serverTimestamp() });
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: total, descripcion: `Venta: ${num}`, timestamp: serverTimestamp() });
                 showToast("Factura Sincronizada"); window.closeModal('modal-factura');
-            } catch (e) { showToast("Error de Permisos"); }
+            } catch (e) { showToast("Error Firestore"); }
         };
 
         window.saveLiquidation = async (tipo) => {
@@ -536,14 +556,12 @@
                 } : null
             };
             try {
-                const rRef = collection(db, 'artifacts', appId, 'public', 'data', 'rutas');
-                await addDoc(rRef, data);
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), data);
                 if (tipo === 'Cierre') {
-                    const lRef = collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad');
-                    await addDoc(lRef, { tipo: 'ingreso', monto: data.montoNeto, descripcion: `Depósito: ${state.activeVendor}`, timestamp: serverTimestamp() });
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: data.montoNeto, descripcion: `Liquidación: ${state.activeVendor}`, timestamp: serverTimestamp() });
                 }
-                showToast("Datos Sincronizados");
-            } catch (e) { showToast("Error de Nube"); }
+                showToast("Éxito en la Nube");
+            } catch (e) { showToast("Error"); }
         };
 
         window.saveContabilidad = async () => {
@@ -552,19 +570,14 @@
             const d = document.getElementById('acc-desc').value;
             if (!m || !d) return showToast("Faltan Datos");
             try {
-                const lRef = collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad');
-                await addDoc(lRef, { tipo: document.getElementById('acc-tipo').value, monto: m, descripcion: d, timestamp: serverTimestamp() });
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: document.getElementById('acc-tipo').value, monto: m, descripcion: d, timestamp: serverTimestamp() });
                 showToast("Libro Actualizado");
             } catch (e) { showToast("Error"); }
         };
 
         window.updateStatus = async (id, s) => {
             if (!state.user) return;
-            try { 
-                const dRef = doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id);
-                await updateDoc(dRef, { estado: s }); 
-                showToast("Estado Actualizado"); 
-            } catch (e) { showToast("Error"); }
+            try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id), { estado: s }); showToast("Actualizado"); } catch (e) { showToast("Error"); }
         };
 
         function showToast(msg) {
