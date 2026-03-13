@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -28,10 +28,9 @@
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .sparkle-bg { background-image: radial-gradient(circle at 2px 2px, rgba(249, 115, 22, 0.05) 1px, transparent 0); background-size: 24px 24px; }
     </style>
 </head>
-<body class="sparkle-bg">
+<body class="bg-slate-50">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -39,9 +38,10 @@
         const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
         // --- CONFIGURACIÓN GLOBAL ---
-        const apiKey = ""; // Inyectada por el entorno
+        // OPCIÓN 2: PUEDES PEGAR TU API KEY AQUÍ ENTRE LAS COMILLAS
+        const apiKey = ""; 
+
         const today = new Date().toISOString().split('T')[0];
-        
         const PRODUCTOS_DATA = [
             { id: 'p1', nombre: 'VASO 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
             { id: 'p2', nombre: 'VASO 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
@@ -53,15 +53,12 @@
         const TOTAL_GASTOS_FIJOS = 3579.80;
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
 
-        // Firebase Setup
-        let db, auth, appId;
-        try {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
-        } catch(e) { console.error("Firebase Init Error", e); }
+        // Firebase Initialization
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
 
         // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -86,31 +83,36 @@
         );
 
         // --- UTILIDADES IA ---
-        const llamarIA = async (prompt, base64 = null, mimeType = "image/png") => {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        const llamarIA = async (prompt, base64 = null, mimeType = "image/png", userKey = "") => {
+            const finalKey = apiKey || userKey;
+            
+            if (!finalKey) throw new Error("API Key no configurada.");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${finalKey}`;
             
             const parts = [{ text: prompt }];
             if (base64) {
-                parts.push({ inlineData: { mimeType, data: base64.split(',')[1] } });
+                parts.push({ inlineData: { mimeType: mimeType, data: base64.split(',')[1] } });
             }
-
-            const payload = {
-                contents: [{ role: "user", parts }]
-            };
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ contents: [{ role: "user", parts }] })
             });
+            
+            if (!response.ok) {
+                const errResult = await response.json();
+                throw new Error(errResult.error?.message || "Error en comunicación con IA");
+            }
             const result = await response.json();
             return result.candidates?.[0]?.content?.parts?.[0]?.text;
         };
 
         // --- VISTAS ---
 
-        // 1. FACTURACIÓN IA
-        const FacturacionView = ({ facturas, onClose }) => {
+        // 1. FACTURACIÓN
+        const FacturacionView = ({ facturas, configIA, onClose }) => {
             const [isScanning, setIsScanning] = useState(false);
             const [modalScan, setModalScan] = useState(false);
             const [modalAbono, setModalAbono] = useState(null);
@@ -123,93 +125,63 @@
                 const r = new FileReader();
                 r.onloadend = async () => {
                     try {
-                        const prompt = `Analiza esta factura de distribuidora de lácteos. Extrae EXCLUSIVAMENTE un JSON puro con la estructura: { "numFactura": "string", "fecha": "YYYY-MM-DD", "total": number, "items": [{ "id": "p1/p2/p3/p4", "nombre": "string", "cantidad": number }] }. p1=165g, p2=340g, p3=500g, p4=1000g. Sin bloques markdown, solo el texto JSON.`;
-                        const res = await llamarIA(prompt, r.result, file.type);
-                        const cleanRes = res.match(/\{[\s\S]*\}/)?.[0] || res;
-                        const data = JSON.parse(cleanRes);
+                        const prompt = `Analiza esta factura de proveedor de lácteos. Extrae EXCLUSIVAMENTE un JSON puro (sin markdown) con esta estructura: { "numFactura": "string", "fecha": "YYYY-MM-DD", "total": number, "items": [{ "id": "p1/p2/p3/p4", "nombre": "string", "cantidad": number }] }. IDs: p1=165g, p2=340g, p3=500g, p4=1000g.`;
+                        const res = await llamarIA(prompt, r.result, file.type, configIA?.geminiKey);
+                        const data = JSON.parse(res.match(/\{[\s\S]*\}/)[0]);
                         await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add({
                             ...data, estado: 'Pendiente', saldoPendiente: data.total, createdAt: new Date().toISOString()
                         });
                         setModalScan(false);
-                    } catch (err) { alert("Detección fallida. Verifique que el archivo sea legible."); } finally { setIsScanning(false); }
+                    } catch (err) { 
+                        console.error(err);
+                        alert("Error al leer factura. Asegúrese de haber configurado su API Key en la pestaña Gerencia."); 
+                    } finally { setIsScanning(false); }
                 };
                 r.readAsDataURL(file);
             };
 
-            const registrarAbono = async (f) => {
-                if (!tempAbono.monto) return;
-                const monto = parseFloat(tempAbono.monto);
-                const nuevoSaldo = Math.max(0, f.saldoPendiente - monto);
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).update({
-                    saldoPendiente: nuevoSaldo, estado: nuevoSaldo <= 0.1 ? 'Cancelado' : 'Abonado'
-                });
-                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('gastos').add({
-                    fecha: today, monto, categoria: 'Pago Proveedor', detalle: `Abono Fact #${f.numFactura}`, comprobante: tempAbono.comprobante
-                });
-                setModalAbono(null);
-                setTempAbono({ monto: '', fecha: today, comprobante: '' });
-            };
-
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación IA" sub="Registro e Ingresos" onClose={onClose} />
-                    <div className="flex justify-end mb-4">
-                        <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs">
-                            <Icon name="upload-cloud" size={20}/> Escanear Factura ✨
+                    <ViewHeader title="Facturación" sub="1. Registro e Ingresos" onClose={onClose} />
+                    <div className="flex justify-end mb-4 gap-2">
+                        <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl font-black uppercase text-xs hover:bg-orange-700 transition-all">
+                             Escanear Factura ✨
                         </button>
                     </div>
                     <div className="space-y-3">
                         {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
-                            <Card key={f.id} className="flex flex-col md:flex-row justify-between items-center border-l-8 border-l-blue-500 gap-4">
-                                <div className="text-left flex-1"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
-                                <div className="grid grid-cols-2 gap-8 text-center px-4">
-                                    <div><p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Total</p><p className="font-black text-slate-800">${f.total?.toLocaleString()}</p></div>
-                                    <div><p className="text-[8px] font-black uppercase opacity-40 tracking-widest">Saldo</p><p className={`font-black ${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toLocaleString()}</p></div>
+                            <Card key={f.id} className="flex justify-between items-center border-l-8 border-l-blue-500">
+                                <div className="text-left"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
+                                <div className="text-right px-4">
+                                    <p className="text-[8px] uppercase opacity-40 font-bold">Saldo Pendiente</p>
+                                    <p className={`font-black ${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toLocaleString()}</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    {f.estado !== 'Cancelado' && <button onClick={() => setModalAbono(f)} className="p-3 bg-green-50 text-green-600 rounded-xl hover:bg-green-100 transition-colors"><Icon name="banknote" size={20}/></button>}
                                     <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-3 text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={20}/></button>
                                 </div>
                             </Card>
                         ))}
                     </div>
-
                     {modalScan && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative text-left">
-                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative">
+                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
                                 <Icon name="scan" size={48} className="mx-auto text-orange-600 mb-6 animate-pulse"/>
-                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 text-center italic">Escaneo con IA ✨</h3>
-                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase text-center tracking-[0.2em]">Detectando Datos...</p> : (
-                                    <div className="space-y-4 text-center">
+                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4">Lector Inteligente</h3>
+                                {isScanning ? (
+                                    <div className="space-y-4">
+                                        <div className="w-12 h-12 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                        <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase tracking-widest">Detectando Datos...</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
                                         <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all">
-                                            Subir PDF o Foto
+                                            Subir Factura (PDF/IMG)
                                             <input type="file" className="hidden" accept="image/*,application/pdf" onChange={procesarIA} />
                                         </label>
-                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-all text-center">← Cancelar y Salir</button>
+                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px]">Cancelar</button>
                                     </div>
                                 )}
-                            </Card>
-                        </div>
-                    )}
-                    
-                    {modalAbono && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left">
-                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter italic">Registrar Pago: #{modalAbono.numFactura}</h3>
-                                <div className="space-y-4">
-                                    <input type="number" step="0.01" placeholder="Monto del Abono $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
-                                    <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
-                                        {tempAbono.comprobante ? <img src={tempAbono.comprobante} className="h-20 mx-auto rounded-xl shadow-md mb-2"/> : <Icon name="upload-cloud" size={32} className="text-slate-300 mb-2"/>}
-                                        <span className="text-[9px] font-black uppercase text-slate-400 italic">Captura del Comprobante</span>
-                                        <input type="file" className="hidden" accept="image/*" onChange={e => {
-                                            const r = new FileReader(); r.onloadend = () => setTempAbono({...tempAbono, comprobante: r.result}); r.readAsDataURL(e.target.files[0]);
-                                        }} />
-                                    </label>
-                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Pago</button>
-                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
-                                </div>
                             </Card>
                         </div>
                     )}
@@ -220,62 +192,56 @@
         // 2. LOGÍSTICA
         const LogisticaView = ({ cargas, onClose }) => {
             const [modal, setModal] = useState(false);
-            const [retModal, setRetModal] = useState(false);
-            const [active, setActive] = useState(null);
             const [form, setForm] = useState({ vendedor: '', items: PRODUCTOS_DATA.map(p => ({ ...p, q: 0 })) });
-            const [rets, setRets] = useState({});
-            const [fotoDeposito, setFotoDeposito] = useState("");
-
             const totalCarga = useMemo(() => form.items.reduce((a, b) => a + (b.q * b.pvd), 0), [form.items]);
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Logística" sub="Despachos a Ruta" onClose={onClose} />
+                    <ViewHeader title="Logística" sub="2. Despachos y Rutas" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {cargas.map(c => (
-                            <Card key={c.id} className={`border-l-8 ${c.estado === 'Liquidado' ? 'border-l-green-500' : 'border-l-orange-400'}`}>
+                            <Card key={c.id} className="border-l-8 border-l-orange-400">
                                 <div className="flex justify-between items-start text-left">
-                                    <div><h4 className="font-black text-slate-800 uppercase text-sm">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
-                                    <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest tracking-widest">Recaudado</p><p className="font-black text-green-600">${(c.ventaNeta || 0).toLocaleString()}</p></div>
+                                    <div><h4 className="font-black text-slate-800 uppercase text-sm">{c.responsable}</h4><span className="text-[9px] uppercase text-slate-400 block">{c.estado} • {c.fecha}</span></div>
+                                    <div className="text-right"><p className="text-[8px] uppercase tracking-widest font-bold">Total Despachado</p><p className="font-black text-slate-800">${(c.totalCargado || 0).toLocaleString()}</p></div>
                                 </div>
-                                <div className="mt-6 flex justify-between border-t pt-4">
-                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-red-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
-                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Finalizar Proceso</button>}
+                                <div className="mt-4 pt-4 border-t flex justify-end">
+                                    <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-slate-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
                                 </div>
                             </Card>
                         ))}
                     </div>
-
                     {modal && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative text-left">
-                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-8 uppercase tracking-tighter text-slate-800 italic">Nueva Carga de Ruta</h3>
+                            <Card className="w-full max-w-lg animate-in zoom-in-95 my-10 relative">
+                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <h3 className="font-black text-xl mb-8 uppercase text-left">Nueva Carga</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
                                         responsable: form.vendedor, fecha: today, estado: 'En Tránsito',
+                                        totalCargado: totalCarga,
                                         items: form.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, costo: it.costo }))
                                     });
                                     setModal(false);
                                 }} className="space-y-4">
-                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, vendedor: e.target.value})} required>
+                                    <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none" onChange={e => setForm({...form, vendedor: e.target.value})} required>
                                         <option value="">Seleccionar Vendedor...</option>{VENDEDORES.map(v => <option key={v}>{v}</option>)}
                                     </select>
                                     {form.items.map((it, idx) => (
-                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                                            <span className="flex-1 text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
-                                            <input type="number" className="w-24 p-2 rounded-xl text-center font-black bg-white shadow-inner" placeholder="Cant" onChange={e => {
+                                        <div key={it.id} className="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl">
+                                            <span className="flex-1 text-[10px] font-black uppercase text-left">{it.nombre}</span>
+                                            <input type="number" className="w-24 p-2 rounded-xl text-center font-black bg-white" placeholder="0" onChange={e => {
                                                 const ni = [...form.items]; ni[idx].q = parseInt(e.target.value) || 0; setForm({...form, items: ni});
                                             }} />
                                         </div>
                                     ))}
-                                    <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4">
-                                        <div><p className="text-[9px] opacity-50 uppercase font-black tracking-widest">Valor de Carga</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
-                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Cargar</button>
+                                    <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4 shadow-xl">
+                                        <div className="text-left"><p className="text-[9px] opacity-50 uppercase font-black">Carga Total</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
+                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] hover:bg-orange-700 transition-colors">Confirmar</button>
                                     </div>
-                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar y Volver</button>
+                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] text-center">Cerrar</button>
                                 </form>
                             </Card>
                         </div>
@@ -296,17 +262,13 @@
 
             return (
                 <div className="space-y-6 fade-in text-center">
-                    <ViewHeader title="Inventario Kardex" sub="Stock Real de Bodega" onClose={onClose} />
+                    <ViewHeader title="Inventario" sub="3. Kardex de Bodega" onClose={onClose} />
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {inventario.map(p => (
-                            <Card key={p.id} className="group hover:scale-105 transition-all cursor-default">
-                                <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">{p.nombre}</p>
+                            <Card key={p.id} className="group hover:scale-105 transition-all">
+                                <p className="text-[10px] font-black text-slate-400 uppercase mb-2">{p.nombre}</p>
                                 <p className={`text-4xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
-                                <p className="text-[8px] font-bold text-orange-500 uppercase mt-2">Disponibles</p>
-                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between text-[8px] font-black uppercase opacity-60 italic">
-                                    <div className="text-left"><p>Entradas</p><p className="text-green-600">+{p.ingresado}</p></div>
-                                    <div className="text-right"><p>Despachado</p><p className="text-red-500">-{p.despachado}</p></div>
-                                </div>
+                                <p className="text-[8px] font-bold text-orange-500 mt-2 uppercase">Disponibles</p>
                             </Card>
                         ))}
                     </div>
@@ -316,29 +278,23 @@
 
         // 4. CONTABILIDAD
         const ContabilidadView = ({ cartera, gastos, facturasProveedor, onClose }) => {
-            const [modal, setModal] = useState(false);
-            const [form, setForm] = useState({ tipo: 'Ingreso', concepto: '', monto: '', metodo: 'Efectivo', fecha: today });
-
             const movimientos = useMemo(() => {
                 const items = [
                     ...cartera.map(i => ({ ...i, category: 'Ingreso', val: i.monto })),
                     ...gastos.map(e => ({ ...e, category: 'Egreso', val: -e.monto })),
-                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Compra Fact: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
+                    ...facturasProveedor.map(f => ({ id: f.id, fecha: f.fecha, cliente: `Fact. Prov: ${f.numFactura}`, monto: f.total, category: 'Egreso', val: -f.total }))
                 ];
                 items.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                 let balance = 0;
                 return items.map(it => {
-                    balance += it.val;
+                    balance += (it.val || 0);
                     return { ...it, balanceAcumulado: balance };
                 }).reverse();
             }, [cartera, gastos, facturasProveedor]);
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Contabilidad" sub="Libro Diario de Movimientos" onClose={onClose} />
-                    <div className="flex justify-end mb-4">
-                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Nuevo Movimiento</button>
-                    </div>
+                    <ViewHeader title="Contabilidad" sub="4. Libro Diario" onClose={onClose} />
                     <Card className="p-0 overflow-hidden shadow-xl border-none">
                         <div className="overflow-x-auto text-left">
                             <table className="w-full">
@@ -348,102 +304,87 @@
                                 <tbody className="text-xs font-bold text-slate-700">
                                     {movimientos.map((m, idx) => (
                                         <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                                            <td className="p-5 text-slate-400">{m.fecha}</td>
+                                            <td className="p-5 text-slate-400">{m.fecha || today}</td>
                                             <td className="p-5 uppercase">{m.cliente || m.detalle || m.categoria}</td>
-                                            <td className="p-5 text-green-600">{m.category === 'Ingreso' ? `+$${m.monto.toLocaleString()}` : '-'}</td>
-                                            <td className="p-5 text-red-500">{m.category === 'Egreso' ? `-$${m.monto.toLocaleString()}` : '-'}</td>
-                                            <td className="p-5 text-right font-black text-slate-900">${m.balanceAcumulado.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                            <td className="p-5 text-green-600">{m.category === 'Ingreso' ? `+$${(m.monto || 0).toLocaleString()}` : '-'}</td>
+                                            <td className="p-5 text-red-500">{m.category === 'Egreso' ? `-$${(m.monto || 0).toLocaleString()}` : '-'}</td>
+                                            <td className="p-5 text-right font-black text-slate-900">${(m.balanceAcumulado || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </Card>
-                    {modal && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
-                            <Card className="w-full max-w-md animate-in zoom-in-95 relative">
-                                <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase text-slate-800 italic">Registrar Movimiento Manual</h3>
-                                <form onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    const col = form.tipo === 'Ingreso' ? 'cartera' : 'gastos';
-                                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col).add({
-                                        fecha: today, monto: parseFloat(form.monto), metodo: form.metodo,
-                                        [form.tipo === 'Ingreso' ? 'cliente' : 'categoria']: form.concepto,
-                                        detalle: form.concepto
-                                    });
-                                    setModal(false);
-                                }} className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.tipo} onChange={e => setForm({...form, tipo: e.target.value})}>
-                                            <option>Ingreso</option><option>Egreso</option>
-                                        </select>
-                                        <select className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.metodo} onChange={e => setForm({...form, metodo: e.target.value})}>
-                                            <option>Efectivo</option><option>Transferencia</option>
-                                        </select>
-                                    </div>
-                                    <input placeholder="Detalle / Concepto" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, concepto: e.target.value})} required />
-                                    <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" onChange={e => setForm({...form, monto: e.target.value})} required />
-                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white transition-all hover:bg-orange-700">Guardar Asiento</button>
-                                    <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
-                                </form>
-                            </Card>
-                        </div>
-                    )}
                 </div>
             );
         };
 
-        // 5. GERENCIA (REDISEÑADA)
+        // 5. GERENCIA
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
+            const [userKey, setUserKey] = useState("");
+            const [savedKey, setSavedKey] = useState("");
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
-            const ventaBrutaReq = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
-            const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
+            const ventaReq = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
+
+            // Cargar API Key guardada
+            useEffect(() => {
+                db.collection('artifacts').doc(appId).collection('public').doc('data').collection('settings').doc('config').get().then(doc => {
+                    if (doc.exists) setSavedKey(doc.data().geminiKey || "");
+                });
+            }, []);
 
             return (
-                <div className="space-y-6 fade-in pb-12">
-                    <ViewHeader title="Gerencia" sub="Análisis y Punto de Equilibrio" onClose={onClose} />
+                <div className="space-y-6 fade-in pb-12 text-left">
+                    <ViewHeader title="Gerencia" sub="5. Análisis Estratégico" onClose={onClose} />
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-white">
-                        <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
-                            <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Mensual Fija</p>
-                                <p className="text-4xl font-black">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic leading-relaxed">Costo total operativo para operar 30 días</p>
-                            </div>
-                            <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black">
+                        <Card className="bg-slate-900 border-none shadow-2xl">
+                            <p className="text-[10px] uppercase opacity-50 mb-4 tracking-widest">Inversión Mensual Fija</p>
+                            <p className="text-4xl">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
                         </Card>
                         <Card className="bg-orange-600 border-none shadow-2xl">
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto Equilibrio)</p>
-                            <p className="text-4xl font-black">${Math.round(ventaBrutaReq).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic leading-relaxed">Venta bruta sugerida para margen del 14%</p>
+                            <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Venta Punto 0 (Meta)</p>
+                            <p className="text-4xl">${Math.round(ventaReq).toLocaleString()}</p>
                         </Card>
                         <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Balance de Utilidad Neta</p>
-                            <p className="text-4xl font-black">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Real Acumulado' : 'Déficit por Cubrir'}</p>
+                            <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Neta Hoy</p>
+                            <p className="text-4xl">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
                         </Card>
                     </div>
 
-                    <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
-                            <div>
-                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1 italic underline decoration-orange-600 decoration-4 underline-offset-8">Reporte Punto de Equilibrio</h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-4 italic">Avance de utilidad real frente a la inversión fija mensual.</p>
+                    <Card className="p-10 shadow-xl relative overflow-hidden">
+                        <div className="flex flex-col md:flex-row justify-between items-center relative z-10 gap-4">
+                            <div className="text-left">
+                                <h3 className="font-black text-2xl uppercase tracking-tighter">Punto de Equilibrio</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Avance real sobre la inversión fija</p>
                             </div>
-                            <div className="text-center md:text-right">
-                                <span className="text-6xl font-black text-slate-800">{perc}%</span>
-                                <p className="text-[9px] font-black text-orange-600 uppercase mt-2 tracking-widest">Meta Lograda</p>
+                            <span className="text-6xl font-black text-slate-800">{perc}%</span>
+                        </div>
+                        <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 border">
+                            <div className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500' : 'bg-orange-600'}`} style={{ width: `${perc}%` }}>
+                                ${utilidad.toLocaleString()} USD
                             </div>
                         </div>
-                        <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 shadow-inner border border-slate-200">
-                            <div 
-                                className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`}
-                                style={{ width: `${perc}%` }}
-                            >
-                                {perc > 15 ? `$${utilidad.toLocaleString()} USD GENERADOS` : ''}
-                            </div>
+                    </Card>
+
+                    <Card className="bg-indigo-50 border-indigo-100 p-8 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Icon name="key" className="text-indigo-600"/>
+                            <h3 className="font-black text-xl uppercase text-indigo-900 tracking-tighter">Configurar Gemini Key ✨</h3>
+                        </div>
+                        <p className="text-xs font-bold text-indigo-600 uppercase mb-4 tracking-widest italic">
+                            Si el escaneo no funciona fuera de esta página, pega aquí tu propia API Key de Gemini. 
+                            {savedKey && <span className="block mt-2 text-green-600">✓ Ya tienes una clave configurada.</span>}
+                        </p>
+                        <div className="flex gap-4 flex-col md:flex-row">
+                            <input type="password" placeholder="Pegar clave aquí..." className="flex-1 bg-white p-5 rounded-2xl font-black shadow-inner border-none outline-none focus:ring-2 focus:ring-indigo-300" onChange={e => setUserKey(e.target.value)} />
+                            <button onClick={async () => {
+                                if (!userKey) return;
+                                await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('settings').doc('config').set({ geminiKey: userKey }, { merge: true });
+                                setSavedKey(userKey);
+                                alert("Configuración guardada correctamente ✨");
+                            }} className="bg-indigo-900 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs hover:bg-black transition-colors">Guardar ✨</button>
                         </div>
                     </Card>
                 </div>
@@ -460,29 +401,30 @@
             const [cartera, setCartera] = useState([]);
             const [gastos, setGastos] = useState([]);
             const [facturasProv, setFacturasProv] = useState([]);
+            const [configIA, setConfigIA] = useState(null);
 
             useEffect(() => {
-                let unsub;
                 const initAuth = async () => {
-                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                        unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
-                    } catch (e) { console.error("Auth Error:", e); setLoading(false); }
+                    } catch (e) { console.error("Auth Error", e); }
                 };
                 initAuth();
-                const timeout = setTimeout(() => setLoading(false), 4000);
-                return () => { if (unsub) unsub(); clearTimeout(timeout); };
+                const unsubAuth = auth.onAuthStateChanged(u => { 
+                    if (u) { setUser(u); }
+                    setLoading(false); 
+                });
+                return () => unsubAuth();
             }, []);
 
             useEffect(() => {
-                if (!user || !db) return;
-                const cols = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
-                const unsubs = cols.map(col => {
+                if (!user) return;
+                const collections = ['cargas', 'cartera', 'gastos', 'facturasProveedor'];
+                const unsubs = collections.map(col => {
                     return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(col)
                         .onSnapshot(snap => {
                             const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -490,9 +432,15 @@
                             if (col === 'cartera') setCartera(data);
                             if (col === 'gastos') setGastos(data);
                             if (col === 'facturasProveedor') setFacturasProv(data);
-                        }, err => console.error(`Snap Error en ${col}:`, err));
+                        }, err => {
+                            console.error(`Snapshot error in ${col}:`, err);
+                        });
                 });
-                return () => unsubs.forEach(fn => fn());
+                
+                const unsubConfig = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('settings').doc('config')
+                    .onSnapshot(doc => { if (doc.exists) setConfigIA(doc.data()); }, () => {});
+
+                return () => { unsubs.forEach(fn => fn()); unsubConfig(); };
             }, [user]);
 
             const stats = useMemo(() => {
@@ -505,7 +453,7 @@
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white">
                     <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 text-[10px] tracking-[0.4em] uppercase animate-pulse">Avena Pro • Kardex Inteligente...</p>
+                    <p className="font-black text-orange-600 text-[10px] tracking-[0.4em] uppercase animate-pulse text-center">Avena Pro • Conectando...</p>
                 </div>
             );
 
@@ -520,7 +468,7 @@
                 <div className="min-h-screen md:pl-72 bg-slate-50 flex">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm">
                         <div className="flex items-center gap-3 mb-12">
-                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={24}/></div>
+                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0"><Icon name="package" size={24}/></div>
                             <span className="font-black text-2xl tracking-tighter uppercase italic text-orange-600">Avena Pro</span>
                         </div>
                         <nav className="space-y-1 flex-1 overflow-y-auto hide-scrollbar">
@@ -531,13 +479,13 @@
                             <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" primary />
                         </nav>
                         <div className="mt-auto p-5 bg-slate-900 rounded-[35px] text-white text-center shadow-xl">
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Pendiente Proveedores</p>
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Pendiente Pago</p>
                             <p className="text-xl font-black text-orange-400">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
                         </div>
                     </aside>
 
                     <main className="p-4 md:p-10 max-w-6xl mx-auto w-full pb-24 md:pb-10 text-center md:text-left">
-                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} onClose={() => setActiveTab('gerencia')} />}
+                        {activeTab === 'facturacion' && <FacturacionView facturas={facturasProv} configIA={configIA} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'logistica' && <LogisticaView cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'inventario' && <InventarioView facturas={facturasProv} cargas={cargas} onClose={() => setActiveTab('gerencia')} />}
                         {activeTab === 'contabilidad' && <ContabilidadView cartera={cartera} gastos={gastos} facturasProveedor={facturasProv} onClose={() => setActiveTab('gerencia')} />}
