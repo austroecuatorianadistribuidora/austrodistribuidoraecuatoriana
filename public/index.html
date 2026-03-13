@@ -191,16 +191,16 @@
                     {modalScan && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                             <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative">
-                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
+                                <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <Icon name="scan" size={48} className="mx-auto text-orange-600 mb-6 animate-pulse"/>
-                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800">Escaneo de Compras</h3>
-                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase">Analizando factura...</p> : (
+                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 italic">Lectura Inteligente</h3>
+                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase">Procesando...</p> : (
                                     <div className="space-y-4">
                                         <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all">
                                             Seleccionar PDF o Foto
                                             <input type="file" className="hidden" accept="image/*,application/pdf" onChange={procesarIA} />
                                         </label>
-                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-colors">← Cancelar y Salir</button>
+                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-all">← Cancelar y Salir</button>
                                     </div>
                                 )}
                             </Card>
@@ -209,11 +209,11 @@
 
                     {modalAbono && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5">
-                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500"><Icon name="x"/></button>
-                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter text-left">Registrar Pago: #{modalAbono.numFactura}</h3>
+                            <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left">
+                                <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter">Registrar Pago: #{modalAbono.numFactura}</h3>
                                 <div className="space-y-4 text-left">
-                                    <input type="number" step="0.01" placeholder="Monto del Abono $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
+                                    <input type="number" step="0.01" placeholder="Monto del Pago $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
                                     <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
                                         {tempAbono.comprobante ? <img src={tempAbono.comprobante} className="h-20 mx-auto rounded-xl shadow-md mb-2"/> : <Icon name="upload-cloud" size={32} className="text-slate-300 mb-2"/>}
                                         <span className="text-[9px] font-black uppercase text-slate-400">Captura Comprobante</span>
@@ -222,7 +222,7 @@
                                         }} />
                                     </label>
                                     <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Pago</button>
-                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500">← Cancelar</button>
+                                    <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar</button>
                                 </div>
                             </Card>
                         </div>
@@ -299,7 +299,7 @@
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
                             <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative text-left">
                                 <button onClick={() => setRetModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-6 uppercase tracking-tighter text-slate-800">Cierre: {active.responsable}</h3>
+                                <h3 className="font-black text-xl mb-6 uppercase tracking-tighter text-slate-800">Liquidación: {active.responsable}</h3>
                                 {active.items.map(it => (
                                     <div key={it.pId} className="flex justify-between items-center mb-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
                                         <span className="text-[10px] font-black uppercase text-slate-600">{it.nombre}</span>
@@ -610,20 +610,7 @@
                 return { vtot, utilidadBruta };
             }, [cargas, cartera]);
 
-            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Conectando...</div>;
-
-            if (!db) {
-                return (
-                    <div className="h-screen flex flex-col items-center justify-center p-10 bg-white text-center">
-                        <Icon name="alert-triangle" size={64} className="text-red-500 mb-6"/>
-                        <h1 className="text-2xl font-black uppercase mb-4 tracking-tighter">Entorno Local / GitHub</h1>
-                        <p className="max-w-md text-slate-500 text-sm font-bold uppercase leading-relaxed mb-8">
-                            Este código utiliza la base de datos de Canvas. Si deseas usarlo en tu propio sitio, debes configurar tus llaves de Firebase en el código.
-                        </p>
-                        <button onClick={() => window.location.reload()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs">Reintentar</button>
-                    </div>
-                );
-            }
+            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Iniciando...</div>;
 
             const NavItem = ({ id, icon, label, primary = false }) => (
                 <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-4 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'} ${primary ? 'font-black' : ''}`}>
@@ -635,8 +622,8 @@
             return (
                 <div className="min-h-screen md:pl-72 bg-slate-50 flex">
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-3 mb-10">
-                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3"><Icon name="package" size={24}/></div>
+                        <div className="flex items-center gap-3 mb-12">
+                            <div className="bg-orange-600 p-2.5 rounded-xl text-white shadow-xl rotate-3 transition-transform hover:rotate-0 cursor-pointer"><Icon name="package" size={24}/></div>
                             <span className="font-black text-2xl tracking-tighter uppercase italic text-orange-600">Avena Pro</span>
                         </div>
                         <nav className="space-y-1 flex-1 overflow-y-auto hide-scrollbar">
