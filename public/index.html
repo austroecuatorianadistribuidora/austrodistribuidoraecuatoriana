@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avena Control Pro - Gestión Integral</title>
+    <title>Avena Control Pro - Gestión Integral ✨</title>
     <!-- Dependencias estables -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -28,9 +28,10 @@
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .sparkle-bg { background-image: radial-gradient(circle at 2px 2px, rgba(249, 115, 22, 0.05) 1px, transparent 0); background-size: 24px 24px; }
     </style>
 </head>
-<body>
+<body class="sparkle-bg">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -38,10 +39,9 @@
         const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = Recharts;
 
         // --- CONFIGURACIÓN GLOBAL ---
-        const apiKey = ""; 
+        const apiKey = ""; // Inyectada por el entorno
         const today = new Date().toISOString().split('T')[0];
         
-        // Costos actualizados según Factura 5913
         const PRODUCTOS_DATA = [
             { id: 'p1', nombre: 'VASO 165G', costo: 0.269565, pvd: 0.3478, color: '#f97316' },
             { id: 'p2', nombre: 'VASO 340G', costo: 0.608694, pvd: 0.6956, color: '#fb923c' },
@@ -50,43 +50,15 @@
         ];
 
         const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
-        
-        const GASTOS_MENSUALES_FIJOS = {
-            ventas: [
-                { label: 'Sueldos empleados', monto: 964.00 },
-                { label: 'Combustible', monto: 350.00 },
-                { label: 'Comisiones', monto: 600.00 },
-                { label: 'Viáticos Local', monto: 60.00 },
-                { label: 'Viáticos Foráneo', monto: 180.00 },
-                { label: 'Depreciación Vehículos', monto: 200.00 },
-                { label: 'Intereses Préstamo', monto: 172.73 },
-                { label: 'Pago Capital Vehículos', monto: 683.06 },
-                { label: 'Mantenimiento y Rep.', monto: 100.00 },
-                { label: 'Telefonía Celular', monto: 30.00 }
-            ],
-            admin: [
-                { label: 'Honorarios Prof.', monto: 200.00 },
-                { label: 'Suministros y Mat.', monto: 10.00 },
-                { label: 'Gastos Varios', monto: 30.00 }
-            ]
-        };
-
         const TOTAL_GASTOS_FIJOS = 3579.80;
         const MARGEN_PROMEDIO_ESTIMADO = 0.14; 
 
-        // --- INICIALIZACIÓN DE FIREBASE ---
-        let db, auth, appId;
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        
-        if (configStr) {
-            try {
-                const firebaseConfig = JSON.parse(configStr);
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                auth = firebase.auth();
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
-            } catch (e) { console.error("Firebase Init Error:", e); }
-        }
+        // Firebase Setup
+        const firebaseConfig = JSON.parse(__firebase_config);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'distribuidora-avena-v3';
 
         // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -104,44 +76,32 @@
                     <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{title}</h2>
                     {sub && <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{sub}</p>}
                 </div>
-                <button onClick={onClose} title="Volver al Panel" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
+                <button onClick={onClose} title="Cerrar y volver" className="p-3 bg-slate-100 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm">
                     <Icon name="x" size={24}/>
                 </button>
             </div>
         );
 
         // --- UTILIDADES IA ---
-        const llamarIA = async (prompt, base64, mimeType = "image/png") => {
+        const llamarIA = async (prompt, base64 = null, mimeType = "image/png") => {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const parts = [{ text: prompt }];
+            if (base64) {
+                parts.push({ inlineData: { mimeType, data: base64.split(',')[1] } });
+            }
+
             const payload = {
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        { inlineData: { mimeType: mimeType, data: base64.split(',')[1] } }
-                    ]
-                }]
+                contents: [{ role: "user", parts }]
             };
 
-            let delay = 1000;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || `Error ${response.status}`);
-                    }
-                    const result = await response.json();
-                    return result.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (error) {
-                    if (i === 4) throw error;
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
-                }
-            }
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            return result.candidates?.[0]?.content?.parts?.[0]?.text;
         };
 
         // --- VISTAS ---
@@ -160,20 +120,15 @@
                 const r = new FileReader();
                 r.onloadend = async () => {
                     try {
-                        const prompt = `Extrae los datos de esta factura de productos lácteos. Devuelve EXCLUSIVAMENTE un JSON puro con: { "numFactura": "string", "fecha": "YYYY-MM-DD", "total": number, "items": [{ "id": "p1/p2/p3/p4", "nombre": "string", "cantidad": number }] }. Los IDs corresponden a: p1=165g, p2=340g, p3=500g, p4=1000g.`;
+                        const prompt = `Analiza esta factura de distribuidora de lácteos. Extrae EXCLUSIVAMENTE un JSON puro con la estructura: { "numFactura": "string", "fecha": "YYYY-MM-DD", "total": number, "items": [{ "id": "p1/p2/p3/p4", "nombre": "string", "cantidad": number }] }. IDs: p1=165g, p2=340g, p3=500g, p4=1000g. Sin bloques de código markdown.`;
                         const res = await llamarIA(prompt, r.result, file.type);
-                        if (!res) throw new Error("No hubo respuesta de la IA");
                         const cleanRes = res.replace(/```json|```/g, "").trim();
                         const data = JSON.parse(cleanRes);
-                        
                         await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').add({
                             ...data, estado: 'Pendiente', saldoPendiente: data.total, createdAt: new Date().toISOString()
                         });
                         setModalScan(false);
-                    } catch (err) { 
-                        console.error(err);
-                        alert("No se pudo detectar los datos. Si estás en GitHub, asegúrate de configurar tu propia API Key de Gemini."); 
-                    } finally { setIsScanning(false); }
+                    } catch (err) { alert("Error al leer la factura. Reintente."); } finally { setIsScanning(false); }
                 };
                 r.readAsDataURL(file);
             };
@@ -193,16 +148,16 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Facturación" sub="Registro de Compras (Pestaña 1)" onClose={onClose} />
+                    <ViewHeader title="Facturación" sub="Pestaña 1 - Registro de Compras" onClose={onClose} />
                     <div className="flex justify-end mb-4">
-                        <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:bg-orange-700 transition-all">
-                            <Icon name="upload-cloud" size={20}/> Escanear Nueva Factura
+                        <button onClick={() => setModalScan(true)} className="bg-orange-600 text-white px-8 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black uppercase text-xs hover:scale-105 transition-all">
+                            <Icon name="upload-cloud" size={20}/> Escanear Factura ✨
                         </button>
                     </div>
-                    <div className="space-y-3 text-left">
+                    <div className="space-y-3">
                         {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
                             <Card key={f.id} className="flex flex-col md:flex-row justify-between items-center border-l-8 border-l-blue-500 gap-4">
-                                <div className="flex-1"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
+                                <div className="text-left flex-1"><h4 className="font-black text-slate-800 uppercase">Factura #{f.numFactura}</h4><span className="text-[10px] font-black uppercase text-slate-400">{f.estado} • {f.fecha}</span></div>
                                 <div className="grid grid-cols-2 gap-8 text-center px-4">
                                     <div><p className="text-[8px] font-black uppercase opacity-40">Monto</p><p className="font-black text-slate-800">${f.total?.toLocaleString()}</p></div>
                                     <div><p className="text-[8px] font-black uppercase opacity-40">Saldo</p><p className={`font-black ${f.saldoPendiente > 0 ? 'text-red-500' : 'text-green-600'}`}>${f.saldoPendiente?.toLocaleString()}</p></div>
@@ -217,38 +172,38 @@
 
                     {modalScan && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative">
+                            <Card className="w-full max-w-md text-center p-10 animate-in zoom-in-95 shadow-2xl relative text-left">
                                 <button onClick={() => setModalScan(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
                                 <Icon name="scan" size={48} className="mx-auto text-orange-600 mb-6 animate-pulse"/>
-                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 italic">Lectura con IA</h3>
-                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase">Analizando documento...</p> : (
-                                    <div className="space-y-4">
-                                        <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all text-center">
-                                            Subir PDF o Foto
+                                <h3 className="text-2xl font-black uppercase tracking-tighter mb-4 text-slate-800 text-center italic">Escaneo con IA ✨</h3>
+                                {isScanning ? <p className="font-black text-orange-600 animate-pulse text-[10px] uppercase text-center">Analizando documento...</p> : (
+                                    <div className="space-y-4 text-center">
+                                        <label className="block w-full bg-slate-900 text-white py-5 rounded-[25px] font-black uppercase text-xs cursor-pointer shadow-xl hover:bg-black transition-all">
+                                            Subir PDF o Imagen
                                             <input type="file" className="hidden" accept="image/*,application/pdf" onChange={procesarIA} />
                                         </label>
-                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all">← Cancelar y Salir</button>
+                                        <button onClick={() => setModalScan(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[10px] tracking-widest hover:text-red-500 transition-all text-center">← Cancelar y Salir</button>
                                     </div>
                                 )}
                             </Card>
                         </div>
                     )}
-
+                    
                     {modalAbono && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                             <Card className="w-full max-w-md relative animate-in slide-in-from-bottom-5 text-left">
                                 <button onClick={() => setModalAbono(null)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter">Registrar Pago a Factura</h3>
-                                <div className="space-y-4 text-left">
-                                    <input type="number" step="0.01" placeholder="Monto del Pago $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
+                                <h3 className="text-xl font-black uppercase mb-6 text-slate-800 tracking-tighter italic">Registrar Pago: #{modalAbono.numFactura}</h3>
+                                <div className="space-y-4">
+                                    <input type="number" step="0.01" placeholder="Monto del Abono $" className="w-full bg-slate-50 p-5 rounded-[20px] font-black shadow-inner border-none" onChange={e => setTempAbono({...tempAbono, monto: e.target.value})} />
                                     <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-[30px] cursor-pointer hover:bg-slate-50 transition-all text-center">
                                         {tempAbono.comprobante ? <img src={tempAbono.comprobante} className="h-20 mx-auto rounded-xl shadow-md mb-2"/> : <Icon name="upload-cloud" size={32} className="text-slate-300 mb-2"/>}
-                                        <span className="text-[9px] font-black uppercase text-slate-400">Adjuntar Foto del Depósito</span>
+                                        <span className="text-[9px] font-black uppercase text-slate-400 italic">Captura del Comprobante</span>
                                         <input type="file" className="hidden" accept="image/*" onChange={e => {
                                             const r = new FileReader(); r.onloadend = () => setTempAbono({...tempAbono, comprobante: r.result}); r.readAsDataURL(e.target.files[0]);
                                         }} />
                                     </label>
-                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Abono</button>
+                                    <button onClick={() => registrarAbono(modalAbono)} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Confirmar Pago</button>
                                     <button onClick={() => setModalAbono(null)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </div>
                             </Card>
@@ -271,18 +226,18 @@
 
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Logística" sub="Despacho de Unidades (Pestaña 2)" onClose={onClose} />
+                    <ViewHeader title="Logística" sub="Despachos a Ruta (Pestaña 2)" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-orange-600 text-white p-3 rounded-2xl shadow-xl hover:scale-105 transition-all"><Icon name="plus"/></button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {cargas.map(c => (
                             <Card key={c.id} className={`border-l-8 ${c.estado === 'Liquidado' ? 'border-l-green-500' : 'border-l-orange-400'}`}>
                                 <div className="flex justify-between items-start text-left">
-                                    <div><h4 className="font-black text-slate-800 uppercase text-sm">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
+                                    <div><h4 className="font-black text-slate-800 uppercase text-sm tracking-tight">{c.responsable}</h4><span className="text-[9px] font-black uppercase text-slate-400 mt-1 block">{c.estado} • {c.fecha}</span></div>
                                     <div className="text-right"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Recaudado</p><p className="font-black text-green-600">${(c.ventaNeta || 0).toLocaleString()}</p></div>
                                 </div>
                                 <div className="mt-6 flex justify-between border-t pt-4">
                                     <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').doc(c.id).delete()} className="text-red-200 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button>
-                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Liquidar Ruta</button>}
+                                    {c.estado === 'En Tránsito' && <button onClick={() => { setActive(c); setRetModal(true); }} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Finalizar Ruta</button>}
                                 </div>
                             </Card>
                         ))}
@@ -313,15 +268,15 @@
                                         </div>
                                     ))}
                                     <div className="bg-slate-900 p-6 rounded-3xl text-white flex justify-between items-center mt-4">
-                                        <div><p className="text-[9px] opacity-50 uppercase font-black tracking-widest">Total en Ruta</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
-                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Confirmar</button>
+                                        <div><p className="text-[9px] opacity-50 uppercase font-black tracking-widest">Valor Carga</p><p className="text-xl font-black">${totalCarga.toLocaleString()}</p></div>
+                                        <button className="bg-orange-600 px-6 py-3 rounded-xl font-black uppercase text-[10px] shadow-lg hover:bg-orange-700 transition-all">Despachar</button>
                                     </div>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar y Volver</button>
                                 </form>
                             </Card>
                         </div>
                     )}
-
+                    
                     {retModal && active && (
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
                             <Card className="w-full max-w-md my-8 animate-in slide-in-from-bottom-10 relative text-left">
@@ -336,7 +291,7 @@
                                 <div className="mt-8 border-t pt-6 text-center space-y-4">
                                     <label className="block p-8 bg-blue-50 text-blue-600 rounded-[40px] border-2 border-dashed border-blue-200 cursor-pointer hover:bg-blue-100 transition-all shadow-sm">
                                         {fotoDeposito ? <img src={fotoDeposito} className="h-24 mx-auto rounded-2xl shadow-lg mb-2"/> : <Icon name="camera" size={36} className="mx-auto mb-2"/>}
-                                        <span className="text-[9px] font-black uppercase tracking-widest">Foto de Depósito / Comprobante</span>
+                                        <span className="text-[9px] font-black uppercase tracking-widest italic">Comprobante de Depósito</span>
                                         <input type="file" className="hidden" accept="image/*" onChange={e => {
                                             const r = new FileReader(); r.onloadend = () => setFotoDeposito(r.result); r.readAsDataURL(e.target.files[0]);
                                         }}/>
@@ -356,7 +311,7 @@
                                         setRetModal(false);
                                         setFotoDeposito("");
                                         setRets({});
-                                    }} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Finalizar Proceso</button>
+                                    }} className="w-full bg-green-600 text-white py-5 rounded-[25px] font-black uppercase shadow-xl hover:bg-green-700 transition-all">Finalizar Ruta</button>
                                     <button type="button" onClick={() => setRetModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </div>
                             </Card>
@@ -366,8 +321,11 @@
             );
         };
 
-        // 3. INVENTARIO
+        // 3. INVENTARIO (Con previsión IA)
         const InventarioView = ({ facturas, cargas, onClose }) => {
+            const [prevision, setPrevision] = useState("");
+            const [loadingIA, setLoadingIA] = useState(false);
+
             const inventario = useMemo(() => {
                 const stock = {};
                 PRODUCTOS_DATA.forEach(p => stock[p.id] = { ...p, ingresado: 0, despachado: 0 });
@@ -376,18 +334,45 @@
                 return Object.values(stock).map(p => ({ ...p, actual: p.ingresado - p.despachado }));
             }, [facturas, cargas]);
 
+            const consultarPrevision = async () => {
+                setLoadingIA(true);
+                try {
+                    const prompt = `Analiza este inventario actual: ${JSON.stringify(inventario)}. Dime cuáles son los 2 productos más críticos y sugiere cuántas unidades pedir al proveedor basándote en que el stock ideal es de 500 unidades por tipo. Responde en 3 líneas máximo de forma motivadora.`;
+                    const res = await llamarIA(prompt);
+                    setPrevision(res);
+                } catch (e) { setPrevision("Error al conectar con el cerebro IA."); }
+                setLoadingIA(false);
+            };
+
             return (
                 <div className="space-y-6 fade-in">
                     <ViewHeader title="Inventario" sub="Control Kardex Real (Pestaña 3)" onClose={onClose} />
+                    
+                    <Card className="bg-indigo-900 text-white p-8 relative overflow-hidden border-none shadow-2xl">
+                        <div className="relative z-10">
+                            <h3 className="text-xl font-black uppercase mb-4 flex items-center gap-2 tracking-tighter">
+                                <Icon name="sparkles" className="text-indigo-300"/> Plan de Reabastecimiento ✨
+                            </h3>
+                            {prevision ? (
+                                <p className="text-xs font-bold text-indigo-100 leading-relaxed italic">{prevision}</p>
+                            ) : (
+                                <button onClick={consultarPrevision} disabled={loadingIA} className="bg-white/10 hover:bg-white/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2">
+                                    {loadingIA ? <div className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> : <Icon name="zap" size={14}/>}
+                                    {loadingIA ? "Procesando..." : "Generar Plan con IA ✨"}
+                                </button>
+                            )}
+                        </div>
+                    </Card>
+
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
                         {inventario.map(p => (
                             <Card key={p.id} className="group hover:scale-105 transition-all cursor-default">
                                 <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">{p.nombre}</p>
                                 <p className={`text-4xl font-black ${p.actual < 100 ? 'text-red-500' : 'text-slate-800'}`}>{p.actual.toLocaleString()}</p>
                                 <p className="text-[8px] font-bold text-orange-500 uppercase mt-2">Disponibles</p>
-                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between text-[8px] font-black uppercase opacity-60">
-                                    <div className="text-left"><p>Ingresos</p><p className="text-green-600">+{p.ingresado}</p></div>
-                                    <div className="text-right"><p>Despachos</p><p className="text-red-500">-{p.despachado}</p></div>
+                                <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between text-[8px] font-black uppercase opacity-60 italic">
+                                    <div className="text-left"><p>Entradas</p><p className="text-green-600">+{p.ingresado}</p></div>
+                                    <div className="text-right"><p>Despachado</p><p className="text-red-500">-{p.despachado}</p></div>
                                 </div>
                             </Card>
                         ))}
@@ -419,7 +404,7 @@
                 <div className="space-y-6 fade-in">
                     <ViewHeader title="Contabilidad" sub="Historial Libro Diario (Pestaña 4)" onClose={onClose} />
                     <div className="flex justify-end mb-4">
-                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Nuevo Movimiento</button>
+                        <button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg hover:bg-black transition-all">Nuevo Asiento</button>
                     </div>
                     <Card className="p-0 overflow-hidden shadow-xl border-none">
                         <div className="overflow-x-auto text-left">
@@ -445,7 +430,7 @@
                         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-md animate-in zoom-in-95 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase text-slate-800 italic">Registrar Movimiento Manual</h3>
+                                <h3 className="font-black text-xl mb-6 border-b pb-4 uppercase text-slate-800 italic">Registrar Movimiento</h3>
                                 <form onSubmit={async (e) => {
                                     e.preventDefault();
                                     const col = form.tipo === 'Ingreso' ? 'cartera' : 'gastos';
@@ -466,7 +451,7 @@
                                     </div>
                                     <input placeholder="Concepto" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" onChange={e => setForm({...form, concepto: e.target.value})} required />
                                     <input type="number" step="0.01" placeholder="Monto $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" onChange={e => setForm({...form, monto: e.target.value})} required />
-                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white transition-all hover:bg-orange-700">Guardar Asiento</button>
+                                    <button className="w-full py-5 rounded-2xl font-black uppercase text-xs shadow-xl bg-orange-600 text-white transition-all hover:bg-orange-700">Guardar</button>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </form>
                             </Card>
@@ -476,48 +461,79 @@
             );
         };
 
-        // 5. GERENCIA (ANÁLISIS ESTRATÉGICO)
+        // 5. GERENCIA (Con consultoría IA)
         const GerenciaView = ({ stats, facturasProv, onClose }) => {
+            const [asesoria, setAsesoria] = useState("");
+            const [loadingIA, setLoadingIA] = useState(false);
+            
             const utilidad = stats.utilidadBruta || 0;
             const perc = Math.min(Math.round((utilidad / TOTAL_GASTOS_FIJOS) * 100), 100);
             const ventaBrutaReq = TOTAL_GASTOS_FIJOS / MARGEN_PROMEDIO_ESTIMADO;
             const saldoPagar = facturasProv.reduce((a, b) => a + (b.saldoPendiente || 0), 0);
 
+            const consultarEstrategia = async () => {
+                setLoadingIA(true);
+                try {
+                    const prompt = `Actúa como un experto consultor financiero para una distribuidora de avena. Datos: Gasto fijo mensual: $3,579.80. Utilidad lograda hoy: $${utilidad}. Saldo por pagar a proveedores: $${saldoPagar}. Avance del mes: ${perc}%. Da un consejo estratégico rápido (2 frases) ✨ para mejorar el flujo de caja.`;
+                    const res = await llamarIA(prompt);
+                    setAsesoria(res);
+                } catch (e) { setAsesoria("Error al conectar con el Asesor Estratégico."); }
+                setLoadingIA(false);
+            };
+
             return (
                 <div className="space-y-6 fade-in pb-12">
-                    <ViewHeader title="Gerencia" sub="Informes Estratégicos (Pestaña 5)" onClose={onClose} />
+                    <ViewHeader title="Gerencia" sub="5. Estrategia de Negocio ✨" onClose={onClose} />
                     
+                    <Card className="bg-gradient-to-br from-slate-900 to-indigo-900 text-white p-10 border-none shadow-2xl relative group">
+                        <div className="relative z-10">
+                            <h3 className="text-2xl font-black uppercase mb-4 flex items-center gap-3 tracking-tighter">
+                                <Icon name="shield-check" className="text-indigo-400"/> Asesoría Estratégica IA ✨
+                            </h3>
+                            {asesoria ? (
+                                <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                                    <p className="text-sm font-bold text-indigo-100 leading-relaxed italic">"{asesoria}"</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col md:flex-row items-center gap-6">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-sm">Análisis de rendimiento, punto de equilibrio y salud financiera.</p>
+                                    <button onClick={consultarEstrategia} disabled={loadingIA} className="bg-orange-600 hover:bg-orange-500 px-8 py-3 rounded-2xl text-[10px] font-black uppercase transition-all shadow-xl flex items-center gap-2">
+                                        {loadingIA ? <div className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> : <Icon name="brain-circuit" size={16}/>}
+                                        {loadingIA ? "Analizando..." : "Consultar Asesoría ✨"}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-white">
-                        <Card className="bg-slate-900 border-none shadow-2xl relative overflow-hidden group">
+                        <Card className="bg-slate-900 border-none shadow-xl relative overflow-hidden group">
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4">Inversión Mensual Fija</p>
+                                <p className="text-[10px] font-black uppercase opacity-50 tracking-[0.2em] mb-4 italic">Inversión Fija Mensual</p>
                                 <p className="text-4xl font-black">${TOTAL_GASTOS_FIJOS.toLocaleString()}</p>
-                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic">Costo operativo para operar 30 días</p>
+                                <p className="text-[9px] font-bold mt-4 opacity-40 uppercase tracking-widest italic leading-relaxed">Costo total operativo estimado</p>
                             </div>
                             <Icon name="trending-up" className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform" size={120}/>
                         </Card>
-                        <Card className="bg-orange-600 border-none shadow-2xl">
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Meta Venta Bruta (Pto. 0)</p>
+                        <Card className="bg-orange-600 border-none shadow-xl">
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Venta Meta (Punto 0)</p>
                             <p className="text-4xl font-black">${Math.round(ventaBrutaReq).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta para margen del 14%</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest italic">Venta para cubrir gastos (14%)</p>
                         </Card>
-                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-2xl`}>
-                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4">Balance de Utilidad Neta</p>
+                        <Card className={`${utilidad >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none shadow-xl`}>
+                            <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em] mb-4 italic">Balance Utilidad</p>
                             <p className="text-4xl font-black">${(utilidad - TOTAL_GASTOS_FIJOS).toLocaleString()}</p>
-                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Real' : 'Déficit por Cubrir'}</p>
+                            <p className="text-[9px] font-bold mt-4 opacity-50 uppercase tracking-widest">{utilidad >= TOTAL_GASTOS_FIJOS ? 'Superávit Real' : 'Faltante para Equilibrio'}</p>
                         </Card>
                     </div>
 
-                    <Card className="p-10 border-none shadow-xl text-left relative overflow-hidden">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
+                    <Card className="p-10 border-none shadow-xl text-left">
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                             <div>
-                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1 italic">Reporte de Punto de Equilibrio</h3>
-                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Avance de utilidad real frente a gastos mensuales</p>
+                                <h3 className="font-black text-2xl uppercase tracking-tighter text-slate-800 mb-1 italic">Estado de Rentabilidad</h3>
+                                <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest italic">Avance de utilidad real frente a gastos</p>
                             </div>
-                            <div className="text-center md:text-right">
-                                <span className="text-6xl font-black text-slate-800">{perc}%</span>
-                                <p className="text-[9px] font-black text-orange-600 uppercase mt-2 tracking-widest">Meta Cubierta</p>
-                            </div>
+                            <span className="text-5xl font-black text-slate-800">{perc}%</span>
                         </div>
                         <div className="mt-8 w-full bg-slate-100 h-14 rounded-[30px] overflow-hidden p-1.5 shadow-inner border border-slate-200">
                             <div className={`progress-bar h-full rounded-[25px] flex items-center justify-center text-xs font-black text-white ${perc >= 100 ? 'bg-green-500 shadow-lg' : 'bg-gradient-to-r from-orange-400 to-orange-600'}`} style={{ width: `${perc}%` }}>
@@ -525,37 +541,6 @@
                             </div>
                         </div>
                     </Card>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-                        <Card className="border-t-8 border-orange-500 shadow-md">
-                            <div className="flex items-center gap-3 mb-6"><div className="bg-orange-50 p-2 rounded-xl text-orange-600"><Icon name="truck" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800 italic">Inversión Ventas</h3></div>
-                            <div className="space-y-3">
-                                {GASTOS_MENSUALES_FIJOS.ventas.map((g, i) => (
-                                    <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
-                                        <span>{g.label}</span>
-                                        <span className="text-slate-800 font-black">${g.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                        <Card className="border-t-8 border-blue-500 shadow-md">
-                            <div className="flex items-center gap-3 mb-6"><div className="bg-blue-50 p-2 rounded-xl text-blue-600"><Icon name="settings" size={18}/></div><h3 className="font-black text-xs uppercase tracking-widest text-slate-800 italic">Gastos Admin</h3></div>
-                            <div className="space-y-3">
-                                {GASTOS_MENSUALES_FIJOS.admin.map((g, i) => (
-                                    <div key={i} className="flex justify-between text-[11px] font-bold border-b border-slate-50 pb-2 uppercase tracking-tight text-slate-500">
-                                        <span>{g.label}</span>
-                                        <span className="text-slate-800 font-black">${g.monto.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="mt-8 pt-6 border-t border-slate-100">
-                                <div className="bg-red-50 p-6 rounded-3xl flex justify-between items-center border border-red-100 shadow-sm transition-transform hover:scale-[1.02] cursor-default">
-                                    <div><p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Pendiente Proveedores</p><p className="text-2xl font-black text-red-600">${saldoPagar.toLocaleString()}</p></div>
-                                    <Icon name="alert-circle" className="text-red-300 animate-pulse" size={36}/>
-                                </div>
-                            </div>
-                        </Card>
-                    </div>
                 </div>
             );
         };
@@ -565,12 +550,12 @@
             const [form, setForm] = useState({ nombre: '', sueldo: 964 });
             return (
                 <div className="space-y-6 fade-in">
-                    <ViewHeader title="Personal" sub="Gestión de Staff" onClose={onClose} />
+                    <ViewHeader title="Personal" sub="Staff Activo" onClose={onClose} />
                     <div className="flex justify-end mb-4"><button onClick={() => setModal(true)} className="bg-slate-900 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase shadow-lg tracking-widest hover:bg-black transition-all">Nuevo Staff</button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                         {personal.map(p => (
-                            <Card key={p.id} className="flex justify-between items-center border-l-4 border-l-blue-400 group hover:border-l-orange-500 transition-all transition-colors">
-                                <div><h4 className="font-black text-slate-800 text-xs uppercase tracking-tight">{p.nombre}</h4><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sueldo Base: ${p.sueldo}</p></div>
+                            <Card key={p.id} className="flex justify-between items-center border-l-4 border-l-blue-400 group hover:border-l-orange-500 transition-all">
+                                <div><h4 className="font-black text-slate-800 text-xs uppercase tracking-tight">{p.nombre}</h4><p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sueldo: ${p.sueldo}</p></div>
                                 <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').doc(p.id).delete()} className="text-slate-100 hover:text-red-500 transition-colors"><Icon name="trash-2" size={18}/></button>
                             </Card>
                         ))}
@@ -579,11 +564,11 @@
                         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm text-left">
                             <Card className="w-full max-w-sm p-8 bg-white rounded-3xl animate-in zoom-in-95 relative">
                                 <button onClick={() => setModal(false)} className="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x"/></button>
-                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic text-center underline decoration-blue-500 underline-offset-4">Nuevo Colaborador</h3>
+                                <h3 className="font-black text-xl uppercase mb-6 text-slate-800 tracking-tighter italic text-center underline decoration-blue-500 underline-offset-4">Nuevo Staff</h3>
                                 <form onSubmit={async (e) => { e.preventDefault(); await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('personal').add(form); setModal(false); setForm({ nombre: '', sueldo: 964 }); }} className="space-y-4">
-                                    <input placeholder="Nombre Completo" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
-                                    <input type="number" placeholder="Sueldo Mensual $" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
-                                    <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Guardar en Nómina</button>
+                                    <input placeholder="Nombre" className="w-full bg-slate-50 p-4 rounded-2xl font-bold border-none shadow-inner" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                                    <input type="number" placeholder="Sueldo" className="w-full bg-slate-50 p-4 rounded-2xl font-black border-none shadow-inner" value={form.sueldo} onChange={e => setForm({...form, sueldo: parseFloat(e.target.value)})} required />
+                                    <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black uppercase shadow-xl hover:bg-black transition-all">Guardar</button>
                                     <button type="button" onClick={() => setModal(false)} className="w-full py-2 text-slate-400 font-bold uppercase text-[10px] tracking-widest text-center hover:text-red-500 transition-all mt-2">← Cancelar</button>
                                 </form>
                             </Card>
@@ -605,42 +590,22 @@
             const [personal, setPersonal] = useState([]);
             const [facturasProv, setFacturasProv] = useState([]);
 
-            // Sistema de inicio robusto
             useEffect(() => {
                 let unsub;
                 const initAuth = async () => {
-                    if (!auth) { 
-                        setLoading(false); 
-                        return; 
-                    }
+                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
                         } else {
                             await auth.signInAnonymously();
                         }
-                        
-                        unsub = auth.onAuthStateChanged(u => { 
-                            setUser(u); 
-                            setLoading(false); 
-                        });
-                    } catch (e) { 
-                        console.error("Auth Error:", e); 
-                        setLoading(false); 
-                    }
+                        unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+                    } catch (e) { console.error("Auth Error:", e); setLoading(false); }
                 };
-
                 initAuth();
-                
-                // Forzar resolución de carga tras 5 segundos como máximo
-                const timeout = setTimeout(() => {
-                    setLoading(false);
-                }, 5000);
-
-                return () => {
-                    if (unsub) unsub();
-                    clearTimeout(timeout);
-                };
+                const timeout = setTimeout(() => setLoading(false), 5000);
+                return () => { if (unsub) unsub(); clearTimeout(timeout); };
             }, []);
 
             useEffect(() => {
@@ -655,9 +620,7 @@
                             if (col === 'gastos') setGastos(data);
                             if (col === 'personal') setPersonal(data);
                             if (col === 'facturasProveedor') setFacturasProv(data);
-                        }, err => {
-                            console.error(`Snap Error en ${col}:`, err);
-                        });
+                        }, err => console.error(`Snap Error ${col}:`, err));
                 });
                 return () => unsubs.forEach(fn => fn());
             }, [user]);
@@ -669,12 +632,7 @@
                 return { vtot, utilidadBruta };
             }, [cargas, cartera]);
 
-            if (loading) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white">
-                    <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="font-black text-orange-600 text-[10px] tracking-[0.4em] uppercase animate-pulse">Avena Pro • Sincronizando Sistema...</p>
-                </div>
-            );
+            if (loading) return <div className="h-screen flex items-center justify-center bg-white font-black text-orange-600 text-[10px] tracking-[0.4em] animate-pulse uppercase">Avena Pro • Iniciando con IA ✨...</div>;
 
             const NavItem = ({ id, icon, label, primary = false }) => (
                 <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 p-4 rounded-3xl transition-all ${activeTab === id ? 'bg-orange-600 text-white shadow-lg scale-[1.02]' : 'text-slate-400 hover:bg-slate-50'} ${primary ? 'font-black' : ''}`}>
@@ -695,11 +653,11 @@
                             <NavItem id="logistica" icon="truck" label="2. Logística" primary />
                             <NavItem id="inventario" icon="archive" label="3. Inventario" primary />
                             <NavItem id="contabilidad" icon="book-open" label="4. Contabilidad" primary />
-                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia" primary />
-                            <div className="my-6 border-t border-slate-100 pt-6"><NavItem id="nomina" icon="users" label="Personal / Nómina" /></div>
+                            <NavItem id="gerencia" icon="line-chart" label="5. Gerencia ✨" primary />
+                            <div className="my-6 border-t border-slate-100 pt-6"><NavItem id="nomina" icon="users" label="Personal / Staff" /></div>
                         </nav>
                         <div className="mt-auto p-5 bg-slate-900 rounded-[35px] text-white text-center shadow-xl">
-                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1">Cuentas por Pagar</p>
+                            <p className="text-[8px] font-black uppercase opacity-50 tracking-widest mb-1 italic">Pendiente a Pagar</p>
                             <p className="text-xl font-black text-orange-400">${facturasProv.reduce((a,b) => a + (b.saldoPendiente || 0), 0).toLocaleString()}</p>
                         </div>
                     </aside>
