@@ -5,19 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Logística Polaca 1.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
+    <!-- Firebase SDKs (v8 compatibilidad para mayor estabilidad en este entorno) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         .tab-active { color: #2563eb; border-top: 2px solid #2563eb; }
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .status-badge { font-size: 10px; padding: 2px 8px; border-radius: 9999px; font-weight: 700; text-transform: uppercase; }
         .status-pendiente { background-color: #fef3c7; color: #92400e; }
         .status-abonado { background-color: #dbeafe; color: #1e40af; }
         .status-cancelado { background-color: #d1fae5; color: #065f46; }
+        .loading-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
 <body class="bg-gray-100 pb-24">
@@ -36,13 +38,14 @@
                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Control Administrativo</p>
                 </div>
             </div>
-            <div id="user-indicator" class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-400">Iniciando...</div>
+            <div id="user-indicator" class="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-400">Desconectado</div>
         </header>
 
         <!-- Main Content -->
         <main class="max-w-md mx-auto p-4" id="main-content">
-            <div class="flex justify-center py-20">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div id="loading-view" class="flex flex-col items-center justify-center py-20 space-y-4">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                <p class="text-gray-500 text-sm font-medium loading-pulse">Conectando con el sistema...</p>
             </div>
         </main>
 
@@ -64,13 +67,8 @@
     </div>
 
     <script>
-        // --- CONFIGURACIÓN ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-logistica-v1';
-
+        // --- CONFIGURACIÓN SEGURA ---
+        let db, auth, appId;
         const PRODUCTOS = [
             { id: 'P000000256', nombre: 'AVENA POLACA 165G', precio: 0.269565 },
             { id: 'P000000247', nombre: 'AVENA POLACA 340G', precio: 0.608694 },
@@ -80,62 +78,89 @@
 
         let facturas = [];
         let activeTab = 'dashboard';
+        let isFirebaseReady = false;
 
-        // --- AUTH & DATA ---
         async function initApp() {
+            const main = document.getElementById('main-content');
             try {
+                // Validación de Configuración
+                if (typeof __firebase_config === 'undefined') {
+                    throw new Error("Configuración de Firebase no encontrada.");
+                }
+
+                const firebaseConfig = JSON.parse(__firebase_config);
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-logistica-v1';
+
+                // Intento de Autenticación
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await auth.signInWithCustomToken(__initial_auth_token);
                 } else {
                     await auth.signInAnonymously();
                 }
-            } catch (e) { console.error("Auth error", e); }
 
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    document.getElementById('user-indicator').innerText = user.uid.substring(0, 8);
-                    escucharFacturas();
-                }
-            });
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        document.getElementById('user-indicator').innerText = user.uid.substring(0, 8);
+                        isFirebaseReady = true;
+                        escucharFacturas();
+                        render(); // Render inicial para quitar el spinner
+                    }
+                });
+
+            } catch (e) {
+                console.error("Error de Inicialización:", e);
+                main.innerHTML = `
+                    <div class="bg-red-50 p-6 rounded-2xl border border-red-200 mt-10">
+                        <h2 class="text-red-700 font-bold mb-2">Error de Conexión</h2>
+                        <p class="text-red-600 text-sm">${e.message}</p>
+                        <button onclick="location.reload()" class="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase">Reintentar</button>
+                    </div>
+                `;
+            }
         }
 
         function escucharFacturas() {
+            if (!isFirebaseReady) return;
             const path = `artifacts/${appId}/public/data/facturas`;
+            
             db.collection(path).onSnapshot(snapshot => {
                 const data = snapshot.docs.map(doc => ({ 
                     id: doc.id, 
                     ...doc.data(),
-                    // Asegurar que exista timestamp para ordenar
                     sortTime: doc.data().timestamp?.seconds || new Date(doc.data().fechaEmision).getTime() / 1000 || 0
                 }));
-                
-                // ORDENAR: Del más reciente al más antiguo
                 facturas = data.sort((a, b) => b.sortTime - a.sortTime);
                 render();
             }, (error) => {
-                console.error("Error Firestore:", error);
+                console.error("Error Firestore Snapshot:", error);
             });
         }
 
-        // --- NAVEGACIÓN ---
         function switchTab(tab) {
             activeTab = tab;
             render();
         }
 
-        // --- LÓGICA DE FORMULARIO ---
         function updateTotals() {
             let subtotal = 0;
             PRODUCTOS.forEach((p, i) => {
-                const cant = parseFloat(document.getElementById(`cant-${i}`).value) || 0;
-                subtotal += cant * p.precio;
+                const input = document.getElementById(`cant-${i}`);
+                if (input) {
+                    const cant = parseFloat(input.value) || 0;
+                    subtotal += cant * p.precio;
+                }
             });
             const iva = subtotal * 0.15;
             const total = subtotal + iva;
 
-            document.getElementById('res-subtotal').innerText = `$${subtotal.toFixed(2)}`;
-            document.getElementById('res-iva').innerText = `$${iva.toFixed(2)}`;
-            document.getElementById('res-total').innerText = `$${total.toFixed(2)}`;
+            if (document.getElementById('res-subtotal')) {
+                document.getElementById('res-subtotal').innerText = `$${subtotal.toFixed(2)}`;
+                document.getElementById('res-iva').innerText = `$${iva.toFixed(2)}`;
+                document.getElementById('res-total').innerText = `$${total.toFixed(2)}`;
+            }
         }
 
         async function guardarFactura() {
@@ -165,7 +190,7 @@
                 await db.collection(path).add(facturaData);
                 switchTab('dashboard');
             } catch (e) {
-                alert("Error al guardar");
+                alert("Error al guardar en base de datos: " + e.message);
                 btn.disabled = false;
                 btn.innerText = "REGISTRAR CARGA";
             }
@@ -176,15 +201,18 @@
                 const path = `artifacts/${appId}/public/data/facturas`;
                 await db.collection(path).doc(id).update({ estado: nuevoEstado });
             } catch (e) {
-                alert("Error al actualizar estado");
+                alert("Error al actualizar");
             }
         }
 
-        // --- RENDERIZADO ---
         function render() {
             const container = document.getElementById('main-content');
+            if (!container) return;
+
+            // Update Nav Classes
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('tab-active'));
-            document.getElementById(`btn-${activeTab}`).classList.add('tab-active');
+            const activeBtn = document.getElementById(`btn-${activeTab}`);
+            if (activeBtn) activeBtn.classList.add('tab-active');
 
             if (activeTab === 'dashboard') {
                 const total = facturas.reduce((acc, f) => acc + (f.total || 0), 0);
@@ -196,28 +224,28 @@
                                 <p class="text-xl font-bold text-gray-800">$${total.toFixed(2)}</p>
                             </div>
                             <div class="bg-white p-4 rounded-2xl shadow-sm border">
-                                <p class="text-[10px] text-gray-400 font-bold uppercase">Facturas</p>
+                                <p class="text-[10px] text-gray-400 font-bold uppercase">Registros</p>
                                 <p class="text-xl font-bold text-gray-800">${facturas.length}</p>
                             </div>
                         </div>
 
                         <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <h3 class="text-xs font-bold text-gray-500 uppercase tracking-tighter">Cargas Recientes (Último al Primero)</h3>
+                            <div class="flex justify-between items-center px-1">
+                                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Actividad Reciente</h3>
                             </div>
-                            ${facturas.length === 0 ? '<p class="text-center py-10 text-gray-400 text-sm">No hay facturas registradas</p>' : ''}
+                            ${facturas.length === 0 ? '<p class="text-center py-10 text-gray-400 text-xs italic bg-white rounded-2xl border border-dashed">Sin movimientos registrados</p>' : ''}
                             ${facturas.slice(0, 10).map(f => `
-                                <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 ${f.estado === 'cancelado' ? 'border-green-500' : f.estado === 'abonado' ? 'border-blue-500' : 'border-yellow-500'}">
+                                <div class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center border-l-4 ${f.estado === 'cancelado' ? 'border-green-500' : f.estado === 'abonado' ? 'border-blue-500' : 'border-yellow-500'}">
                                     <div class="text-sm">
-                                        <p class="font-bold text-gray-800">${f.cliente.length > 20 ? f.cliente.substring(0, 20) + '...' : f.cliente}</p>
+                                        <p class="font-bold text-gray-800 leading-tight">${f.cliente.length > 22 ? f.cliente.substring(0, 22) + '...' : f.cliente}</p>
                                         <div class="flex gap-2 items-center mt-1">
                                             <span class="text-[9px] text-gray-400 font-mono">${f.numFactura}</span>
                                             <span class="status-badge status-${f.estado || 'pendiente'}">${f.estado || 'pendiente'}</span>
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <p class="font-bold text-blue-600">$${f.total.toFixed(2)}</p>
-                                        <p class="text-[9px] text-gray-400">${f.fechaEmision}</p>
+                                        <p class="font-bold text-blue-600">$${(f.total || 0).toFixed(2)}</p>
+                                        <p class="text-[9px] text-gray-400">${f.fechaEmision || ''}</p>
                                     </div>
                                 </div>
                             `).join('')}
@@ -228,34 +256,34 @@
                 const hoy = new Date().toISOString().split('T')[0];
                 container.innerHTML = `
                     <div class="space-y-4">
-                        <h2 class="text-lg font-bold text-gray-800">Nueva Carga Espejo</h2>
+                        <h2 class="text-lg font-bold text-gray-800">Carga Factura Espejo</h2>
                         
                         <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-4">
-                             <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Información de Factura</p>
+                             <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Cabecera</p>
                              
                              <div>
                                 <label class="text-[9px] text-gray-400 font-bold uppercase">Cliente</label>
-                                <input id="f-cliente" value="DISTRIBUIDORA AUSTROECUATORIANA S.A.S." class="w-full text-sm font-bold border-b pb-1 outline-none focus:border-blue-500">
+                                <input id="f-cliente" value="DISTRIBUIDORA AUSTROECUATORIANA S.A.S." class="w-full text-sm font-bold border-b pb-1 outline-none focus:border-blue-500 bg-transparent">
                              </div>
 
                              <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="text-[9px] text-gray-400 font-bold uppercase">RUC</label>
-                                    <input id="f-ruc" value="0195174555001" class="w-full text-xs border-b outline-none">
+                                    <input id="f-ruc" value="0195174555001" class="w-full text-xs border-b outline-none bg-transparent">
                                 </div>
                                 <div>
-                                    <label class="text-[9px] text-gray-400 font-bold uppercase">N° Factura</label>
-                                    <input id="f-num" placeholder="003-102-..." class="w-full text-xs border-b outline-none font-bold text-blue-600">
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Factura N°</label>
+                                    <input id="f-num" placeholder="003-102-..." class="w-full text-xs border-b outline-none font-bold text-blue-600 bg-transparent">
                                 </div>
                              </div>
 
                              <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Fecha Emisión</label>
-                                    <input type="date" id="f-fecha" value="${hoy}" class="w-full text-xs border-b outline-none">
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Fecha</label>
+                                    <input type="date" id="f-fecha" value="${hoy}" class="w-full text-xs border-b outline-none bg-transparent">
                                 </div>
                                 <div>
-                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Estado Inicial</label>
+                                    <label class="text-[9px] text-gray-400 font-bold uppercase">Estado</label>
                                     <select id="f-estado" class="w-full text-xs border-b outline-none bg-transparent font-bold">
                                         <option value="pendiente">PENDIENTE</option>
                                         <option value="abonado">ABONADO</option>
@@ -266,14 +294,14 @@
                         </div>
 
                         <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-4">
-                            <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Desglose de Productos</p>
+                            <p class="text-[10px] font-bold text-blue-600 uppercase border-b pb-2">Productos</p>
                             ${PRODUCTOS.map((p, i) => `
                                 <div class="flex items-center gap-2">
                                     <div class="flex-1">
                                         <p class="text-xs font-bold text-gray-700 leading-tight">${p.nombre}</p>
-                                        <p class="text-[9px] text-gray-400">Unit: $${p.precio.toFixed(4)}</p>
+                                        <p class="text-[9px] text-gray-400">$${p.precio.toFixed(4)}</p>
                                     </div>
-                                    <input type="number" id="cant-${i}" oninput="updateTotals()" placeholder="0" class="w-20 bg-gray-50 border rounded-lg p-2 text-center text-sm font-bold focus:ring-1 focus:ring-blue-500 outline-none">
+                                    <input type="number" id="cant-${i}" oninput="updateTotals()" placeholder="0" class="w-20 bg-gray-50 border rounded-xl p-2 text-center text-sm font-bold focus:ring-1 focus:ring-blue-500 outline-none">
                                 </div>
                             `).join('')}
                         </div>
@@ -284,33 +312,35 @@
                             <div class="flex justify-between text-xl font-bold pt-1"><span>TOTAL</span> <span id="res-total" class="text-green-400">$0.00</span></div>
                         </div>
 
-                        <button id="btn-save" onclick="guardarFactura()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR CARGA</button>
+                        <button id="btn-save" onclick="guardarFactura()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all">REGISTRAR CARGA</button>
                     </div>
                 `;
             } else if (activeTab === 'rutas') {
                 container.innerHTML = `
                     <div class="space-y-4">
-                        <div class="flex justify-between items-center">
+                        <div class="flex justify-between items-center px-1">
                             <h2 class="text-lg font-bold text-gray-800">Control de Facturas</h2>
                             <span class="text-[10px] font-bold text-gray-400 uppercase">${facturas.length} registros</span>
                         </div>
                         
-                        <div class="space-y-4">
+                        <div class="space-y-3">
                             ${facturas.map(f => `
                                 <div class="bg-white p-4 rounded-2xl border shadow-sm space-y-3">
                                     <div class="flex justify-between items-start">
-                                        <div>
-                                            <p class="text-sm font-bold text-gray-800">${f.cliente}</p>
-                                            <p class="text-[10px] text-gray-400 font-mono">${f.numFactura} • ${f.fechaEmision}</p>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-bold text-gray-800 leading-tight">${f.cliente}</p>
+                                            <p class="text-[10px] text-gray-400 font-mono mt-1">${f.numFactura} • ${f.fechaEmision}</p>
                                         </div>
-                                        <p class="font-bold text-blue-600">$${f.total.toFixed(2)}</p>
+                                        <div class="text-right">
+                                            <p class="font-bold text-blue-600">$${(f.total || 0).toFixed(2)}</p>
+                                        </div>
                                     </div>
                                     
                                     <div class="flex items-center gap-2 pt-2 border-t border-gray-50">
-                                        <span class="text-[10px] font-bold text-gray-400 uppercase flex-1">Cambiar Estado:</span>
+                                        <span class="text-[9px] font-bold text-gray-400 uppercase flex-1">Actualizar estado:</span>
                                         <select 
                                             onchange="actualizarEstado('${f.id}', this.value)" 
-                                            class="text-[10px] font-bold border rounded px-2 py-1 outline-none ${f.estado === 'cancelado' ? 'text-green-600' : f.estado === 'abonado' ? 'text-blue-600' : 'text-yellow-600'}"
+                                            class="text-[10px] font-bold border rounded-lg px-3 py-1.5 outline-none bg-gray-50 ${f.estado === 'cancelado' ? 'text-green-600' : f.estado === 'abonado' ? 'text-blue-600' : 'text-yellow-600'}"
                                         >
                                             <option value="pendiente" ${f.estado === 'pendiente' ? 'selected' : ''}>PENDIENTE</option>
                                             <option value="abonado" ${f.estado === 'abonado' ? 'selected' : ''}>ABONADO</option>
@@ -319,13 +349,14 @@
                                     </div>
                                 </div>
                             `).join('')}
-                            ${facturas.length === 0 ? '<div class="text-center py-20 opacity-30 font-bold">Sin datos</div>' : ''}
+                            ${facturas.length === 0 ? '<div class="text-center py-20 opacity-30 font-bold text-sm">Sin datos para gestionar</div>' : ''}
                         </div>
                     </div>
                 `;
             }
         }
 
+        // Inicio de la aplicación
         window.onload = initApp;
     </script>
 </body>
