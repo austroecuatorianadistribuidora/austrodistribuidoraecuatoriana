@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Logística Polaca Pro v1.4</title>
+    <title>Logística Polaca Pro v1.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="importmap">
     {
@@ -45,11 +45,10 @@
             border-radius: 32px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
             transition: transform 0.1s ease;
-            position: relative;
         }
 
         .card-samsung:active, button:active {
-            transform: scale(0.96);
+            transform: scale(0.97);
             opacity: 0.9;
         }
 
@@ -75,7 +74,7 @@
         input, select {
             background: transparent;
             border-bottom: 2px solid #e5e7eb;
-            padding: 14px 0;
+            padding: 12px 0;
             outline: none;
             transition: border-color 0.2s;
             font-size: 16px !important;
@@ -86,6 +85,18 @@
         
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        .badge {
+            font-size: 9px;
+            font-weight: 900;
+            padding: 4px 10px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+
+        .mirror-table { width: 100%; font-size: 10px; }
+        .mirror-table th { color: #9ca3af; text-align: left; padding: 4px; }
+        .mirror-table td { padding: 4px; vertical-align: middle; }
 
         .vendor-btn {
             font-size: 10px;
@@ -101,11 +112,11 @@
         <header class="oneui-header">
             <div class="flex justify-between items-start">
                 <div>
-                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Sincronización v1.4</div>
-                    <h1 id="view-title" class="text-3xl font-extrabold tracking-tight">Inicio</h1>
+                    <div id="cloud-sync" class="text-[9px] font-black text-orange-600 mb-1 opacity-0 tracking-widest uppercase transition-opacity">Cloud Sincronizado v1.8</div>
+                    <h1 id="view-title" class="text-3xl font-extrabold tracking-tight text-gray-800">Inicio</h1>
                 </div>
-                <div class="bg-orange-100 p-2 rounded-2xl">
-                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                <div id="auth-status" class="bg-gray-200 p-2 rounded-2xl transition-colors">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
             </div>
         </header>
@@ -114,22 +125,21 @@
             <!-- PESTAÑA 1: INICIO -->
             <section id="tab-dashboard" class="tab-content active fade-in">
                 <div class="card-samsung p-8 bg-orange-600 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
-                    <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Balance de Facturación</p>
+                    <p class="text-[10px] font-bold uppercase opacity-70 tracking-widest">Saldo Pendiente en Nube</p>
                     <h2 id="dash-total" class="text-4xl font-black mt-1">$0.00</h2>
-                    
                     <div class="mt-8 flex justify-between items-center">
-                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold">CONECTADO</span>
-                        <span class="text-[10px] font-mono font-bold opacity-40 uppercase tracking-tighter">Versión 1.4</span>
+                        <span class="text-[10px] bg-white/20 px-4 py-1.5 rounded-full font-bold uppercase">Sincronizado</span>
+                        <span class="text-[10px] font-mono font-bold opacity-40">v1.8</span>
                     </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-4 mt-4">
-                    <div class="card-samsung p-6 border border-gray-100 flex flex-col items-center justify-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Facturas</p>
+                    <div class="card-samsung p-6 border border-gray-100 text-center">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Cuentas Abiertas</p>
                         <p id="dash-facturas-count" class="text-2xl font-black text-gray-800">0</p>
                     </div>
-                    <div class="card-samsung p-6 border border-gray-100 flex flex-col items-center justify-center">
-                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Cierres Ruta</p>
+                    <div class="card-samsung p-6 border border-gray-100 text-center">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase mb-1">Liquidaciones Hoy</p>
                         <p id="dash-rutas-count" class="text-2xl font-black text-gray-800">0</p>
                     </div>
                 </div>
@@ -137,89 +147,44 @@
 
             <!-- PESTAÑA 2: FACTURAS -->
             <section id="tab-facturas" class="tab-content fade-in">
-                <button onclick="window.openModal('modal-factura')" class="w-full py-5 btn-orange text-[10px] font-black uppercase tracking-[0.2em] mb-4 shadow-lg shadow-orange-100">Nueva Factura (Scan PDF)</button>
+                <button onclick="window.openModal('modal-factura')" class="w-full py-5 btn-orange text-[10px] font-black uppercase tracking-[0.2em] mb-4 shadow-lg shadow-orange-100">+ Ingreso Factura Espejo</button>
                 <div id="facturas-list" class="space-y-4"></div>
             </section>
 
             <!-- PESTAÑA 3: LOGÍSTICA -->
             <section id="tab-logistica" class="tab-content fade-in">
                 <div class="flex gap-3 mb-6">
-                    <button onclick="window.setVendor('Diego Javier Ciabichay Arias')" id="v-diego" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all shadow-sm bg-gray-200 text-gray-400">
-                        Diego Javier<br>Ciabichay Arias
-                    </button>
-                    <button onclick="window.setVendor('Byron Armando Miranda Capa')" id="v-byron" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all shadow-sm bg-gray-200 text-gray-400">
-                        Byron Armando<br>Miranda Capa
-                    </button>
+                    <button onclick="window.setVendor('Diego Javier Ciabichay Arias')" id="v-diego" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400">Diego Javier</button>
+                    <button onclick="window.setVendor('Byron Armando Miranda Capa')" id="v-byron" class="vendor-btn flex-1 rounded-2xl font-black uppercase transition-all bg-gray-200 text-gray-400">Byron Armando</button>
                 </div>
-
-                <div class="card-samsung p-6 border border-gray-100 space-y-6">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Carga de Mercancía</h3>
-                    <div id="logistica-items" class="space-y-4"></div>
+                <div class="card-samsung p-6 border border-gray-100 space-y-4">
+                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Inventario de Carga</h3>
+                    <div id="logistica-items" class="space-y-3"></div>
                     <div class="pt-4 border-t flex justify-between items-center">
-                        <p class="text-[10px] font-black text-gray-400 uppercase">Valor Cargado</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase">Costo Total</p>
                         <p id="log-carga-total" class="text-xl font-black text-gray-900">$0.00</p>
                     </div>
-                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase">Registrar Carga</button>
-                </div>
-
-                <div class="card-samsung p-6 border border-gray-100 mt-4 space-y-5">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase tracking-widest">Cuadre del Vendedor</h3>
-                    <div class="space-y-5">
-                        <input id="log-venta" type="number" oninput="window.calcNeto()" placeholder="Venta Total ($)" class="text-lg font-black">
-                        <p class="text-[8px] font-black text-gray-300 uppercase">Deducciones (Gastos)</p>
-                        <div class="grid grid-cols-2 gap-4">
-                            <input id="g-viaticos" type="number" oninput="window.calcNeto()" placeholder="Viáticos" class="text-xs font-bold border-b-2 py-2">
-                            <input id="g-alimentacion" type="number" oninput="window.calcNeto()" placeholder="Comida" class="text-xs font-bold border-b-2 py-2">
-                            <input id="g-combustible" type="number" oninput="window.calcNeto()" placeholder="Combustible" class="text-xs font-bold border-b-2 py-2">
-                            <input id="g-hospedaje" type="number" oninput="window.calcNeto()" placeholder="Hospedaje" class="text-xs font-bold border-b-2 py-2">
-                        </div>
-                        <input id="g-otros" type="number" oninput="window.calcNeto()" placeholder="Otros Gastos" class="text-xs font-bold border-b-2 py-2">
-                        
-                        <div class="bg-gray-900 p-6 rounded-[28px] flex justify-between items-center shadow-xl">
-                            <div>
-                                <p class="text-[9px] font-black text-orange-200 uppercase tracking-widest">Valor Neto</p>
-                                <p id="log-neto" class="text-2xl font-black text-orange-400">$0.00</p>
-                            </div>
-                        </div>
-                    </div>
-                    <button onclick="window.saveLiquidation('Cierre')" class="w-full py-5 btn-orange rounded-[28px] text-[11px] font-black uppercase shadow-xl">Finalizar Día</button>
+                    <button onclick="window.saveLiquidation('Carga')" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase shadow-lg">Registrar Salida</button>
                 </div>
             </section>
 
             <!-- PESTAÑA 4: GERENCIA -->
             <section id="tab-gerencia" class="tab-content fade-in">
                 <div id="utility-card" class="card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800 transition-colors">
-                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Balance Operativo</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest opacity-60">Utilidad Acumulada</p>
                     <h2 id="gerencia-utility" class="text-4xl font-black mt-1">$0.00</h2>
-                    <p id="gerencia-status-msg" class="text-[9px] font-bold mt-4">CALCULANDO...</p>
                 </div>
                 <div class="card-samsung p-6 border border-gray-100">
                     <h3 class="font-black text-gray-400 text-[10px] uppercase mb-4">Meta Mensual ($19,887.78)</h3>
                     <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden mb-2">
-                        <div id="gerencia-progress" class="h-full bg-orange-500" style="width: 0%"></div>
+                        <div id="gerencia-progress" class="h-full bg-orange-500 transition-all duration-700" style="width: 0%"></div>
                     </div>
-                    <p id="gerencia-percent" class="text-[10px] font-black text-orange-600">0% Alcanzado</p>
-                </div>
-                <div class="card-samsung p-6 border border-gray-100 mt-4">
-                    <h3 class="font-black text-gray-800 text-xs uppercase mb-4">Gastos Fijos Mensuales</h3>
-                    <div id="fixed-costs-list" class="space-y-1"></div>
+                    <p id="gerencia-percent" class="text-[10px] font-black text-orange-600">0% Logrado</p>
                 </div>
             </section>
 
             <!-- PESTAÑA 5: CONTABILIDAD -->
             <section id="tab-contabilidad" class="tab-content fade-in">
-                <div class="card-samsung p-6 border border-gray-100 space-y-4 mb-4">
-                    <h3 class="font-black text-gray-400 text-[10px] uppercase">Registro Manual</h3>
-                    <div class="flex gap-4">
-                        <select id="acc-tipo" class="font-black w-1/2">
-                            <option value="ingreso">Ingreso (+)</option>
-                            <option value="egreso">Egreso (-)</option>
-                        </select>
-                        <input id="acc-monto" type="number" placeholder="Monto $" class="font-black w-1/2">
-                    </div>
-                    <input id="acc-desc" type="text" placeholder="Detalle del movimiento" class="font-medium">
-                    <button onclick="window.saveContabilidad()" class="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest">Guardar Registro</button>
-                </div>
                 <div id="contabilidad-ledger" class="space-y-3"></div>
             </section>
         </main>
@@ -239,7 +204,7 @@
             </button>
             <button onclick="window.switchTab('gerencia')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-gerencia">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                <span class="text-[8px] font-black uppercase">Metas</span>
+                <span class="text-[8px] font-black uppercase">Gerencia</span>
             </button>
             <button onclick="window.switchTab('contabilidad')" class="flex flex-col items-center gap-1 text-gray-400 p-2" id="nav-contabilidad">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -247,340 +212,279 @@
             </button>
         </nav>
 
-        <!-- Modal Factura Con Escáner Inteligente -->
+        <!-- MODAL FACTURA ESPEJO -->
         <div id="modal-factura" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[1000] hidden flex items-end justify-center p-0">
             <div class="card-samsung w-full max-w-md p-8 space-y-6 rounded-b-none animate-in slide-in-from-bottom duration-300">
                 <div class="flex justify-between items-center border-b pb-4">
-                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Nueva Factura</h3>
+                    <h3 class="font-black text-gray-800 text-xs uppercase tracking-widest">Registro Espejo</h3>
                     <button onclick="window.closeModal('modal-factura')" class="text-gray-400 p-2">✕</button>
                 </div>
-                
-                <!-- Botón de Scan PDF (Simulado con los datos reales del documento Austro) -->
-                <button onclick="window.processPDFData()" class="w-full py-3 bg-blue-50 text-blue-600 rounded-2xl text-[9px] font-black uppercase border border-blue-100 flex items-center justify-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    Procesar PDF de Factura
-                </button>
-
                 <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                             <label class="text-[8px] font-black text-gray-400 uppercase">Cliente</label>
-                             <input id="f-cliente" type="text" placeholder="Razón Social" class="text-xs font-black">
-                        </div>
-                        <div>
-                             <label class="text-[8px] font-black text-gray-400 uppercase">RUC</label>
-                             <input id="f-ruc" type="text" placeholder="RUC" class="text-xs font-black">
-                        </div>
-                    </div>
+                    <input id="f-cliente" type="text" placeholder="Cliente" value="DISTRIBUIDORA AUSTROECUATORIANA S.A.S.">
                     <div class="grid grid-cols-2 gap-4">
                         <input id="f-num" type="text" placeholder="N° Factura">
                         <input id="f-fecha" type="date">
                     </div>
-                    <div id="f-items" class="space-y-3 max-h-40 overflow-y-auto"></div>
-                    <div class="bg-gray-900 p-6 rounded-3xl text-white flex justify-between items-center shadow-lg">
-                        <span class="text-[10px] font-black opacity-40">TOTAL NETO</span>
-                        <span id="f-total-display" class="text-2xl font-black text-orange-400">$0.00</span>
+                    <div class="bg-gray-50 rounded-2xl p-4 overflow-x-auto">
+                        <table class="mirror-table">
+                            <thead><tr><th>PRODUCTO</th><th>CANT</th><th class="text-right">PDIST</th></tr></thead>
+                            <tbody id="f-items-mirror"></tbody>
+                        </table>
                     </div>
-                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black shadow-xl">Sincronizar Factura en Nube</button>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-3xl">
+                            <p class="text-[8px] font-black text-blue-400 uppercase">Utilidad ($)</p>
+                            <p id="f-utilidad-display" class="text-lg font-black text-blue-600">$0.00</p>
+                        </div>
+                        <div class="bg-gray-900 p-4 rounded-3xl text-white text-center">
+                            <p class="text-[8px] font-black opacity-40 uppercase">Total + IVA</p>
+                            <p id="f-total-display" class="text-lg font-black text-orange-400">$0.00</p>
+                        </div>
+                    </div>
+                    <button onclick="window.saveFactura()" id="btn-f-save" class="w-full py-5 btn-orange uppercase text-[10px] font-black shadow-xl">Sincronizar Factura</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL ABONO -->
+        <div id="modal-abono" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[1100] hidden flex items-center justify-center p-6">
+            <div class="card-samsung w-full max-w-sm p-8 space-y-6">
+                <h3 class="font-black text-gray-800 text-xs uppercase">Registrar Pago</h3>
+                <div class="space-y-4">
+                    <input id="ab-monto" type="number" placeholder="Monto ($)" class="text-lg font-black">
+                    <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center relative bg-gray-50">
+                        <input type="file" id="ab-foto" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+                        <p class="text-[9px] font-black text-gray-400 uppercase">Tap para foto comprobante</p>
+                    </div>
+                    <button onclick="window.confirmAbono()" class="w-full py-4 btn-orange uppercase text-[10px] font-black">Confirmar</button>
+                    <button onclick="window.closeModal('modal-abono')" class="w-full text-xs font-bold text-gray-400 uppercase">Cancelar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[2000] uppercase tracking-widest shadow-2xl"></div>
+    <div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-8 py-3 rounded-full text-[10px] font-black opacity-0 transition-all pointer-events-none z-[2000] shadow-2xl"></div>
 
     <script type="module">
         import { initializeApp } from "firebase/app";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
         import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
 
-        // CONFIGURACIÓN TÁCTICA v1.4 - Registro de funciones global antes que nada
+        // TABLA TÉCNICA v1.8
         const PRODUCTOS = [
-            { id: 'P000000256', nombre: 'AVENA POLACA 165G', precio: 0.269565 },
-            { id: 'P000000247', nombre: 'AVENA POLACA 340G', precio: 0.608694 },
-            { id: 'P000000005', nombre: 'AVENA POLACA 500G', precio: 0.777042 },
-            { id: 'P000000006', nombre: 'AVENA POLACA 1000G', precio: 1.597390 }
+            { id: 'P1', nombre: 'VASO 165G.', costo: 0.2696, precio: 0.3478, rent: 0.0783 },
+            { id: 'P2', nombre: 'VASO 340G.', costo: 0.6087, precio: 0.6957, rent: 0.0870 },
+            { id: 'P3', nombre: 'EMP. 1/2L.', costo: 0.7770, precio: 0.8870, rent: 0.1099 },
+            { id: 'P4', nombre: 'EMP. 1L.', costo: 1.5974, precio: 1.8261, rent: 0.2287 }
         ];
 
-        const GASTOS_FIJOS = [
-            { concepto: 'Sueldos', monto: 964.00 }, { concepto: 'Combustible', monto: 350.00 }, { concepto: 'Comisiones', monto: 600.00 },
-            { concepto: 'Viáticos Local', monto: 60.00 }, { concepto: 'Viáticos Foráneo', monto: 180.00 }, { concepto: 'Depreciación', monto: 200.00 },
-            { concepto: 'Intereses préstamo', monto: 172.73 }, { concepto: 'Capital Vehículos', monto: 683.06 }, { concepto: 'Mantenimiento', monto: 100.00 },
-            { concepto: 'Telefonía', monto: 30.00 }, { concepto: 'Honorarios prof.', monto: 200.00 }, { concepto: 'Suministros', monto: 10.00 }, { concepto: 'Varios', monto: 30.00 }
-        ];
+        let state = { facturas: [], activeTab: 'dashboard', activeVendor: null, user: null, selectedFacturaId: null };
 
-        const TOTAL_GASTOS_FIJOS_VAL = 3579.80;
-        const MARGEN_OPERATIVO_RATIO = 0.18;
-        const META_PUNTO_EQUILIBRIO_VAL = TOTAL_GASTOS_FIJOS_VAL / MARGEN_OPERATIVO_RATIO;
+        // FIREBASE SETUP
+        const config = JSON.parse(__firebase_config);
+        const app = initializeApp(config);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-pro-v2-main';
 
-        let state = {
-            facturas: [], ledger: [], rutas: [], activeTab: 'dashboard', activeVendor: null, user: null
-        };
-
-        // UI NAVEGACIÓN
+        // REGISTRO GLOBAL DE FUNCIONES
         window.switchTab = (tab) => {
             state.activeTab = tab;
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.getElementById(`tab-${tab}`).classList.add('active');
-            document.querySelectorAll('nav button').forEach(b => {
-                b.classList.remove('tab-active');
-            });
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('tab-active'));
             document.getElementById(`nav-${tab}`).classList.add('tab-active');
             document.getElementById('view-title').innerText = tab.charAt(0).toUpperCase() + tab.slice(1);
             render();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        window.openModal = (id) => {
+        window.openModal = (id, factId = null) => {
             document.getElementById(id).classList.remove('hidden');
             if (id === 'modal-factura') {
                 document.getElementById('f-fecha').value = new Date().toISOString().split('T')[0];
-                document.getElementById('f-items').innerHTML = PRODUCTOS.map((p, i) => `
-                    <div class="flex justify-between items-center bg-gray-50 p-4 rounded-2xl">
-                        <span class="text-[10px] font-black text-gray-500 uppercase">${p.nombre}</span>
-                        <input type="number" id="f-prod-${i}" oninput="window.calcF()" placeholder="0" class="w-16 text-center font-black border-b-2 border-orange-200">
-                    </div>
+                document.getElementById('f-items-mirror').innerHTML = PRODUCTOS.map((p, i) => `
+                    <tr>
+                        <td class="font-bold text-gray-600 text-[10px]">${p.nombre}</td>
+                        <td><input type="number" id="f-cant-${i}" oninput="window.calcFMirror()" placeholder="0" class="w-full text-center border-none p-1 text-[11px] font-black bg-orange-50 rounded-lg"></td>
+                        <td class="font-mono text-gray-400 text-right">$${p.costo.toFixed(4)}</td>
+                    </tr>
                 `).join('');
             }
+            if (factId) state.selectedFacturaId = factId;
         };
 
         window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
 
-        // ESCÁNER INTELIGENTE (Simulado con los datos exactos del PDF enviado)
-        window.processPDFData = () => {
-            showToast("ESCANEANDO DOCUMENTO...");
-            setTimeout(() => {
-                document.getElementById('f-cliente').value = "DISTRIBUIDORA AUSTROECUATORIANA S.A.S.";
-                document.getElementById('f-ruc').value = "0195174555001";
-                document.getElementById('f-num').value = "003-102-000005913";
-                document.getElementById('f-fecha').value = "2026-03-11";
-                
-                // Cantidades exactas del PDF
-                document.getElementById('f-prod-0').value = 4080;
-                document.getElementById('f-prod-1').value = 1740;
-                document.getElementById('f-prod-2').value = 63;
-                document.getElementById('f-prod-3').value = 36;
-                
-                window.calcF();
-                showToast("PDF PROCESADO: FACT 5913");
-            }, 800);
+        window.calcFMirror = () => {
+            let tDistrib = 0; let tUtilidad = 0;
+            PRODUCTOS.forEach((p, i) => {
+                const q = parseFloat(document.getElementById(`f-cant-${i}`)?.value) || 0;
+                tDistrib += q * p.costo;
+                tUtilidad += q * p.rent;
+            });
+            document.getElementById('f-total-display').innerText = `$${(tDistrib * 1.15).toFixed(2)}`;
+            document.getElementById('f-utilidad-display').innerText = `$${tUtilidad.toFixed(2)}`;
         };
-
-        window.setVendor = (v) => { state.activeVendor = v; render(); };
 
         window.calcCarga = () => {
             let total = 0;
             PRODUCTOS.forEach((p, i) => {
                 const q = parseFloat(document.getElementById(`log-prod-${i}`)?.value) || 0;
-                const v = q * p.precio;
+                const v = q * p.costo;
                 const el = document.getElementById(`log-val-${i}`);
                 if (el) el.innerText = `$${v.toFixed(2)}`;
                 total += v;
             });
-            const tEl = document.getElementById('log-carga-total');
-            if (tEl) tEl.innerText = `$${total.toFixed(2)}`;
+            document.getElementById('log-carga-total').innerText = `$${total.toFixed(2)}`;
             return total;
         };
 
-        window.calcNeto = () => {
-            const v = parseFloat(document.getElementById('log-venta')?.value) || 0;
-            const g = (parseFloat(document.getElementById('g-viaticos')?.value) || 0) + (parseFloat(document.getElementById('g-alimentacion')?.value) || 0) + (parseFloat(document.getElementById('g-combustible')?.value) || 0) + (parseFloat(document.getElementById('g-hospedaje')?.value) || 0) + (parseFloat(document.getElementById('g-otros')?.value) || 0);
-            const n = v - g;
-            const el = document.getElementById('log-neto');
-            if (el) el.innerText = `$${n.toFixed(2)}`;
-            return n;
-        };
-
-        window.calcF = () => {
-            let s = 0; PRODUCTOS.forEach((p, i) => s += (parseFloat(document.getElementById(`f-prod-${i}`)?.value) || 0) * p.precio);
-            const t = s * 1.15;
-            const el = document.getElementById('f-total-display');
-            if (el) el.innerText = `$${t.toFixed(2)}`;
-        };
-
-        // FIREBASE 
-        let db, auth;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'polaca-pro-v2-main';
-
-        async function init() {
-            try {
-                const config = JSON.parse(__firebase_config);
-                const app = initializeApp(config);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                onAuthStateChanged(auth, (u) => {
-                    state.user = u;
-                    if (u) {
-                        document.getElementById('cloud-sync').style.opacity = '1';
-                        setupListeners();
-                    }
-                });
-            } catch (e) { console.error("Firebase Auth Error", e); }
-        }
-
-        function setupListeners() {
-            const err = (e) => console.error("Firestore Error:", e);
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
-                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
-                render();
-            }, err);
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), (snap) => {
-                state.ledger = snap.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-                render();
-            }, err);
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), (snap) => {
-                state.rutas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                render();
-            }, err);
-        }
-
-        function render() {
-            const container = document.getElementById('main-container');
-            if (!container) return;
-            const tab = state.activeTab;
-            
-            if (tab === 'dashboard') {
-                const totalIn = state.facturas.reduce((acc, f) => acc + (f.total || 0), 0);
-                document.getElementById('dash-total').innerText = `$${totalIn.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                document.getElementById('dash-facturas-count').innerText = state.facturas.length;
-                document.getElementById('dash-rutas-count').innerText = state.rutas.length;
-            }
-
-            if (tab === 'facturas') {
-                const list = document.getElementById('facturas-list');
-                list.innerHTML = state.facturas.length ? state.facturas.map(f => `
-                    <div class="card-samsung p-6 border border-gray-100 fade-in">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="max-w-[70%]">
-                                <h4 class="font-black text-[11px] text-gray-900 uppercase truncate">${f.cliente}</h4>
-                                <p class="text-[9px] text-gray-400 font-black mt-1">#${f.numFactura} • ${f.fechaEmision}</p>
-                            </div>
-                            <span class="text-lg font-black text-orange-600">$${(f.total || 0).toFixed(2)}</span>
-                        </div>
-                        <div class="flex gap-2">
-                             <span class="flex-1 text-[9px] font-black uppercase text-center py-3 rounded-2xl ${f.estado === 'cancelado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${f.estado}</span>
-                             <button onclick="window.updateStatus('${f.id}', 'abonado')" class="p-3 bg-gray-100 rounded-2xl text-blue-600 active:scale-95 transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg></button>
-                             <button onclick="window.updateStatus('${f.id}', 'cancelado')" class="p-3 bg-gray-900 rounded-2xl text-white active:scale-95 transition-all"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" d="M5 13l4 4L19 7" /></svg></button>
-                        </div>
-                    </div>
-                `).join('') : '<p class="text-center text-gray-400 py-10 font-bold italic">No hay datos en la nube.</p>';
-            }
-
-            if (tab === 'logistica') {
-                document.getElementById('v-diego').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Diego Javier Ciabichay Arias' ? 'bg-orange-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`;
-                document.getElementById('v-byron').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Byron Armando Miranda Capa' ? 'bg-orange-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`;
-                document.getElementById('logistica-items').innerHTML = PRODUCTOS.map((p, i) => `
-                    <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl">
-                        <div class="flex-1"><span class="text-[10px] font-black text-gray-600 uppercase tracking-tighter">${p.nombre}</span></div>
-                        <div class="text-right">
-                            <input type="number" id="log-prod-${i}" oninput="window.calcCarga()" placeholder="0" class="w-16 text-center font-black text-sm py-1 border-b-2 border-orange-200 bg-transparent">
-                            <p id="log-val-${i}" class="text-[9px] font-black text-orange-600 mt-1">$0.00</p>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            if (tab === 'gerencia') {
-                const totalIn = state.facturas.reduce((acc, f) => acc + (f.total || 0), 0);
-                const percent = Math.min((totalIn / META_PUNTO_EQUILIBRIO_VAL) * 100, 100);
-                const progEl = document.getElementById('gerencia-progress');
-                if (progEl) progEl.style.width = percent + '%';
-                const percEl = document.getElementById('gerencia-percent');
-                if (percEl) percEl.innerText = `${percent.toFixed(1)}% Alcanzado`;
-                
-                const utility = (totalIn * MARGEN_OPERATIVO_RATIO) - TOTAL_GASTOS_FIJOS_VAL;
-                const utilityEl = document.getElementById('gerencia-utility');
-                const cardEl = document.getElementById('utility-card');
-                const msgEl = document.getElementById('gerencia-status-msg');
-                
-                if (utilityEl) utilityEl.innerText = `${utility < 0 ? '-' : ''}$${Math.abs(utility).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-                if (utility < 0) {
-                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-gray-800";
-                    msgEl.innerText = "ESTADO: DÉFICIT OPERATIVO (NECESITA VENTAS)";
-                } else {
-                    cardEl.className = "card-samsung p-8 text-white shadow-xl mb-4 bg-emerald-600";
-                    msgEl.innerText = "ESTADO: GENERANDO UTILIDAD";
-                }
-
-                document.getElementById('fixed-costs-list').innerHTML = GASTOS_FIJOS.map(g => `
-                    <div class="flex justify-between items-center text-[10px] p-3 bg-gray-50 rounded-xl mb-1">
-                        <span class="text-gray-500 font-bold uppercase">${g.concepto}</span>
-                        <span class="font-black text-gray-800">$${g.monto.toFixed(2)}</span>
-                    </div>
-                `).join('');
-            }
-
-            if (tab === 'contabilidad') {
-                document.getElementById('contabilidad-ledger').innerHTML = state.ledger.map(m => `
-                    <div class="card-samsung p-5 border border-gray-100 flex justify-between items-center fade-in">
-                        <div><p class="text-[10px] font-black text-gray-900 uppercase truncate">${m.descripcion}</p><p class="text-[8px] text-gray-400 font-bold uppercase">${m.tipo}</p></div>
-                        <span class="font-black text-sm ${m.tipo === 'ingreso' ? 'text-green-600' : 'text-red-600'}">${m.tipo === 'ingreso' ? '+' : '-'}$${(m.monto || 0).toFixed(2)}</span>
-                    </div>
-                `).join('');
-            }
-        }
-
-        // ACCIONES BASE DE DATOS
         window.saveFactura = async () => {
-            if (!state.user) return showToast("Sin conexión segura");
+            if (!state.user) return showToast("SIN CONEXIÓN SEGURA - REINTENTE");
             const btn = document.getElementById('btn-f-save');
             const n = document.getElementById('f-num').value;
-            if (!n) return showToast("Falta N° Factura");
-            btn.disabled = true; btn.innerText = "Guardando...";
-            const t = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
+            if (!n) return showToast("INGRESE N° FACTURA");
+            
+            btn.disabled = true; btn.innerText = "SINCRO...";
+            const total = parseFloat(document.getElementById('f-total-display').innerText.replace('$',''));
+            const utilidad = parseFloat(document.getElementById('f-utilidad-display').innerText.replace('$',''));
+            
             try {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), {
                     cliente: document.getElementById('f-cliente').value,
                     numFactura: n, fechaEmision: document.getElementById('f-fecha').value,
-                    total: t, estado: 'pendiente', timestamp: serverTimestamp()
+                    total, utilidad, pagado: 0, saldo: total, estado: 'pendiente', timestamp: serverTimestamp()
                 });
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: t, descripcion: `Venta: ${n}`, timestamp: serverTimestamp() });
-                showToast("Sincronización Exitosa"); window.closeModal('modal-factura');
-            } catch (e) { showToast("Error Firestore"); btn.disabled = false; btn.innerText = "Reintentar"; }
+                showToast("SINCRO EXITOSA"); window.closeModal('modal-factura');
+            } catch (e) { 
+                showToast("ERROR EN NUBE"); btn.disabled = false; btn.innerText = "REINTENTAR";
+            }
         };
+
+        window.confirmAbono = async () => {
+            if (!state.user) return showToast("SIN CONEXIÓN");
+            const m = parseFloat(document.getElementById('ab-monto').value);
+            if (!m || m <= 0) return showToast("MONTO INVÁLIDO");
+            const fact = state.facturas.find(f => f.id === state.selectedFacturaId);
+            const nPagado = (fact.pagado || 0) + m;
+            const nSaldo = fact.total - nPagado;
+            const nEstado = nSaldo <= 0 ? 'cancelado' : 'abonado';
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', state.selectedFacturaId), {
+                    pagado: nPagado, saldo: nSaldo, estado: nEstado
+                });
+                showToast("ABONO GUARDADO"); window.closeModal('modal-abono');
+            } catch (e) { showToast("ERROR"); }
+        };
+
+        window.setVendor = (v) => { state.activeVendor = v; render(); };
 
         window.saveLiquidation = async (tipo) => {
-            if (!state.user) return;
-            const data = {
-                vendedor: state.activeVendor, tipo, timestamp: serverTimestamp(),
-                montoCarga: tipo === 'Carga' ? window.calcCarga() : 0,
-                montoNeto: tipo === 'Cierre' ? window.calcNeto() : 0
-            };
+            if (!state.user) return showToast("SIN CONEXIÓN");
             try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), data);
-                if (tipo === 'Cierre') await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: 'ingreso', monto: data.montoNeto, descripcion: `Cierre: ${state.activeVendor}`, timestamp: serverTimestamp() });
-                showToast("Guardado en Nube");
-            } catch (e) { showToast("Error de Sincronización"); }
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'rutas'), {
+                    vendedor: state.activeVendor, tipo, timestamp: serverTimestamp(), valor: window.calcCarga()
+                });
+                showToast("DATOS GUARDADOS");
+            } catch (e) { showToast("FALLO SINCRO"); }
         };
 
-        window.saveContabilidad = async () => {
-            if (!state.user) return;
-            const m = parseFloat(document.getElementById('acc-monto').value);
-            const d = document.getElementById('acc-desc').value;
-            if (!m || !d) return showToast("Faltan datos");
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'contabilidad'), { tipo: document.getElementById('acc-tipo').value, monto: m, descripcion: d, timestamp: serverTimestamp() });
-                showToast("Libro Actualizado");
-            } catch (e) { showToast("Error"); }
-        };
-
-        window.updateStatus = async (id, s) => {
-            if (!state.user) return;
-            try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'facturas', id), { estado: s }); showToast("Estado Actualizado"); } catch (e) { showToast("Error"); }
-        };
-
-        function showToast(msg) {
-            const t = document.getElementById('toast'); t.innerText = msg; t.style.opacity = '1';
-            setTimeout(() => t.style.opacity = '0', 2500);
+        // RENDER
+        function render() {
+            const tab = state.activeTab;
+            if (tab === 'dashboard') {
+                const pend = state.facturas.reduce((acc, f) => acc + (f.saldo || 0), 0);
+                document.getElementById('dash-total').innerText = `$${pend.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                document.getElementById('dash-facturas-count').innerText = state.facturas.filter(f => f.estado === 'pendiente').length;
+                document.getElementById('dash-rutas-count').innerText = state.facturas.filter(f => f.estado === 'abonado' || f.estado === 'cancelado').length;
+            }
+            if (tab === 'facturas') {
+                const list = document.getElementById('facturas-list');
+                // Orden de ingreso (más reciente arriba)
+                const sorted = [...state.facturas].sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                list.innerHTML = sorted.length ? sorted.map(f => `
+                    <div class="card-samsung p-6 border border-gray-100 fade-in">
+                        <div class="flex justify-between items-start">
+                            <div class="max-w-[70%]"><h4 class="font-black text-xs text-gray-900 uppercase truncate">${f.cliente}</h4><p class="text-[9px] text-gray-400 font-bold mt-1">#${f.numFactura}</p></div>
+                            <div class="text-right">
+                                <span class="text-lg font-black text-orange-600">$${f.total.toFixed(2)}</span>
+                                <p class="text-[8px] font-black text-blue-500">UTILIDAD: $${(f.utilidad || 0).toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex gap-2">
+                             <div class="flex-1 bg-gray-50 rounded-2xl p-4"><p class="text-[8px] font-black text-gray-400 uppercase">Saldo</p><p class="text-sm font-black">$${(f.saldo || 0).toFixed(2)}</p></div>
+                             <span class="badge self-center ${f.estado === 'cancelado' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${f.estado}</span>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button onclick="window.openModal('modal-abono', '${f.id}')" class="flex-1 bg-gray-100 py-3 rounded-2xl text-[9px] font-black uppercase">Abonar</button>
+                        </div>
+                    </div>
+                `).join('') : '<p class="text-center text-gray-400 py-10 font-bold italic">No hay datos</p>';
+            }
+            if (tab === 'logistica') {
+                document.getElementById('v-diego').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Diego Javier Ciabichay Arias' ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-200 text-gray-400'}`;
+                document.getElementById('v-byron').className = `vendor-btn flex-1 rounded-2xl font-black uppercase transition-all ${state.activeVendor === 'Byron Armando Miranda Capa' ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-200 text-gray-400'}`;
+                document.getElementById('logistica-items').innerHTML = PRODUCTOS.map((p, i) => `
+                    <div class="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-2xl">
+                        <div class="flex-1"><span class="text-[10px] font-black text-gray-600 uppercase tracking-tighter">${p.nombre}</span></div>
+                        <div class="text-right">
+                             <input type="number" id="log-prod-${i}" oninput="window.calcCarga()" placeholder="0" class="w-16 text-center font-black text-sm py-1 border-b-2 border-orange-200 bg-transparent">
+                             <p id="log-val-${i}" class="text-[9px] font-black text-orange-600 mt-1">$0.00</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            if (tab === 'gerencia') {
+                const totalUtil = state.facturas.reduce((acc, f) => acc + (f.utilidad || 0), 0);
+                document.getElementById('gerencia-utility').innerText = `$${totalUtil.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                const totalVent = state.facturas.reduce((acc, f) => acc + (f.total || 0), 0);
+                const perc = Math.min((totalVent / 19887.78) * 100, 100);
+                document.getElementById('gerencia-progress').style.width = perc + '%';
+                document.getElementById('gerencia-percent').innerText = `${perc.toFixed(1)}% Alcanzado`;
+            }
         }
 
-        init();
+        // INIT CORE
+        async function start() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else { await signInAnonymously(auth); }
+                
+                state.user = auth.currentUser;
+                if (state.user) {
+                    document.getElementById('cloud-sync').style.opacity = '1';
+                    document.getElementById('auth-status').className = "bg-green-100 p-2 rounded-2xl";
+                    setupListeners();
+                }
+                
+                onAuthStateChanged(auth, (u) => {
+                    state.user = u;
+                    if (u) {
+                        document.getElementById('auth-status').className = "bg-green-100 p-2 rounded-2xl text-green-600";
+                        setupListeners();
+                    }
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function setupListeners() {
+            if (!state.user) return;
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'facturas'), (snap) => {
+                state.facturas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                render();
+            });
+        }
+
+        function showToast(m) { 
+            const t = document.getElementById('toast'); 
+            t.innerText = m; 
+            t.style.opacity = '1'; 
+            setTimeout(() => t.style.opacity = '0', 2500); 
+        }
+
+        start();
     </script>
 </body>
 </html>
