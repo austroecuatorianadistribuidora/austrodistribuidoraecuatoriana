@@ -11,7 +11,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Firebase SDK (Compat para estabilidad en el entorno) -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -65,13 +65,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- INICIALIZACIÓN DE FIREBASE (REGLA 3) ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'austro-v27';
-
         // --- CONSTANTES ---
         const today = new Date().toISOString().split('T')[0];
         const PRODUCTOS_BASE = [
@@ -101,7 +94,22 @@
         ];
 
         const TOTAL_GASTOS_FIJOS = 3579.80;
-        const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
+
+        // --- FIREBASE INITIALIZATION (PROTEGIDA) ---
+        let db, auth;
+        let appId = 'austro-v27';
+
+        try {
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            if (firebaseConfig.apiKey) {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                auth = firebase.auth();
+            }
+            if (typeof __app_id !== 'undefined') appId = __app_id;
+        } catch (e) {
+            console.error("Firebase config error:", e);
+        }
 
         // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -147,9 +155,10 @@
                 return { subtotal, total: subtotal * 1.15, utilidad };
             }, [form.items]);
 
-            // --- PASO 1: AUTENTICACIÓN (REGLA 3) ---
+            // --- PASO 1: AUTENTICACIÓN ---
             useEffect(() => {
                 const initAuth = async () => {
+                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
@@ -161,18 +170,17 @@
                     }
                 };
                 initAuth();
-                const unsubscribe = auth.onAuthStateChanged((u) => {
+                const unsubscribe = auth?.onAuthStateChanged((u) => {
                     setUser(u);
                     setLoading(false);
                 });
-                return () => unsubscribe();
+                return () => unsubscribe && unsubscribe();
             }, []);
 
-            // --- PASO 2: FETCHING DE DATOS (REGLA 1 & 2) ---
+            // --- PASO 2: FETCHING DE DATOS ---
             useEffect(() => {
-                if (!user) return; // Guard obligatorio (Regla 3)
+                if (!user || !db) return;
 
-                // Usamos la ruta estricta: /artifacts/{appId}/public/data/{collectionName}
                 const baseRef = db.collection('artifacts').doc(appId).collection('public').doc('data');
                 
                 const unsubF = baseRef.collection('facturasProveedor').onSnapshot(
@@ -189,7 +197,7 @@
             }, [user]);
 
             const handleGuardarFactura = async () => {
-                if (!user) { setErrorMsg("Error: Esperando autenticación..."); return; }
+                if (!user || !db) { setErrorMsg("Sin conexión activa."); return; }
                 if (!form.numFactura) { setErrorMsg("Falta número de factura."); return; }
                 
                 setIsSaving(true);
@@ -219,50 +227,47 @@
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white">
                     <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <p className="font-black text-orange-600 uppercase tracking-widest text-xs italic">Sincronizando Sistema...</p>
+                    <p className="font-black text-orange-600 uppercase tracking-widest text-xs italic">Cargando Distribuidora Austro...</p>
                 </div>
             );
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    {/* BARRA LATERAL */}
                     <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 flex-col p-8 z-30 shadow-sm">
                         <div className="flex items-center gap-4 mb-10">
                             <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
                             <span className="font-black text-xl tracking-tighter text-orange-600 uppercase italic leading-none">AustroApp</span>
                         </div>
 
-                        {/* ESTADO DE CONEXIÓN */}
-                        <div className={`mb-8 p-4 rounded-2xl flex flex-col gap-2 ${user ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border`}>
+                        <div className={`mb-8 p-4 rounded-2xl flex flex-col gap-2 ${user ? 'bg-green-50' : 'bg-red-50'} border shadow-inner`}>
                             <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500 animate-pulse'}`}></div>
-                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{user ? 'Conectado' : 'Error Permisos'}</span>
+                                <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-50 animate-pulse'}`}></div>
+                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{user ? 'Conectado' : 'Sin Acceso'}</span>
                             </div>
-                            {user && <p className="text-[7px] font-bold text-slate-400 truncate uppercase">UID: {user.uid.substring(0,10)}...</p>}
                         </div>
 
                         <nav className="space-y-3 flex-1">
-                            {['facturacion', 'logistica', 'inventario', 'gerencia'].map(tab => (
+                            {['facturacion', 'logistica', 'gerencia'].map(tab => (
                                 <button 
                                     key={tab} 
                                     onClick={() => setActiveTab(tab)} 
                                     className={`w-full flex items-center gap-4 p-5 rounded-[25px] transition-all font-black uppercase text-[11px] tracking-widest italic ${activeTab === tab ? 'sidebar-item-active' : 'text-slate-400 hover:bg-slate-50'}`}
                                 >
-                                    <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : 'line-chart'} size={22}/>
+                                    <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : 'line-chart'} size={22}/>
                                     <span>{tab}</span>
                                 </button>
                             ))}
                         </nav>
                         
                         <div className="mt-auto p-4 bg-slate-900 rounded-3xl text-white text-center shadow-lg">
-                            <p className="text-[8px] font-black uppercase opacity-50 mb-1">Proyecto</p>
-                            <p className="text-[9px] font-bold text-orange-400 truncate">{appId}</p>
+                            <p className="text-[8px] font-black uppercase opacity-50 mb-1 italic">Ruta de Datos:</p>
+                            <p className="text-[9px] font-bold text-orange-400 truncate tracking-tighter">/artifacts/{appId}/...</p>
                         </div>
                     </aside>
 
                     <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-32 text-left">
                         {activeTab === 'facturacion' && (
-                            <div className="space-y-6 fade-in text-left">
+                            <div className="space-y-6 fade-in">
                                 <ViewHeader title="Facturación" sub="Compras Proveedor" onClose={() => setActiveTab('gerencia')} />
                                 <div className="flex justify-end mb-4">
                                     <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs">Nueva Factura</button>
@@ -270,17 +275,14 @@
                                 <div className="space-y-4">
                                     {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
                                         <Card key={f.id} className="flex justify-between items-center border-l-8 border-orange-500">
-                                            <div className="text-left">
+                                            <div className="text-left flex-1">
                                                 <h4 className="font-black text-slate-800 uppercase italic">Factura #{f.numFactura}</h4>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase">{f.fecha}</span>
                                             </div>
                                             <div className="text-right px-6 md:border-l border-slate-100 font-black">
-                                                <p className="text-[8px] uppercase opacity-40">Monto</p>
+                                                <p className="text-[8px] uppercase font-black opacity-40 italic">Monto</p>
                                                 <p className="text-xl tracking-tighter">${f.total?.toFixed(2)}</p>
                                             </div>
-                                            <button onClick={() => db.collection('artifacts').doc(appId).collection('public').doc('data').collection('facturasProveedor').doc(f.id).delete()} className="p-4 text-slate-200 hover:text-red-500">
-                                                <Icon name="trash-2" size={22}/>
-                                            </button>
                                         </Card>
                                     ))}
                                 </div>
@@ -288,29 +290,29 @@
                         )}
 
                         {activeTab === 'gerencia' && (
-                            <div className="space-y-8 fade-in text-left">
-                                <ViewHeader title="Gerencia" sub="Resumen Ejecutivo" onClose={() => setActiveTab('facturacion')} />
+                            <div className="space-y-8 fade-in">
+                                <ViewHeader title="Gerencia" sub="Análisis Operativo" onClose={() => setActiveTab('facturacion')} />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black italic">
                                     <Card className="bg-slate-900 border-none p-8"><p className="text-[10px] uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-3xl font-black italic">${TOTAL_GASTOS_FIJOS.toFixed(2)}</p></Card>
-                                    <Card className="bg-orange-600 border-none p-8"><p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Estimada</p><p className="text-3xl font-black italic">${utilidadReal.toFixed(2)}</p></Card>
+                                    <Card className="bg-orange-600 border-none p-8"><p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Ruta</p><p className="text-3xl font-black italic">${utilidadReal.toFixed(2)}</p></Card>
                                     <Card className={`${utilidadReal >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none p-8`}>
-                                        <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Resultado Final</p>
+                                        <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Neto Austro</p>
                                         <p className="text-3xl font-black italic">${(utilidadReal - TOTAL_GASTOS_FIJOS).toFixed(2)}</p>
                                     </Card>
                                 </div>
-                                <Card className="p-10 border-none shadow-xl bg-white text-left">
-                                    <h3 className="font-black text-xl uppercase tracking-tighter mb-8 border-b-2 border-slate-900 pb-2 italic">Desglose de Gastos</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <Card className="p-10 border-none shadow-xl bg-white">
+                                    <h3 className="font-black text-xl uppercase tracking-tighter mb-8 border-b-2 border-slate-900 pb-2 italic italic">Desglose Fijo Mensual</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
                                         <div className="space-y-2">
-                                            <p className="text-[10px] font-black text-orange-500 uppercase italic mb-4">Ventas ($3,339.80)</p>
+                                            <p className="text-[12px] font-black text-orange-500 uppercase italic mb-4 border-l-8 border-orange-500 pl-4 bg-slate-50 py-2">Ventas ($3,339.80)</p>
                                             {GASTOS_VENTAS_DETALLE.map((g,i) => (
-                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
                                             ))}
                                         </div>
                                         <div className="space-y-2">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase italic mb-4">Administración ($240.00)</p>
+                                            <p className="text-[12px] font-black text-slate-800 uppercase italic mb-4 border-l-8 border-slate-900 pl-4 bg-slate-50 py-2">Administrativo ($240.00)</p>
                                             {GASTOS_ADMIN_DETALLE.map((g,i) => (
-                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
                                             ))}
                                         </div>
                                     </div>
@@ -322,19 +324,19 @@
                     {modalNueva && (
                         <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2">
                             <div className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] flex flex-col overflow-hidden relative shadow-2xl">
-                                <button onClick={() => setModalNueva(false)} className="absolute top-6 right-6 z-10 p-2 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 shadow-sm"><Icon name="x"/></button>
+                                <button onClick={() => setModalNueva(false)} className="absolute top-6 right-6 z-10 p-2 bg-slate-100 rounded-full"><Icon name="x"/></button>
                                 <div className="flex-1 overflow-y-auto p-8 hide-scrollbar">
-                                    {errorMsg && <div className="mb-6 p-4 bg-red-50 text-red-700 border-2 border-red-200 rounded-2xl font-black text-xs uppercase italic animate-bounce">{errorMsg}</div>}
+                                    {errorMsg && <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-2xl font-black text-xs uppercase italic animate-bounce">{errorMsg}</div>}
                                     <div className="invoice-paper p-8 border rounded-xl text-left">
-                                        <h3 className="text-xl font-black text-slate-900 uppercase italic mb-8 border-b-2 border-slate-900 pb-4 italic italic">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
+                                        <h3 className="text-xl font-black text-slate-900 uppercase italic mb-8 border-b-2 border-slate-900 pb-4 italic">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
                                         <div className="grid grid-cols-2 gap-4 mb-8">
                                             <div className="bg-slate-900 text-white p-4 rounded-2xl">
-                                                <p className="text-[8px] font-black uppercase opacity-60 mb-1 italic leading-none">Nº DOCUMENTO</p>
-                                                <input className="bg-transparent text-lg font-black w-full outline-none placeholder:text-slate-700" placeholder="000-000-000" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
+                                                <p className="text-[8px] font-black uppercase opacity-60 mb-1 italic">Nº FACTURA</p>
+                                                <input className="bg-transparent text-lg font-black w-full outline-none" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
                                             </div>
                                             <div className="bg-slate-50 border p-4 rounded-2xl text-left">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1 italic leading-none">FECHA EMISIÓN</p>
-                                                <input type="date" className="bg-transparent font-black w-full outline-none text-slate-700" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
+                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1 italic">FECHA EMISIÓN</p>
+                                                <input type="date" className="bg-transparent font-black w-full outline-none" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
                                             </div>
                                         </div>
                                         <table className="w-full invoice-table mb-8">
@@ -342,9 +344,9 @@
                                             <tbody>
                                                 {form.items.map((it, idx) => (
                                                     <tr key={it.id}>
-                                                        <td className="font-black text-xs uppercase italic text-slate-700">{it.nombre}</td>
+                                                        <td className="font-black text-xs uppercase italic">{it.nombre}</td>
                                                         <td className="p-0">
-                                                            <input type="number" className="w-full text-center py-4 font-black bg-orange-50/50 border-none text-orange-600 focus:bg-orange-100 transition-colors" value={it.cantidad === 0 ? '' : it.cantidad} placeholder="" onChange={e => {
+                                                            <input type="number" className="w-full text-center py-4 font-black bg-orange-50 border-none text-orange-600 focus:bg-orange-100" value={it.cantidad === 0 ? '' : it.cantidad} placeholder="" onChange={e => {
                                                                 const ni = [...form.items]; ni[idx].cantidad = e.target.value === '' ? 0 : parseInt(e.target.value); setForm({...form, items: ni});
                                                             }} />
                                                         </td>
@@ -353,15 +355,15 @@
                                                 ))}
                                             </tbody>
                                         </table>
-                                        <div className="bg-slate-900 text-white p-8 rounded-[40px] flex justify-between items-center italic shadow-2xl">
-                                            <span className="font-black uppercase text-xs tracking-widest italic opacity-50 italic">Total con Impuestos</span>
+                                        <div className="bg-slate-900 text-white p-8 rounded-[40px] flex justify-between items-center italic">
+                                            <span className="font-black uppercase text-xs tracking-widest opacity-50 italic">Total con Impuestos</span>
                                             <span className="text-5xl font-black italic tracking-tighter leading-none">${calc.total.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-8 bg-slate-50 border-t flex justify-end gap-4">
+                                <div className="p-8 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
                                     <button onClick={() => setModalNueva(false)} className="px-10 py-4 font-black uppercase text-xs text-slate-400">Cancelar</button>
-                                    <button onClick={handleGuardarFactura} disabled={isSaving} className={`bg-orange-600 text-white px-12 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest italic shadow-xl transition-all ${isSaving ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}>
+                                    <button onClick={handleGuardarFactura} disabled={isSaving} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs italic shadow-xl">
                                         {isSaving ? 'Guardando...' : 'Grabar Factura ✨'}
                                     </button>
                                 </div>
