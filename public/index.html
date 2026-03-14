@@ -90,26 +90,22 @@
         const GASTOS_ADMIN_DETALLE = [
             { concepto: "Honorarios profesionales", valor: 200.00 },
             { concepto: "Suministros y materiales", valor: 10.00 },
+            { concepto: "Suministros de aseo y limpieza", valor: 0.00 },
             { concepto: "Gastos Varios", valor: 30.00 }
         ];
 
         const TOTAL_GASTOS_FIJOS = 3579.80;
+        const VENDEDORES = ["Diego Xavier Siavichay", "Byron Armando Miranda Capa"];
 
-        // --- FIREBASE INITIALIZATION (PROTEGIDA) ---
-        let db, auth;
-        let appId = 'austro-v27';
+        // --- FIREBASE INITIALIZATION ---
+        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        const firebaseConfig = configStr ? JSON.parse(configStr) : null;
+        if (firebaseConfig && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebaseConfig ? firebase.firestore() : null;
+        const auth = firebaseConfig ? firebase.auth() : null;
 
-        try {
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            if (firebaseConfig.apiKey) {
-                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                auth = firebase.auth();
-            }
-            if (typeof __app_id !== 'undefined') appId = __app_id;
-        } catch (e) {
-            console.error("Firebase config error:", e);
-        }
+        // ID prioritario austro-v27
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'austro-v27';
 
         // --- COMPONENTES UI ---
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -141,6 +137,7 @@
             const [cargas, setCargas] = useState([]);
             const [isSaving, setIsSaving] = useState(false);
             const [modalNueva, setModalNueva] = useState(false);
+            const [modalLogistica, setModalLogistica] = useState(false);
             const [errorMsg, setErrorMsg] = useState(null);
 
             const [form, setForm] = useState({
@@ -149,16 +146,26 @@
                 items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 }))
             });
 
+            const [logisticaForm, setLogisticaForm] = useState({
+                vendedor: '',
+                items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 }))
+            });
+
+            // --- LÓGICA DE NEGOCIO ---
             const calc = useMemo(() => {
                 const subtotal = form.items.reduce((acc, it) => acc + (it.cantidad * it.costo), 0);
                 const utilidad = form.items.reduce((acc, it) => acc + (it.cantidad * (it.pvd - it.costo)), 0);
                 return { subtotal, total: subtotal * 1.15, utilidad };
             }, [form.items]);
 
-            // --- PASO 1: AUTENTICACIÓN ---
+            const utilidadReal = useMemo(() => {
+                return cargas.reduce((acc, c) => acc + (c.items || []).reduce((sub, it) => sub + (it.q * (it.pvd - (it.cost || it.costo))), 0), 0);
+            }, [cargas]);
+
+            // --- FIREBASE SYNC ---
             useEffect(() => {
+                if (!auth) { setLoading(false); return; }
                 const initAuth = async () => {
-                    if (!auth) { setLoading(false); return; }
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await auth.signInWithCustomToken(__initial_auth_token);
@@ -166,32 +173,23 @@
                             await auth.signInAnonymously();
                         }
                     } catch (e) {
-                        console.error("Error Auth:", e);
+                        console.error("Auth Exception:", e.message);
                     }
                 };
                 initAuth();
-                const unsubscribe = auth?.onAuthStateChanged((u) => {
-                    setUser(u);
-                    setLoading(false);
-                });
-                return () => unsubscribe && unsubscribe();
+                const unsub = auth.onAuthStateChanged(u => { setUser(u); setLoading(false); });
+                return () => unsub();
             }, []);
 
-            // --- PASO 2: FETCHING DE DATOS ---
             useEffect(() => {
                 if (!user || !db) return;
-
-                const baseRef = db.collection('artifacts').doc(appId).collection('public').doc('data');
+                const path = db.collection('artifacts').doc(appId).collection('public').doc('data');
                 
-                const unsubF = baseRef.collection('facturasProveedor').onSnapshot(
-                    (s) => setFacturas(s.docs.map(d => ({id: d.id, ...d.data()}))),
-                    (e) => console.error("Error snapshot facturas:", e)
-                );
+                const unsubF = path.collection('facturasProveedor').onSnapshot(s => 
+                    setFacturas(s.docs.map(d => ({id: d.id, ...d.data()}))), e => console.error("Snapshot Facturas:", e));
                 
-                const unsubC = baseRef.collection('cargas').onSnapshot(
-                    (s) => setCargas(s.docs.map(d => ({id: d.id, ...d.data()}))),
-                    (e) => console.error("Error snapshot cargas:", e)
-                );
+                const unsubC = path.collection('cargas').onSnapshot(s => 
+                    setCargas(s.docs.map(d => ({id: d.id, ...d.data()}))), e => console.error("Snapshot Cargas:", e));
 
                 return () => { unsubF(); unsubC(); };
             }, [user]);
@@ -207,81 +205,86 @@
                         ...form,
                         total: calc.total,
                         utilidad: calc.utilidad,
-                        createdAt: new Date().toISOString(),
-                        createdBy: user.uid
+                        createdAt: new Date().toISOString()
                     });
                     setModalNueva(false);
                     setForm({ numFactura: '', fecha: today, items: PRODUCTOS_BASE.map(p => ({ ...p, cantidad: 0 })) });
                 } catch (e) {
-                    console.error("Error guardando:", e);
-                    setErrorMsg("Error de permisos: Verifica que las Reglas de Firestore estén publicadas.");
+                    setErrorMsg("Error al grabar en la base de datos.");
                 } finally {
                     setIsSaving(false);
                 }
             };
 
-            const utilidadReal = useMemo(() => {
-                return cargas.reduce((acc, c) => acc + (c.items || []).reduce((sub, it) => sub + (it.q * (it.pvd - (it.cost || it.costo))), 0), 0);
-            }, [cargas]);
+            const handleGuardarCarga = async () => {
+                if (!user || !db) return;
+                const totalCargado = logisticaForm.items.reduce((a, b) => a + (b.q * b.pvd), 0);
+                if (totalCargado <= 0) return;
+                try {
+                    await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('cargas').add({
+                        responsable: logisticaForm.vendedor || "Ruta General",
+                        fecha: today,
+                        totalCargado,
+                        estado: 'En Ruta',
+                        items: logisticaForm.items.map(it => ({ pId: it.id, nombre: it.nombre, q: it.q, pvd: it.pvd, cost: it.costo }))
+                    });
+                    setModalLogistica(false);
+                    setLogisticaForm({ vendedor: '', items: PRODUCTOS_BASE.map(p => ({ ...p, q: 0 })) });
+                } catch(e) { console.error(e); }
+            };
 
             if (loading) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white">
                     <div className="w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <p className="font-black text-orange-600 uppercase tracking-widest text-xs italic">Cargando Distribuidora Austro...</p>
+                    <p className="font-black text-orange-600 uppercase tracking-widest text-xs italic">Sincronizando AustroApp...</p>
                 </div>
             );
 
             return (
                 <div className="min-h-screen md:pl-72 flex text-left">
-                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 flex-col p-8 z-30 shadow-sm">
-                        <div className="flex items-center gap-4 mb-10">
-                            <div className="bg-orange-600 p-2.5 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
-                            <span className="font-black text-xl tracking-tighter text-orange-600 uppercase italic leading-none">AustroApp</span>
+                    <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-slate-200 flex-col p-8 z-30 shadow-sm overflow-y-auto hide-scrollbar">
+                        <div className="flex items-center gap-4 mb-10 text-left">
+                            <div className="bg-orange-600 p-3 rounded-2xl text-white shadow-xl rotate-3"><Icon name="package" size={28}/></div>
+                            <span className="font-black text-xl tracking-tighter text-orange-600 uppercase leading-none italic">AustroApp</span>
                         </div>
 
-                        <div className={`mb-8 p-4 rounded-2xl flex flex-col gap-2 ${user ? 'bg-green-50' : 'bg-red-50'} border shadow-inner`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-50 animate-pulse'}`}></div>
-                                <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{user ? 'Conectado' : 'Sin Acceso'}</span>
-                            </div>
+                        <div className={`mb-8 p-4 rounded-2xl flex items-center gap-3 ${user ? 'bg-green-50' : 'bg-red-50'} border shadow-inner`}>
+                            <div className={`w-3 h-3 rounded-full ${user ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-50 animate-pulse'}`}></div>
+                            <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{user ? 'Conectado' : 'Sin Acceso'}</span>
                         </div>
 
                         <nav className="space-y-3 flex-1">
-                            {['facturacion', 'logistica', 'gerencia'].map(tab => (
-                                <button 
-                                    key={tab} 
-                                    onClick={() => setActiveTab(tab)} 
-                                    className={`w-full flex items-center gap-4 p-5 rounded-[25px] transition-all font-black uppercase text-[11px] tracking-widest italic ${activeTab === tab ? 'sidebar-item-active' : 'text-slate-400 hover:bg-slate-50'}`}
-                                >
-                                    <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : 'line-chart'} size={22}/>
+                            {['facturacion', 'logistica', 'inventario', 'gerencia'].map(tab => (
+                                <button key={tab} onClick={() => setActiveTab(tab)} className={`w-full flex items-center gap-4 p-5 rounded-[25px] transition-all font-black uppercase text-[11px] tracking-widest italic ${activeTab === tab ? 'sidebar-item-active' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                    <Icon name={tab === 'facturacion' ? 'scan' : tab === 'logistica' ? 'truck' : tab === 'inventario' ? 'archive' : 'line-chart'} size={22}/>
                                     <span>{tab}</span>
                                 </button>
                             ))}
                         </nav>
                         
                         <div className="mt-auto p-4 bg-slate-900 rounded-3xl text-white text-center shadow-lg">
-                            <p className="text-[8px] font-black uppercase opacity-50 mb-1 italic">Ruta de Datos:</p>
+                            <p className="text-[8px] font-black uppercase opacity-40 mb-1 italic">Ruta de Datos</p>
                             <p className="text-[9px] font-bold text-orange-400 truncate tracking-tighter">/artifacts/{appId}/...</p>
                         </div>
                     </aside>
 
                     <main className="p-4 md:p-12 max-w-7xl mx-auto w-full pb-32 text-left">
                         {activeTab === 'facturacion' && (
-                            <div className="space-y-6 fade-in">
-                                <ViewHeader title="Facturación" sub="Compras Proveedor" onClose={() => setActiveTab('gerencia')} />
+                            <div className="space-y-6 fade-in text-left">
+                                <ViewHeader title="Facturación" sub="Entradas de Mercancía" onClose={() => setActiveTab('gerencia')} />
                                 <div className="flex justify-end mb-4">
                                     <button onClick={() => setModalNueva(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs">Nueva Factura</button>
                                 </div>
                                 <div className="space-y-4">
                                     {facturas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(f => (
-                                        <Card key={f.id} className="flex justify-between items-center border-l-8 border-orange-500">
+                                        <Card key={f.id} className="flex justify-between items-center border-l-8 border-orange-500 text-left">
                                             <div className="text-left flex-1">
-                                                <h4 className="font-black text-slate-800 uppercase italic">Factura #{f.numFactura}</h4>
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase">{f.fecha}</span>
+                                                <h4 className="font-black text-slate-800 uppercase italic leading-none mb-2 italic">Factura #{f.numFactura}</h4>
+                                                <span className="text-[10px] text-slate-400 font-bold uppercase italic">{f.fecha}</span>
                                             </div>
                                             <div className="text-right px-6 md:border-l border-slate-100 font-black">
-                                                <p className="text-[8px] uppercase font-black opacity-40 italic">Monto</p>
-                                                <p className="text-xl tracking-tighter">${f.total?.toFixed(2)}</p>
+                                                <p className="text-[8px] uppercase opacity-40 italic leading-none mb-1">Monto Final</p>
+                                                <p className="text-xl tracking-tighter text-slate-800">${f.total?.toFixed(2)}</p>
                                             </div>
                                         </Card>
                                     ))}
@@ -289,30 +292,73 @@
                             </div>
                         )}
 
+                        {activeTab === 'logistica' && (
+                            <div className="space-y-6 fade-in text-left">
+                                <ViewHeader title="Logística" sub="Despachos de Ruta" onClose={() => setActiveTab('gerencia')} />
+                                <div className="flex justify-end mb-4">
+                                    <button onClick={() => setModalLogistica(true)} className="bg-orange-600 text-white px-8 py-4 rounded-2xl shadow-xl font-black uppercase text-xs hover:scale-105 transition-all"><Icon name="plus" size={16}/> Nueva Carga</button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {cargas.map(c => (
+                                        <Card key={c.id} className="border-l-8 border-orange-400 flex justify-between items-center text-left">
+                                            <div className="text-left">
+                                                <h4 className="font-black text-slate-800 uppercase text-sm italic">{c.responsable}</h4>
+                                                <span className="text-[9px] font-black text-slate-400 uppercase italic">{c.estado} • {c.fecha}</span>
+                                            </div>
+                                            <div className="text-right font-black">
+                                                <p className="text-[8px] uppercase opacity-40 italic">Monto Ruta</p>
+                                                <p className="text-xl tracking-tighter text-slate-800">${(c.totalCargado || 0).toLocaleString()}</p>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'inventario' && (
+                            <div className="space-y-6 fade-in text-left">
+                                <ViewHeader title="Inventario" sub="Control Central de Bodega" onClose={() => setActiveTab('gerencia')} />
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {PRODUCTOS_BASE.map(p => {
+                                        const ing = facturas.reduce((acc, f) => acc + (f.items?.find(it => it.id === p.id)?.cantidad || 0), 0);
+                                        const sal = cargas.reduce((acc, c) => acc + (c.items?.find(it => it.pId === p.id)?.q || 0), 0);
+                                        const stock = ing - sal;
+                                        return (
+                                            <Card key={p.id} className="relative overflow-hidden text-left border-t-4 border-orange-500 text-left">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase mb-4 leading-tight italic">{p.nombre}</p>
+                                                <p className={`text-4xl font-black tracking-tighter text-center ${stock < 50 ? 'text-red-500' : 'text-slate-800'}`}>{stock.toLocaleString()}</p>
+                                                <p className="text-[8px] font-bold text-slate-400 mt-2 text-center uppercase tracking-widest italic leading-none">Existencia</p>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'gerencia' && (
-                            <div className="space-y-8 fade-in">
-                                <ViewHeader title="Gerencia" sub="Análisis Operativo" onClose={() => setActiveTab('facturacion')} />
+                            <div className="space-y-8 fade-in text-left">
+                                <ViewHeader title="Gerencia" sub="Análisis Operativo Mensual" onClose={() => setActiveTab('facturacion')} />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-white font-black italic">
-                                    <Card className="bg-slate-900 border-none p-8"><p className="text-[10px] uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-3xl font-black italic">${TOTAL_GASTOS_FIJOS.toFixed(2)}</p></Card>
-                                    <Card className="bg-orange-600 border-none p-8"><p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Ruta</p><p className="text-3xl font-black italic">${utilidadReal.toFixed(2)}</p></Card>
-                                    <Card className={`${utilidadReal >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none p-8`}>
-                                        <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Neto Austro</p>
+                                    <Card className="bg-slate-900 border-none p-8 text-left"><p className="text-[10px] uppercase opacity-50 mb-4 tracking-widest">Inversión Fija</p><p className="text-3xl font-black italic">${TOTAL_GASTOS_FIJOS.toFixed(2)}</p></Card>
+                                    <Card className="bg-orange-600 border-none p-8 text-left"><p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest">Utilidad Ruta</p><p className="text-3xl font-black italic">${utilidadReal.toFixed(2)}</p></Card>
+                                    <Card className={`${utilidadReal >= TOTAL_GASTOS_FIJOS ? 'bg-green-600' : 'bg-red-600'} border-none p-8 text-left`}>
+                                        <p className="text-[10px] uppercase opacity-60 mb-4 tracking-widest italic">Neto Austro</p>
                                         <p className="text-3xl font-black italic">${(utilidadReal - TOTAL_GASTOS_FIJOS).toFixed(2)}</p>
                                     </Card>
                                 </div>
-                                <Card className="p-10 border-none shadow-xl bg-white">
-                                    <h3 className="font-black text-xl uppercase tracking-tighter mb-8 border-b-2 border-slate-900 pb-2 italic italic">Desglose Fijo Mensual</h3>
+                                <Card className="p-10 border-none shadow-xl bg-white text-left">
+                                    <h3 className="font-black text-xl uppercase tracking-tighter mb-8 border-b-2 border-slate-900 pb-2 italic">Desglose Fijo Mensual</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-left">
-                                        <div className="space-y-2">
-                                            <p className="text-[12px] font-black text-orange-500 uppercase italic mb-4 border-l-8 border-orange-500 pl-4 bg-slate-50 py-2">Ventas ($3,339.80)</p>
+                                        <div className="space-y-2 text-left text-left">
+                                            <p className="text-[12px] font-black text-orange-500 uppercase italic mb-4 border-l-4 border-orange-500 pl-4 bg-slate-50 py-2 italic leading-none">Gastos Ventas ($3,339.80)</p>
                                             {GASTOS_VENTAS_DETALLE.map((g,i) => (
-                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase italic leading-none py-1"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
                                             ))}
                                         </div>
-                                        <div className="space-y-2">
-                                            <p className="text-[12px] font-black text-slate-800 uppercase italic mb-4 border-l-8 border-slate-900 pl-4 bg-slate-50 py-2">Administrativo ($240.00)</p>
+                                        <div className="space-y-2 text-left text-left">
+                                            <p className="text-[12px] font-black text-slate-800 uppercase italic mb-4 border-l-4 border-slate-900 pl-4 bg-slate-50 py-2 italic leading-none">Administrativo ($240.00)</p>
                                             {GASTOS_ADMIN_DETALLE.map((g,i) => (
-                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
+                                                <div key={i} className="flex justify-between text-[11px] font-bold italic border-b border-slate-50 pb-2 uppercase italic leading-none py-1"><span>{g.concepto}</span><span>${g.valor.toFixed(2)}</span></div>
                                             ))}
                                         </div>
                                     </div>
@@ -321,30 +367,31 @@
                         )}
                     </main>
 
+                    {/* MODALES */}
                     {modalNueva && (
-                        <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2">
+                        <div className="fixed inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-2 text-left">
                             <div className="bg-white w-full max-w-5xl h-[90vh] rounded-[40px] flex flex-col overflow-hidden relative shadow-2xl">
-                                <button onClick={() => setModalNueva(false)} className="absolute top-6 right-6 z-10 p-2 bg-slate-100 rounded-full"><Icon name="x"/></button>
-                                <div className="flex-1 overflow-y-auto p-8 hide-scrollbar">
-                                    {errorMsg && <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-2xl font-black text-xs uppercase italic animate-bounce">{errorMsg}</div>}
+                                <button onClick={() => setModalNueva(false)} className="absolute top-6 right-6 z-10 p-2 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-all"><Icon name="x"/></button>
+                                <div className="flex-1 overflow-y-auto p-8 hide-scrollbar text-left text-left">
+                                    {errorMsg && <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-2xl font-black text-xs uppercase italic animate-bounce shadow-lg">{errorMsg}</div>}
                                     <div className="invoice-paper p-8 border rounded-xl text-left">
                                         <h3 className="text-xl font-black text-slate-900 uppercase italic mb-8 border-b-2 border-slate-900 pb-4 italic">LÁCTEOS LA POLACA GUSTALAC S.A.</h3>
-                                        <div className="grid grid-cols-2 gap-4 mb-8">
-                                            <div className="bg-slate-900 text-white p-4 rounded-2xl">
-                                                <p className="text-[8px] font-black uppercase opacity-60 mb-1 italic">Nº FACTURA</p>
-                                                <input className="bg-transparent text-lg font-black w-full outline-none" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
+                                        <div className="grid grid-cols-2 gap-4 mb-8 text-left">
+                                            <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-xl">
+                                                <p className="text-[8px] font-black uppercase opacity-60 mb-1 leading-none italic tracking-widest">Nº DOCUMENTO</p>
+                                                <input className="bg-transparent text-lg font-black w-full outline-none placeholder:text-slate-700" placeholder="000-000-000" value={form.numFactura} onChange={e => setForm({...form, numFactura: e.target.value})} />
                                             </div>
-                                            <div className="bg-slate-50 border p-4 rounded-2xl text-left">
-                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1 italic">FECHA EMISIÓN</p>
-                                                <input type="date" className="bg-transparent font-black w-full outline-none" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
+                                            <div className="bg-slate-50 border p-4 rounded-2xl text-left text-left">
+                                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1 italic leading-none tracking-widest">FECHA EMISIÓN</p>
+                                                <input type="date" className="bg-transparent font-black w-full outline-none text-slate-700" value={form.fecha} onChange={e => setForm({...form, fecha: e.target.value})} />
                                             </div>
                                         </div>
-                                        <table className="w-full invoice-table mb-8">
+                                        <table className="w-full invoice-table mb-8 text-left">
                                             <thead><tr><th>Descripción</th><th className="w-24 text-center">Cant.</th><th className="w-32 text-right">Precio</th></tr></thead>
                                             <tbody>
                                                 {form.items.map((it, idx) => (
                                                     <tr key={it.id}>
-                                                        <td className="font-black text-xs uppercase italic">{it.nombre}</td>
+                                                        <td className="font-black text-xs uppercase italic text-slate-700">{it.nombre}</td>
                                                         <td className="p-0">
                                                             <input type="number" className="w-full text-center py-4 font-black bg-orange-50 border-none text-orange-600 focus:bg-orange-100" value={it.cantidad === 0 ? '' : it.cantidad} placeholder="" onChange={e => {
                                                                 const ni = [...form.items]; ni[idx].cantidad = e.target.value === '' ? 0 : parseInt(e.target.value); setForm({...form, items: ni});
@@ -355,19 +402,53 @@
                                                 ))}
                                             </tbody>
                                         </table>
-                                        <div className="bg-slate-900 text-white p-8 rounded-[40px] flex justify-between items-center italic">
-                                            <span className="font-black uppercase text-xs tracking-widest opacity-50 italic">Total con Impuestos</span>
+                                        <div className="bg-slate-900 text-white p-8 rounded-[40px] flex justify-between items-center italic text-left shadow-2xl">
+                                            <span className="font-black uppercase text-xs tracking-widest opacity-50 italic italic leading-none">Total con IVA</span>
                                             <span className="text-5xl font-black italic tracking-tighter leading-none">${calc.total.toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="p-8 bg-slate-50 border-t flex justify-end gap-4 shadow-inner">
-                                    <button onClick={() => setModalNueva(false)} className="px-10 py-4 font-black uppercase text-xs text-slate-400">Cancelar</button>
-                                    <button onClick={handleGuardarFactura} disabled={isSaving} className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs italic shadow-xl">
+                                <div className="p-8 bg-slate-50 border-t flex justify-end gap-4 text-left">
+                                    <button onClick={() => setModalNueva(false)} className="px-10 py-4 font-black uppercase text-xs text-slate-400 italic hover:text-slate-600 transition-all">Cancelar</button>
+                                    <button onClick={handleGuardarFactura} disabled={isSaving} className="bg-orange-600 text-white px-12 py-4 rounded-3xl font-black uppercase text-xs italic shadow-[0_15px_30px_rgba(234,88,12,0.3)] transition-all hover:scale-105 active:scale-95">
                                         {isSaving ? 'Guardando...' : 'Grabar Factura ✨'}
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {modalLogistica && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 text-left backdrop-blur-md">
+                            <Card className="max-w-2xl w-full text-left p-10">
+                                <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-4 text-left">
+                                    <h3 className="text-2xl font-black uppercase italic italic tracking-tighter">Despacho de Ruta</h3>
+                                    <button onClick={() => setModalLogistica(false)} className="text-slate-300 hover:text-red-500 transition-all"><Icon name="x" size={24}/></button>
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="text-left">
+                                        <label className="text-[10px] font-black uppercase italic text-slate-400 mb-2 block tracking-widest">Vendedor Responsable</label>
+                                        <select className="w-full p-5 bg-slate-50 rounded-2xl font-black uppercase text-xs border-2 border-slate-100 focus:border-orange-500 outline-none transition-all shadow-inner" value={logisticaForm.vendedor} onChange={e => setLogisticaForm({...logisticaForm, vendedor: e.target.value})}>
+                                            <option value="">Seleccione Vendedor</option>
+                                            {VENDEDORES.map(v => <option key={v} value={v}>{v}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 hide-scrollbar">
+                                        {logisticaForm.items.map((it, idx) => (
+                                            <div key={it.id} className="flex justify-between items-center border-b border-slate-50 pb-3 italic">
+                                                <span className="text-[11px] font-black uppercase flex-1 italic text-slate-600">{it.nombre}</span>
+                                                <input type="number" placeholder="" className="w-24 p-3 bg-orange-50 rounded-xl text-center font-black text-orange-600 outline-none border-2 border-transparent focus:border-orange-200 transition-all" value={it.q === 0 ? '' : it.q} onChange={e => {
+                                                    const ni = [...logisticaForm.items]; ni[idx].q = e.target.value === '' ? 0 : parseInt(e.target.value); setLogisticaForm({...logisticaForm, items: ni});
+                                                }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-end gap-4 pt-8">
+                                        <button onClick={() => setModalLogistica(false)} className="px-8 py-4 font-black text-xs uppercase text-slate-400 italic">Cerrar</button>
+                                        <button onClick={handleGuardarCarga} className="bg-orange-600 text-white px-10 py-4 rounded-3xl font-black uppercase text-xs shadow-xl italic tracking-widest transition-all hover:scale-105 active:scale-95">Despachar</button>
+                                    </div>
+                                </div>
+                            </Card>
                         </div>
                     )}
                 </div>
